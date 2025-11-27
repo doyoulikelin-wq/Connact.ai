@@ -58,3 +58,34 @@
   "motivation": "用你自己的话写：为什么想联系这个人，对他/她哪点很感兴趣。",
   "ask": "你希望对方帮什么，比如：a 20-min Zoom call about X / feedback on Y / career advice on Z."
 }
+
+### 2.3 v1 版本：从 PDF 简历中自动抽取信息
+
+**v1 要解决的唯一一件事：**  
+让用户只需要上传两份 PDF（自己与对方），系统自动把简历内容抽取成结构化的 SenderProfile 和 ReceiverProfile。
+
+输入：
+
+- 一个 sender.pdf  
+- 一个 receiver.pdf  
+- 一个 goal 字符串
+
+内部处理：
+
+- 用简单可靠的 PDF 文本提取器（如 PyPDF2 或 pdfminer）拿到纯文本  
+- 调统一的 ExtractProfile(text) → ProfileJSON  
+- 输出结构化的 JSON：  
+  - name  
+  - education  
+  - experiences  
+  - skills  
+  - projects  
+  - raw_text  
+  - 以及你 v0 中的 motivation / ask 仍然让用户自己补
+
+输出：
+
+- 生成一封第一封“真诚冷邮件”（含 Subject）
+
+**v1 聚焦：提取信息，而不是信息质量最佳。  
+质量差一点没关系，只要结构稳定即可。
