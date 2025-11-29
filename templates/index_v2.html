@@ -349,6 +349,70 @@
             background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
         }
 
+        .rec-checkbox {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .recommendation-item.selected .rec-checkbox {
+            background: #667eea;
+            border-color: #667eea;
+            color: white;
+        }
+
+        .selected-targets {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .selected-targets.visible {
+            display: block;
+        }
+
+        .selected-targets h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .selected-target-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .target-tag {
+            background: white;
+            border: 1px solid #667eea;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .target-tag .remove {
+            cursor: pointer;
+            opacity: 0.6;
+        }
+
+        .target-tag .remove:hover {
+            opacity: 1;
+        }
+
         .rec-avatar {
             width: 50px;
             height: 50px;
@@ -804,6 +868,14 @@
                 </div>
             </div>
 
+            <!-- Selected Targets Display -->
+            <div class="selected-targets" id="selected-targets">
+                <h4>✅ Selected Targets (<span id="selected-count">0</span>)</h4>
+                <div class="selected-target-tags" id="selected-target-tags">
+                    <!-- Tags will be added here -->
+                </div>
+            </div>
+
             <!-- Match Details -->
             <div class="match-details" id="match-details">
                 <h4 style="color: #333; margin-bottom: 15px;">Match Analysis</h4>
@@ -823,18 +895,27 @@
 
             <div class="btn-group">
                 <button class="btn btn-secondary" id="btn-step3-back">← Back</button>
-                <button class="btn btn-primary" id="btn-step3-next" disabled>Generate Email →</button>
+                <button class="btn btn-primary" id="btn-step3-next" disabled>Generate Emails →</button>
             </div>
         </div>
 
         <!-- Step 4: Generate Email -->
         <div class="panel hidden" id="step-4">
-            <h2><span class="icon">✉️</span> Step 4: Your Cold Email</h2>
-            <p class="panel-description">Here's your personalized cold email ready to send!</p>
+            <h2><span class="icon">✉️</span> Step 4: Your Cold Emails</h2>
+            <p class="panel-description">Here are your personalized cold emails ready to send!</p>
+
+            <!-- Email Navigation for Multiple Targets -->
+            <div class="hidden" id="email-nav" style="margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; background: #f0f4ff; padding: 12px 20px; border-radius: 10px;">
+                    <button class="btn btn-secondary btn-icon" id="btn-prev-email" disabled>← Previous</button>
+                    <span style="font-weight: 600; color: #667eea;">Email <span id="current-email-num">1</span> of <span id="total-emails">1</span></span>
+                    <button class="btn btn-secondary btn-icon" id="btn-next-email" disabled>Next →</button>
+                </div>
+            </div>
 
             <div class="loading" id="email-loading">
                 <div class="spinner"></div>
-                <div class="loading-text">Crafting the perfect email...</div>
+                <div class="loading-text">Crafting the perfect emails... <span id="email-progress"></span></div>
             </div>
 
             <div class="hidden" id="email-result">
@@ -859,13 +940,14 @@
                     <div class="custom-input" id="style-custom">
                         <input type="text" id="style-custom-input" placeholder="Describe how you want to modify the email...">
                     </div>
-                    <button class="btn btn-primary" id="btn-regenerate" style="margin-top: 15px;">Regenerate Email</button>
+                    <button class="btn btn-primary" id="btn-regenerate" style="margin-top: 15px;">Regenerate This Email</button>
                 </div>
 
                 <div class="btn-group">
                     <button class="btn btn-secondary" id="btn-step4-back">← Back to Targets</button>
-                    <button class="btn btn-secondary" id="btn-copy-email">📋 Copy to Clipboard</button>
-                    <button class="btn btn-primary" id="btn-new-email">✨ New Email</button>
+                    <button class="btn btn-secondary" id="btn-copy-email">📋 Copy Current</button>
+                    <button class="btn btn-secondary" id="btn-copy-all">📋 Copy All Emails</button>
+                    <button class="btn btn-primary" id="btn-new-email">✨ Start Over</button>
                 </div>
             </div>
         </div>
@@ -883,9 +965,10 @@
             senderProfile: null,
             questionnaireAnswers: {},
             hasTarget: null,
-            selectedTarget: null,
+            selectedTargets: [],  // Array of selected targets
+            currentEmailIndex: 0,  // Current email being viewed
             recommendations: [],
-            generatedEmail: '',
+            generatedEmails: [],  // Array of {target, email} objects
             regenerateStyle: null
         };
 
@@ -1189,9 +1272,14 @@
                 item.className = 'recommendation-item';
                 item.dataset.index = index;
                 
+                // Check if already selected
+                const isSelected = state.selectedTargets.some(t => t.name === rec.name);
+                if (isSelected) item.classList.add('selected');
+                
                 const matchClass = rec.match_score >= 80 ? 'high' : (rec.match_score >= 60 ? 'medium' : 'low');
                 
                 item.innerHTML = `
+                    <div class="rec-checkbox">${isSelected ? '✓' : ''}</div>
                     <div class="rec-avatar">${rec.name.charAt(0)}</div>
                     <div class="rec-info">
                         <div class="rec-name">${rec.name}</div>
@@ -1200,32 +1288,80 @@
                     <div class="rec-match ${matchClass}">${rec.match_score}% Match</div>
                 `;
                 
-                item.addEventListener('click', function() {
-                    selectRecommendation(index);
+                item.addEventListener('click', function(e) {
+                    toggleRecommendation(index);
                 });
                 
                 list.appendChild(item);
             });
         }
 
-        // Select a recommendation
-        function selectRecommendation(index) {
+        // Toggle recommendation selection (multi-select)
+        function toggleRecommendation(index) {
             const rec = state.recommendations[index];
-            state.selectedTarget = rec;
+            const existingIndex = state.selectedTargets.findIndex(t => t.name === rec.name);
+            
+            if (existingIndex >= 0) {
+                // Remove from selection
+                state.selectedTargets.splice(existingIndex, 1);
+            } else {
+                // Add to selection
+                state.selectedTargets.push(rec);
+            }
             
             // Update UI
-            document.querySelectorAll('.recommendation-item').forEach(item => {
-                item.classList.remove('selected');
-            });
-            document.querySelector(`.recommendation-item[data-index="${index}"]`).classList.add('selected');
+            updateSelectedTargetsUI();
             
-            // Show match details
+            // Show match details for last clicked
             const details = document.getElementById('match-details');
             details.classList.add('visible');
             document.getElementById('match-score-text').textContent = `${rec.match_score}% compatibility based on your background and goals.`;
             document.getElementById('match-interests-text').textContent = rec.common_interests || 'Analyzing...';
             document.getElementById('match-reason-text').textContent = rec.match_reason || 'This person aligns well with your stated purpose and field.';
             
+            checkStep3Valid();
+        }
+
+        // Update selected targets UI
+        function updateSelectedTargetsUI() {
+            const container = document.getElementById('selected-targets');
+            const tagsContainer = document.getElementById('selected-target-tags');
+            const countSpan = document.getElementById('selected-count');
+            
+            if (state.selectedTargets.length > 0) {
+                container.classList.add('visible');
+                countSpan.textContent = state.selectedTargets.length;
+                
+                tagsContainer.innerHTML = state.selectedTargets.map((t, i) => `
+                    <div class="target-tag">
+                        ${t.name}
+                        <span class="remove" onclick="removeSelectedTarget(${i})">✕</span>
+                    </div>
+                `).join('');
+            } else {
+                container.classList.remove('visible');
+            }
+            
+            // Update recommendation list checkboxes
+            document.querySelectorAll('.recommendation-item').forEach(item => {
+                const index = parseInt(item.dataset.index);
+                const rec = state.recommendations[index];
+                const isSelected = state.selectedTargets.some(t => t.name === rec.name);
+                
+                if (isSelected) {
+                    item.classList.add('selected');
+                    item.querySelector('.rec-checkbox').textContent = '✓';
+                } else {
+                    item.classList.remove('selected');
+                    item.querySelector('.rec-checkbox').textContent = '';
+                }
+            });
+        }
+
+        // Remove a selected target
+        function removeSelectedTarget(index) {
+            state.selectedTargets.splice(index, 1);
+            updateSelectedTargetsUI();
             checkStep3Valid();
         }
 
@@ -1258,14 +1394,14 @@
             // Step 3 -> Step 4
             document.getElementById('btn-step3-next').addEventListener('click', async function() {
                 if (state.hasTarget) {
-                    // Get target info from input fields
-                    state.selectedTarget = {
+                    // Get target info from input fields - single manual target
+                    state.selectedTargets = [{
                         name: document.getElementById('target-name').value,
                         field: document.getElementById('target-field').value
-                    };
+                    }];
                 }
                 goToStep(4);
-                await generateEmail();
+                await generateAllEmails();
             });
 
             // Step 4 Back
@@ -1273,11 +1409,39 @@
                 goToStep(3);
             });
 
-            // Copy to clipboard
+            // Copy current email to clipboard
             document.getElementById('btn-copy-email').addEventListener('click', function() {
-                navigator.clipboard.writeText(state.generatedEmail);
-                this.textContent = '✅ Copied!';
-                setTimeout(() => { this.textContent = '📋 Copy to Clipboard'; }, 2000);
+                const currentEmail = state.generatedEmails[state.currentEmailIndex];
+                if (currentEmail) {
+                    navigator.clipboard.writeText(currentEmail.email);
+                    this.textContent = '✅ Copied!';
+                    setTimeout(() => { this.textContent = '📋 Copy Current'; }, 2000);
+                }
+            });
+
+            // Copy all emails to clipboard
+            document.getElementById('btn-copy-all').addEventListener('click', function() {
+                const allEmailsText = state.generatedEmails.map((e, i) => 
+                    `=== Email ${i + 1}: To ${e.target.name} ===\n\n${e.email}`
+                ).join('\n\n' + '='.repeat(50) + '\n\n');
+                navigator.clipboard.writeText(allEmailsText);
+                this.textContent = '✅ All Copied!';
+                setTimeout(() => { this.textContent = '📋 Copy All Emails'; }, 2000);
+            });
+
+            // Email navigation
+            document.getElementById('btn-prev-email').addEventListener('click', function() {
+                if (state.currentEmailIndex > 0) {
+                    state.currentEmailIndex--;
+                    displayCurrentEmail();
+                }
+            });
+
+            document.getElementById('btn-next-email').addEventListener('click', function() {
+                if (state.currentEmailIndex < state.generatedEmails.length - 1) {
+                    state.currentEmailIndex++;
+                    displayCurrentEmail();
+                }
             });
 
             // New email
@@ -1325,65 +1489,106 @@
             }
         }
 
-        // Generate email
-        async function generateEmail() {
+        // Generate all emails for selected targets
+        async function generateAllEmails() {
             const loading = document.getElementById('email-loading');
             const result = document.getElementById('email-result');
+            const nav = document.getElementById('email-nav');
+            const progress = document.getElementById('email-progress');
             
             loading.classList.add('visible');
             result.classList.add('hidden');
+            nav.classList.add('hidden');
+            state.generatedEmails = [];
+            state.currentEmailIndex = 0;
             
             try {
-                // First, search for receiver info if needed
-                let receiverProfile = state.selectedTarget;
+                const total = state.selectedTargets.length;
                 
-                if (!receiverProfile.education) {
-                    const searchResponse = await fetch('/api/search-receiver', {
+                for (let i = 0; i < total; i++) {
+                    const target = state.selectedTargets[i];
+                    progress.textContent = `(${i + 1}/${total}: ${target.name})`;
+                    
+                    // Search for receiver info if needed
+                    let receiverProfile = target;
+                    
+                    if (!receiverProfile.education) {
+                        const searchResponse = await fetch('/api/search-receiver', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: target.name,
+                                field: target.field || target.position || getFieldText()
+                            })
+                        });
+                        const searchData = await searchResponse.json();
+                        if (searchData.success) {
+                            receiverProfile = searchData.profile;
+                        }
+                    }
+                    
+                    // Generate email
+                    const response = await fetch('/api/generate-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            name: state.selectedTarget.name,
-                            field: state.selectedTarget.field || getFieldText()
+                            sender: {
+                                ...state.senderProfile,
+                                motivation: getPurposeText(),
+                                ask: `I am looking to ${getPurposeText().toLowerCase()} in ${getFieldText()}`
+                            },
+                            receiver: receiverProfile,
+                            goal: getPurposeText()
                         })
                     });
-                    const searchData = await searchResponse.json();
-                    if (searchData.success) {
-                        receiverProfile = searchData.profile;
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        state.generatedEmails.push({
+                            target: target,
+                            receiverProfile: receiverProfile,
+                            email: data.email
+                        });
+                    } else {
+                        state.generatedEmails.push({
+                            target: target,
+                            receiverProfile: receiverProfile,
+                            email: `Error generating email: ${data.error || 'Unknown error'}`
+                        });
                     }
                 }
                 
-                // Generate email
-                const response = await fetch('/api/generate-email', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sender: {
-                            ...state.senderProfile,
-                            motivation: getPurposeText(),
-                            ask: `I am looking to ${getPurposeText().toLowerCase()} in ${getFieldText()}`
-                        },
-                        receiver: receiverProfile,
-                        goal: getPurposeText()
-                    })
-                });
+                loading.classList.remove('visible');
+                result.classList.remove('hidden');
                 
-                const data = await response.json();
-                
-                if (data.success) {
-                    state.generatedEmail = data.email;
-                    loading.classList.remove('visible');
-                    result.classList.remove('hidden');
-                    
-                    document.getElementById('email-target-name').textContent = state.selectedTarget.name;
-                    document.getElementById('email-target-field').textContent = state.selectedTarget.field || state.selectedTarget.position || getFieldText();
-                    document.getElementById('email-content').textContent = data.email;
-                } else {
-                    throw new Error(data.error || 'Failed to generate email');
+                // Show navigation if multiple emails
+                if (state.generatedEmails.length > 1) {
+                    nav.classList.remove('hidden');
+                    document.getElementById('total-emails').textContent = state.generatedEmails.length;
                 }
+                
+                displayCurrentEmail();
+                
             } catch (error) {
                 loading.classList.remove('visible');
-                alert('Error generating email: ' + error.message);
+                alert('Error generating emails: ' + error.message);
             }
+        }
+
+        // Display current email in the viewer
+        function displayCurrentEmail() {
+            const current = state.generatedEmails[state.currentEmailIndex];
+            if (!current) return;
+            
+            document.getElementById('email-target-name').textContent = current.target.name;
+            document.getElementById('email-target-field').textContent = current.target.field || current.target.position || getFieldText();
+            document.getElementById('email-content').textContent = current.email;
+            document.getElementById('current-email-num').textContent = state.currentEmailIndex + 1;
+            
+            // Update navigation buttons
+            document.getElementById('btn-prev-email').disabled = state.currentEmailIndex === 0;
+            document.getElementById('btn-next-email').disabled = state.currentEmailIndex >= state.generatedEmails.length - 1;
         }
 
         // Setup regenerate
@@ -1407,10 +1612,13 @@
             document.getElementById('btn-regenerate').addEventListener('click', regenerateEmail);
         }
 
-        // Regenerate email with new style
+        // Regenerate current email with new style
         async function regenerateEmail() {
             const loading = document.getElementById('email-loading');
             const result = document.getElementById('email-result');
+            const current = state.generatedEmails[state.currentEmailIndex];
+            
+            if (!current) return;
             
             let styleInstruction = '';
             switch (state.regenerateStyle) {
@@ -1444,17 +1652,17 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        original_email: state.generatedEmail,
+                        original_email: current.email,
                         style_instruction: styleInstruction,
                         sender: state.senderProfile,
-                        receiver: state.selectedTarget
+                        receiver: current.target
                     })
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    state.generatedEmail = data.email;
+                    state.generatedEmails[state.currentEmailIndex].email = data.email;
                     loading.classList.remove('visible');
                     result.classList.remove('hidden');
                     document.getElementById('email-content').textContent = data.email;
@@ -1516,7 +1724,7 @@
                 const name = document.getElementById('target-name').value.trim();
                 const field = document.getElementById('target-field').value.trim();
                 valid = name && field;
-            } else if (state.selectedTarget) {
+            } else if (state.selectedTargets.length > 0) {
                 valid = true;
             }
             document.getElementById('btn-step3-next').disabled = !valid;
