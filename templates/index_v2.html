@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cold Email Generator v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .version-badge {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .btn-logout {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .btn-logout:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Progress Steps */
+        .progress-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .progress-steps {
+            display: flex;
+            align-items: center;
+            background: rgba(255,255,255,0.2);
+            padding: 15px 30px;
+            border-radius: 50px;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            color: rgba(255,255,255,0.6);
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .step.active {
+            color: white;
+        }
+
+        .step.completed {
+            color: #90EE90;
+        }
+
+        .step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-size: 14px;
+        }
+
+        .step.active .step-number {
+            background: white;
+            color: #667eea;
+        }
+
+        .step.completed .step-number {
+            background: #90EE90;
+            color: #333;
+        }
+
+        .step-connector {
+            width: 40px;
+            height: 2px;
+            background: rgba(255,255,255,0.3);
+            margin: 0 15px;
+        }
+
+        .step-connector.completed {
+            background: #90EE90;
+        }
+
+        /* Panel Styles */
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel h2 .icon {
+            font-size: 1.5em;
+        }
+
+        .panel-description {
+            color: #666;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Option Cards */
+        .option-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .option-card {
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .option-card:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .option-card.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+        }
+
+        .option-card .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .option-card .title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .option-card .desc {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* Custom Input for "Other" option */
+        .custom-input {
+            margin-top: 15px;
+            display: none;
+        }
+
+        .custom-input.visible {
+            display: block;
+        }
+
+        /* Yes/No Choice */
+        .choice-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .choice-btn {
+            flex: 1;
+            padding: 15px 25px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .choice-btn:hover {
+            border-color: #667eea;
+        }
+
+        .choice-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        /* Questionnaire */
+        .questionnaire {
+            display: none;
+        }
+
+        .questionnaire.visible {
+            display: block;
+        }
+
+        .question-card {
+            background: #f8f9ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .question-card h4 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .question-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .question-option {
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .question-option:hover {
+            border-color: #667eea;
+        }
+
+        .question-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .question-custom-input {
+            margin-top: 10px;
+            display: none;
+        }
+
+        .question-custom-input.visible {
+            display: block;
+        }
+
+        /* Recommendation List */
+        .recommendation-list {
+            margin-top: 20px;
+        }
+
+        .recommendation-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .recommendation-item:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .recommendation-item.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+        }
+
+        .rec-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            margin-right: 15px;
+        }
+
+        .rec-info {
+            flex: 1;
+        }
+
+        .rec-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 3px;
+        }
+
+        .rec-field {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .rec-match {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .rec-match.high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .rec-match.medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .rec-match.low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Match Details Modal */
+        .match-details {
+            display: none;
+            background: #f8f9ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .match-details.visible {
+            display: block;
+        }
+
+        .match-section {
+            margin-bottom: 15px;
+        }
+
+        .match-section h5 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .match-section p {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #f8f9ff;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .btn-icon {
+            padding: 10px 15px;
+            font-size: 14px;
+        }
+
+        /* Email Output */
+        .email-output {
+            background: #f8f9ff;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+
+        /* Regenerate Options */
+        .regenerate-options {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 12px;
+        }
+
+        .regenerate-options.visible {
+            display: block;
+        }
+
+        .regenerate-options h4 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .style-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .style-option {
+            padding: 10px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .style-option:hover {
+            border-color: #667eea;
+        }
+
+        .style-option.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        /* Loading State */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading.visible {
+            display: block;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e0e0e0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        /* Notice Box */
+        .notice {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .notice .icon {
+            margin-right: 8px;
+        }
+
+        /* Hidden by default */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .option-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .choice-buttons {
+                flex-direction: column;
+            }
+            
+            .progress-steps {
+                padding: 10px 15px;
+            }
+            
+            .step-connector {
+                width: 20px;
+                margin: 0 8px;
+            }
+            
+            .step span:not(.step-number) {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📧 Cold Email Generator <span class="version-badge">v2</span></h1>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="progress-container">
+            <div class="progress-steps">
+                <div class="step active" id="step-indicator-1">
+                    <span class="step-number">1</span>
+                    <span>Purpose</span>
+                </div>
+                <div class="step-connector" id="connector-1"></div>
+                <div class="step" id="step-indicator-2">
+                    <span class="step-number">2</span>
+                    <span>Your Profile</span>
+                </div>
+                <div class="step-connector" id="connector-2"></div>
+                <div class="step" id="step-indicator-3">
+                    <span class="step-number">3</span>
+                    <span>Find Targets</span>
+                </div>
+                <div class="step-connector" id="connector-3"></div>
+                <div class="step" id="step-indicator-4">
+                    <span class="step-number">4</span>
+                    <span>Generate</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Purpose -->
+        <div class="panel" id="step-1">
+            <h2><span class="icon">🎯</span> Step 1: What's Your Purpose?</h2>
+            <p class="panel-description">Select the type of outreach you want to make and specify your field.</p>
+            
+            <div class="form-group">
+                <label>What do you want to achieve?</label>
+                <div class="option-cards" id="purpose-options">
+                    <div class="option-card" data-value="academic">
+                        <div class="icon">🎓</div>
+                        <div class="title">Academic Outreach</div>
+                        <div class="desc">Contact professors for research opportunities, PhD applications</div>
+                    </div>
+                    <div class="option-card" data-value="job">
+                        <div class="icon">💼</div>
+                        <div class="title">Job Seeking</div>
+                        <div class="desc">Reach out to recruiters, hiring managers, or potential employers</div>
+                    </div>
+                    <div class="option-card" data-value="coffee">
+                        <div class="icon">☕</div>
+                        <div class="title">Coffee Chat</div>
+                        <div class="desc">Network and learn from industry professionals</div>
+                    </div>
+                    <div class="option-card" data-value="other">
+                        <div class="icon">✨</div>
+                        <div class="title">Other</div>
+                        <div class="desc">Custom purpose - specify below</div>
+                    </div>
+                </div>
+                <div class="custom-input" id="purpose-custom">
+                    <input type="text" id="purpose-custom-input" placeholder="Describe your purpose...">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>What field are you interested in?</label>
+                <div class="option-cards" id="field-options">
+                    <div class="option-card" data-value="ai-ml">
+                        <div class="icon">🤖</div>
+                        <div class="title">AI / Machine Learning</div>
+                        <div class="desc">Artificial Intelligence, Deep Learning, NLP</div>
+                    </div>
+                    <div class="option-card" data-value="software">
+                        <div class="icon">💻</div>
+                        <div class="title">Software Engineering</div>
+                        <div class="desc">Web, Mobile, Systems, Cloud</div>
+                    </div>
+                    <div class="option-card" data-value="finance">
+                        <div class="icon">📈</div>
+                        <div class="title">Finance / Fintech</div>
+                        <div class="desc">Banking, Investment, Quantitative Finance</div>
+                    </div>
+                    <div class="option-card" data-value="other-field">
+                        <div class="icon">🔬</div>
+                        <div class="title">Other Field</div>
+                        <div class="desc">Specify your field below</div>
+                    </div>
+                </div>
+                <div class="custom-input" id="field-custom">
+                    <input type="text" id="field-custom-input" placeholder="Enter your field...">
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="btn-step1-next" disabled>Next Step →</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Your Profile -->
+        <div class="panel hidden" id="step-2">
+            <h2><span class="icon">👤</span> Step 2: Your Profile</h2>
+            <p class="panel-description">Help us understand your background to generate personalized emails.</p>
+
+            <div class="notice">
+                <span class="icon">💡</span>
+                <strong>Tip:</strong> Uploading a resume is recommended for the best results!
+            </div>
+
+            <div class="form-group">
+                <label>Do you have a resume to upload?</label>
+                <div class="choice-buttons" id="resume-choice">
+                    <button class="choice-btn" data-value="yes">✅ Yes, I have a resume</button>
+                    <button class="choice-btn" data-value="no">📝 No, I'll answer questions</button>
+                </div>
+            </div>
+
+            <!-- Resume Upload Section -->
+            <div class="hidden" id="resume-upload-section">
+                <div class="form-group">
+                    <label>Upload your resume (PDF)</label>
+                    <input type="file" id="resume-file" accept=".pdf">
+                </div>
+                <div class="loading" id="upload-loading">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Analyzing your resume...</div>
+                </div>
+                <div class="hidden" id="resume-success">
+                    <div class="notice" style="background: #d4edda; border-color: #28a745; color: #155724;">
+                        <span class="icon">✅</span> Resume analyzed successfully!
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questionnaire Section -->
+            <div class="questionnaire" id="questionnaire-section">
+                <h3 style="margin-bottom: 20px; color: #333;">Quick Profile Builder</h3>
+                <div id="questions-container">
+                    <!-- Questions will be dynamically loaded here -->
+                </div>
+                <div class="loading" id="questionnaire-loading">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Generating personalized questions...</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" id="btn-step2-back">← Back</button>
+                <button class="btn btn-primary" id="btn-step2-next" disabled>Next Step →</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Find Targets -->
+        <div class="panel hidden" id="step-3">
+            <h2><span class="icon">🔍</span> Step 3: Find Your Targets</h2>
+            <p class="panel-description">Find the perfect people to reach out to based on your profile and goals.</p>
+
+            <div class="form-group">
+                <label>Do you have a specific person in mind?</label>
+                <div class="choice-buttons" id="target-choice">
+                    <button class="choice-btn" data-value="yes">🎯 Yes, I know who to contact</button>
+                    <button class="choice-btn" data-value="no">🔍 No, help me find matches</button>
+                </div>
+            </div>
+
+            <!-- Manual Target Input -->
+            <div class="hidden" id="manual-target-section">
+                <div class="form-group">
+                    <label>Target's Name</label>
+                    <input type="text" id="target-name" placeholder="e.g., Andrew Ng">
+                </div>
+                <div class="form-group">
+                    <label>Target's Field / Position</label>
+                    <input type="text" id="target-field" placeholder="e.g., AI Professor at Stanford">
+                </div>
+            </div>
+
+            <!-- Recommendation Section -->
+            <div class="hidden" id="recommendation-section">
+                <div class="loading" id="rec-loading">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Finding the best matches for you...</div>
+                </div>
+                <div class="recommendation-list" id="recommendation-list">
+                    <!-- Recommendations will be loaded here -->
+                </div>
+                <div class="btn-group" id="rec-actions" style="display: none;">
+                    <button class="btn btn-secondary btn-icon" id="btn-more-recs">🔄 Generate More</button>
+                    <button class="btn btn-secondary btn-icon" id="btn-add-manual">➕ Add Manually</button>
+                </div>
+            </div>
+
+            <!-- Match Details -->
+            <div class="match-details" id="match-details">
+                <h4 style="color: #333; margin-bottom: 15px;">Match Analysis</h4>
+                <div class="match-section">
+                    <h5>🎯 Compatibility Score</h5>
+                    <p id="match-score-text">Loading...</p>
+                </div>
+                <div class="match-section">
+                    <h5>🔗 Common Interests</h5>
+                    <p id="match-interests-text">Loading...</p>
+                </div>
+                <div class="match-section">
+                    <h5>💡 Why This Match</h5>
+                    <p id="match-reason-text">Loading...</p>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" id="btn-step3-back">← Back</button>
+                <button class="btn btn-primary" id="btn-step3-next" disabled>Generate Email →</button>
+            </div>
+        </div>
+
+        <!-- Step 4: Generate Email -->
+        <div class="panel hidden" id="step-4">
+            <h2><span class="icon">✉️</span> Step 4: Your Cold Email</h2>
+            <p class="panel-description">Here's your personalized cold email ready to send!</p>
+
+            <div class="loading" id="email-loading">
+                <div class="spinner"></div>
+                <div class="loading-text">Crafting the perfect email...</div>
+            </div>
+
+            <div class="hidden" id="email-result">
+                <div id="target-info" style="margin-bottom: 20px; padding: 15px; background: #f8f9ff; border-radius: 10px;">
+                    <strong>To:</strong> <span id="email-target-name">-</span><br>
+                    <strong>Field:</strong> <span id="email-target-field">-</span>
+                </div>
+                <div class="email-output" id="email-content">
+                    <!-- Email content will be displayed here -->
+                </div>
+
+                <!-- Regenerate Options -->
+                <div class="regenerate-options visible" id="regenerate-section">
+                    <h4>🔄 Want to adjust the tone?</h4>
+                    <div class="style-options" id="style-options">
+                        <div class="style-option" data-style="professional">📋 More Professional</div>
+                        <div class="style-option" data-style="friendly">😊 More Friendly</div>
+                        <div class="style-option" data-style="concise">✂️ More Concise</div>
+                        <div class="style-option" data-style="detailed">📝 More Detailed</div>
+                        <div class="style-option" data-style="custom">✏️ Custom</div>
+                    </div>
+                    <div class="custom-input" id="style-custom">
+                        <input type="text" id="style-custom-input" placeholder="Describe how you want to modify the email...">
+                    </div>
+                    <button class="btn btn-primary" id="btn-regenerate" style="margin-top: 15px;">Regenerate Email</button>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="btn-step4-back">← Back to Targets</button>
+                    <button class="btn btn-secondary" id="btn-copy-email">📋 Copy to Clipboard</button>
+                    <button class="btn btn-primary" id="btn-new-email">✨ New Email</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        const state = {
+            step: 1,
+            purpose: null,
+            purposeCustom: '',
+            field: null,
+            fieldCustom: '',
+            hasResume: null,
+            senderProfile: null,
+            questionnaireAnswers: {},
+            hasTarget: null,
+            selectedTarget: null,
+            recommendations: [],
+            generatedEmail: '',
+            regenerateStyle: null
+        };
+
+        // Purpose field mapping for better prompts
+        const purposeLabels = {
+            'academic': 'Academic Outreach (research opportunities, PhD applications)',
+            'job': 'Job Seeking (employment opportunities)',
+            'coffee': 'Coffee Chat (networking and learning)',
+            'other': ''
+        };
+
+        const fieldLabels = {
+            'ai-ml': 'AI / Machine Learning',
+            'software': 'Software Engineering',
+            'finance': 'Finance / Fintech',
+            'other-field': ''
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupOptionCards();
+            setupChoiceButtons();
+            setupFileUpload();
+            setupNavigationButtons();
+            setupRegenerate();
+        });
+
+        // Setup option card selection
+        function setupOptionCards() {
+            // Purpose options
+            document.querySelectorAll('#purpose-options .option-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('#purpose-options .option-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                    state.purpose = this.dataset.value;
+                    
+                    const customInput = document.getElementById('purpose-custom');
+                    if (state.purpose === 'other') {
+                        customInput.classList.add('visible');
+                    } else {
+                        customInput.classList.remove('visible');
+                    }
+                    checkStep1Valid();
+                });
+            });
+
+            // Field options
+            document.querySelectorAll('#field-options .option-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    document.querySelectorAll('#field-options .option-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                    state.field = this.dataset.value;
+                    
+                    const customInput = document.getElementById('field-custom');
+                    if (state.field === 'other-field') {
+                        customInput.classList.add('visible');
+                    } else {
+                        customInput.classList.remove('visible');
+                    }
+                    checkStep1Valid();
+                });
+            });
+
+            // Custom input listeners
+            document.getElementById('purpose-custom-input').addEventListener('input', function() {
+                state.purposeCustom = this.value;
+                checkStep1Valid();
+            });
+
+            document.getElementById('field-custom-input').addEventListener('input', function() {
+                state.fieldCustom = this.value;
+                checkStep1Valid();
+            });
+        }
+
+        // Setup choice buttons (Yes/No)
+        function setupChoiceButtons() {
+            // Resume choice
+            document.querySelectorAll('#resume-choice .choice-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('#resume-choice .choice-btn').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    state.hasResume = this.dataset.value === 'yes';
+                    
+                    if (state.hasResume) {
+                        document.getElementById('resume-upload-section').classList.remove('hidden');
+                        document.getElementById('questionnaire-section').classList.remove('visible');
+                    } else {
+                        document.getElementById('resume-upload-section').classList.add('hidden');
+                        document.getElementById('questionnaire-section').classList.add('visible');
+                        loadQuestionnaire();
+                    }
+                });
+            });
+
+            // Target choice
+            document.querySelectorAll('#target-choice .choice-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('#target-choice .choice-btn').forEach(b => b.classList.remove('selected'));
+                    this.classList.add('selected');
+                    state.hasTarget = this.dataset.value === 'yes';
+                    
+                    if (state.hasTarget) {
+                        document.getElementById('manual-target-section').classList.remove('hidden');
+                        document.getElementById('recommendation-section').classList.add('hidden');
+                        document.getElementById('match-details').classList.remove('visible');
+                    } else {
+                        document.getElementById('manual-target-section').classList.add('hidden');
+                        document.getElementById('recommendation-section').classList.remove('hidden');
+                        loadRecommendations();
+                    }
+                    checkStep3Valid();
+                });
+            });
+
+            // Manual target inputs
+            document.getElementById('target-name').addEventListener('input', checkStep3Valid);
+            document.getElementById('target-field').addEventListener('input', checkStep3Valid);
+        }
+
+        // Setup file upload
+        function setupFileUpload() {
+            document.getElementById('resume-file').addEventListener('change', async function() {
+                if (this.files.length > 0) {
+                    const file = this.files[0];
+                    await uploadResume(file);
+                }
+            });
+        }
+
+        // Upload and analyze resume
+        async function uploadResume(file) {
+            const loading = document.getElementById('upload-loading');
+            const success = document.getElementById('resume-success');
+            
+            loading.classList.add('visible');
+            success.classList.add('hidden');
+            
+            const formData = new FormData();
+            formData.append('pdf', file);
+            formData.append('session_id', 'v2-session');
+            
+            try {
+                const response = await fetch('/api/upload-sender-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    state.senderProfile = data.profile;
+                    loading.classList.remove('visible');
+                    success.classList.remove('hidden');
+                    document.getElementById('btn-step2-next').disabled = false;
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+            } catch (error) {
+                loading.classList.remove('visible');
+                alert('Error uploading resume: ' + error.message);
+            }
+        }
+
+        // Load questionnaire
+        async function loadQuestionnaire() {
+            const container = document.getElementById('questions-container');
+            const loading = document.getElementById('questionnaire-loading');
+            
+            container.innerHTML = '';
+            loading.classList.add('visible');
+            
+            try {
+                const purposeText = getPurposeText();
+                const fieldText = getFieldText();
+                
+                const response = await fetch('/api/generate-questionnaire', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        purpose: purposeText,
+                        field: fieldText
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    loading.classList.remove('visible');
+                    renderQuestions(data.questions);
+                } else {
+                    throw new Error(data.error || 'Failed to generate questions');
+                }
+            } catch (error) {
+                loading.classList.remove('visible');
+                alert('Error loading questionnaire: ' + error.message);
+            }
+        }
+
+        // Render questionnaire questions
+        function renderQuestions(questions) {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+            
+            questions.forEach((q, index) => {
+                const card = document.createElement('div');
+                card.className = 'question-card';
+                card.innerHTML = `
+                    <h4>Q${index + 1}: ${q.question}</h4>
+                    <div class="question-options" data-question="${index}">
+                        ${q.options.map((opt, optIndex) => `
+                            <div class="question-option" data-value="${optIndex}">${opt}</div>
+                        `).join('')}
+                    </div>
+                    <div class="question-custom-input" id="q${index}-custom">
+                        <input type="text" placeholder="Your custom answer..." data-question="${index}">
+                    </div>
+                `;
+                container.appendChild(card);
+                
+                // Add click handlers
+                card.querySelectorAll('.question-option').forEach(opt => {
+                    opt.addEventListener('click', function() {
+                        const options = this.parentElement;
+                        options.querySelectorAll('.question-option').forEach(o => o.classList.remove('selected'));
+                        this.classList.add('selected');
+                        
+                        const qIndex = options.dataset.question;
+                        const customInput = document.getElementById(`q${qIndex}-custom`);
+                        
+                        // Show custom input for last option
+                        if (parseInt(this.dataset.value) === q.options.length - 1) {
+                            customInput.classList.add('visible');
+                            state.questionnaireAnswers[qIndex] = { type: 'custom', value: '' };
+                        } else {
+                            customInput.classList.remove('visible');
+                            state.questionnaireAnswers[qIndex] = { type: 'preset', value: this.textContent };
+                        }
+                        checkStep2Valid();
+                    });
+                });
+                
+                // Custom input handler
+                card.querySelector('input').addEventListener('input', function() {
+                    const qIndex = this.dataset.question;
+                    if (state.questionnaireAnswers[qIndex]?.type === 'custom') {
+                        state.questionnaireAnswers[qIndex].value = this.value;
+                    }
+                    checkStep2Valid();
+                });
+            });
+        }
+
+        // Load recommendations
+        async function loadRecommendations() {
+            const list = document.getElementById('recommendation-list');
+            const loading = document.getElementById('rec-loading');
+            const actions = document.getElementById('rec-actions');
+            
+            list.innerHTML = '';
+            loading.classList.add('visible');
+            actions.style.display = 'none';
+            
+            try {
+                const purposeText = getPurposeText();
+                const fieldText = getFieldText();
+                
+                const response = await fetch('/api/find-recommendations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        purpose: purposeText,
+                        field: fieldText,
+                        sender_profile: state.senderProfile
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    loading.classList.remove('visible');
+                    actions.style.display = 'flex';
+                    state.recommendations = data.recommendations;
+                    renderRecommendations(data.recommendations);
+                } else {
+                    throw new Error(data.error || 'Failed to find recommendations');
+                }
+            } catch (error) {
+                loading.classList.remove('visible');
+                alert('Error finding recommendations: ' + error.message);
+            }
+        }
+
+        // Render recommendations
+        function renderRecommendations(recommendations) {
+            const list = document.getElementById('recommendation-list');
+            list.innerHTML = '';
+            
+            recommendations.forEach((rec, index) => {
+                const item = document.createElement('div');
+                item.className = 'recommendation-item';
+                item.dataset.index = index;
+                
+                const matchClass = rec.match_score >= 80 ? 'high' : (rec.match_score >= 60 ? 'medium' : 'low');
+                
+                item.innerHTML = `
+                    <div class="rec-avatar">${rec.name.charAt(0)}</div>
+                    <div class="rec-info">
+                        <div class="rec-name">${rec.name}</div>
+                        <div class="rec-field">${rec.position || rec.field}</div>
+                    </div>
+                    <div class="rec-match ${matchClass}">${rec.match_score}% Match</div>
+                `;
+                
+                item.addEventListener('click', function() {
+                    selectRecommendation(index);
+                });
+                
+                list.appendChild(item);
+            });
+        }
+
+        // Select a recommendation
+        function selectRecommendation(index) {
+            const rec = state.recommendations[index];
+            state.selectedTarget = rec;
+            
+            // Update UI
+            document.querySelectorAll('.recommendation-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            document.querySelector(`.recommendation-item[data-index="${index}"]`).classList.add('selected');
+            
+            // Show match details
+            const details = document.getElementById('match-details');
+            details.classList.add('visible');
+            document.getElementById('match-score-text').textContent = `${rec.match_score}% compatibility based on your background and goals.`;
+            document.getElementById('match-interests-text').textContent = rec.common_interests || 'Analyzing...';
+            document.getElementById('match-reason-text').textContent = rec.match_reason || 'This person aligns well with your stated purpose and field.';
+            
+            checkStep3Valid();
+        }
+
+        // Setup navigation buttons
+        function setupNavigationButtons() {
+            // Step 1 -> Step 2
+            document.getElementById('btn-step1-next').addEventListener('click', function() {
+                goToStep(2);
+            });
+
+            // Step 2 Back
+            document.getElementById('btn-step2-back').addEventListener('click', function() {
+                goToStep(1);
+            });
+
+            // Step 2 -> Step 3
+            document.getElementById('btn-step2-next').addEventListener('click', async function() {
+                if (!state.hasResume && Object.keys(state.questionnaireAnswers).length > 0) {
+                    // Build profile from questionnaire
+                    await buildProfileFromQuestionnaire();
+                }
+                goToStep(3);
+            });
+
+            // Step 3 Back
+            document.getElementById('btn-step3-back').addEventListener('click', function() {
+                goToStep(2);
+            });
+
+            // Step 3 -> Step 4
+            document.getElementById('btn-step3-next').addEventListener('click', async function() {
+                if (state.hasTarget) {
+                    // Get target info from input fields
+                    state.selectedTarget = {
+                        name: document.getElementById('target-name').value,
+                        field: document.getElementById('target-field').value
+                    };
+                }
+                goToStep(4);
+                await generateEmail();
+            });
+
+            // Step 4 Back
+            document.getElementById('btn-step4-back').addEventListener('click', function() {
+                goToStep(3);
+            });
+
+            // Copy to clipboard
+            document.getElementById('btn-copy-email').addEventListener('click', function() {
+                navigator.clipboard.writeText(state.generatedEmail);
+                this.textContent = '✅ Copied!';
+                setTimeout(() => { this.textContent = '📋 Copy to Clipboard'; }, 2000);
+            });
+
+            // New email
+            document.getElementById('btn-new-email').addEventListener('click', function() {
+                location.reload();
+            });
+
+            // More recommendations
+            document.getElementById('btn-more-recs').addEventListener('click', loadRecommendations);
+
+            // Add manual target from recommendations
+            document.getElementById('btn-add-manual').addEventListener('click', function() {
+                state.hasTarget = true;
+                document.querySelectorAll('#target-choice .choice-btn').forEach(b => b.classList.remove('selected'));
+                document.querySelector('#target-choice .choice-btn[data-value="yes"]').classList.add('selected');
+                document.getElementById('manual-target-section').classList.remove('hidden');
+                document.getElementById('recommendation-section').classList.add('hidden');
+                document.getElementById('match-details').classList.remove('visible');
+            });
+        }
+
+        // Build profile from questionnaire answers
+        async function buildProfileFromQuestionnaire() {
+            try {
+                const answers = Object.entries(state.questionnaireAnswers).map(([q, a]) => 
+                    a.type === 'custom' ? a.value : a.value
+                );
+                
+                const response = await fetch('/api/profile-from-questionnaire', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        purpose: getPurposeText(),
+                        field: getFieldText(),
+                        answers: answers
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    state.senderProfile = data.profile;
+                }
+            } catch (error) {
+                console.error('Error building profile:', error);
+            }
+        }
+
+        // Generate email
+        async function generateEmail() {
+            const loading = document.getElementById('email-loading');
+            const result = document.getElementById('email-result');
+            
+            loading.classList.add('visible');
+            result.classList.add('hidden');
+            
+            try {
+                // First, search for receiver info if needed
+                let receiverProfile = state.selectedTarget;
+                
+                if (!receiverProfile.education) {
+                    const searchResponse = await fetch('/api/search-receiver', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: state.selectedTarget.name,
+                            field: state.selectedTarget.field || getFieldText()
+                        })
+                    });
+                    const searchData = await searchResponse.json();
+                    if (searchData.success) {
+                        receiverProfile = searchData.profile;
+                    }
+                }
+                
+                // Generate email
+                const response = await fetch('/api/generate-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sender: {
+                            ...state.senderProfile,
+                            motivation: getPurposeText(),
+                            ask: `I am looking to ${getPurposeText().toLowerCase()} in ${getFieldText()}`
+                        },
+                        receiver: receiverProfile,
+                        goal: getPurposeText()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    state.generatedEmail = data.email;
+                    loading.classList.remove('visible');
+                    result.classList.remove('hidden');
+                    
+                    document.getElementById('email-target-name').textContent = state.selectedTarget.name;
+                    document.getElementById('email-target-field').textContent = state.selectedTarget.field || state.selectedTarget.position || getFieldText();
+                    document.getElementById('email-content').textContent = data.email;
+                } else {
+                    throw new Error(data.error || 'Failed to generate email');
+                }
+            } catch (error) {
+                loading.classList.remove('visible');
+                alert('Error generating email: ' + error.message);
+            }
+        }
+
+        // Setup regenerate
+        function setupRegenerate() {
+            const styleOptions = document.querySelectorAll('#style-options .style-option');
+            styleOptions.forEach(opt => {
+                opt.addEventListener('click', function() {
+                    styleOptions.forEach(o => o.classList.remove('selected'));
+                    this.classList.add('selected');
+                    state.regenerateStyle = this.dataset.style;
+                    
+                    const customInput = document.getElementById('style-custom');
+                    if (state.regenerateStyle === 'custom') {
+                        customInput.classList.add('visible');
+                    } else {
+                        customInput.classList.remove('visible');
+                    }
+                });
+            });
+
+            document.getElementById('btn-regenerate').addEventListener('click', regenerateEmail);
+        }
+
+        // Regenerate email with new style
+        async function regenerateEmail() {
+            const loading = document.getElementById('email-loading');
+            const result = document.getElementById('email-result');
+            
+            let styleInstruction = '';
+            switch (state.regenerateStyle) {
+                case 'professional':
+                    styleInstruction = 'Make the email more professional and formal';
+                    break;
+                case 'friendly':
+                    styleInstruction = 'Make the email more friendly and warm';
+                    break;
+                case 'concise':
+                    styleInstruction = 'Make the email shorter and more concise';
+                    break;
+                case 'detailed':
+                    styleInstruction = 'Add more details and elaborate on key points';
+                    break;
+                case 'custom':
+                    styleInstruction = document.getElementById('style-custom-input').value;
+                    break;
+            }
+            
+            if (!styleInstruction) {
+                alert('Please select a style option');
+                return;
+            }
+            
+            loading.classList.add('visible');
+            result.classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/regenerate-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        original_email: state.generatedEmail,
+                        style_instruction: styleInstruction,
+                        sender: state.senderProfile,
+                        receiver: state.selectedTarget
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    state.generatedEmail = data.email;
+                    loading.classList.remove('visible');
+                    result.classList.remove('hidden');
+                    document.getElementById('email-content').textContent = data.email;
+                } else {
+                    throw new Error(data.error || 'Failed to regenerate email');
+                }
+            } catch (error) {
+                loading.classList.remove('visible');
+                result.classList.remove('hidden');
+                alert('Error regenerating email: ' + error.message);
+            }
+        }
+
+        // Helper functions
+        function getPurposeText() {
+            if (state.purpose === 'other') {
+                return state.purposeCustom;
+            }
+            return purposeLabels[state.purpose] || state.purpose;
+        }
+
+        function getFieldText() {
+            if (state.field === 'other-field') {
+                return state.fieldCustom;
+            }
+            return fieldLabels[state.field] || state.field;
+        }
+
+        function checkStep1Valid() {
+            const purposeValid = state.purpose && (state.purpose !== 'other' || state.purposeCustom.trim());
+            const fieldValid = state.field && (state.field !== 'other-field' || state.fieldCustom.trim());
+            document.getElementById('btn-step1-next').disabled = !(purposeValid && fieldValid);
+        }
+
+        function checkStep2Valid() {
+            let valid = false;
+            if (state.hasResume && state.senderProfile) {
+                valid = true;
+            } else if (!state.hasResume) {
+                // Check if all questions are answered
+                const totalQuestions = document.querySelectorAll('.question-card').length;
+                const answeredQuestions = Object.keys(state.questionnaireAnswers).length;
+                valid = totalQuestions > 0 && answeredQuestions >= totalQuestions;
+                
+                // Also check if custom answers have values
+                for (const [key, answer] of Object.entries(state.questionnaireAnswers)) {
+                    if (answer.type === 'custom' && !answer.value.trim()) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+            document.getElementById('btn-step2-next').disabled = !valid;
+        }
+
+        function checkStep3Valid() {
+            let valid = false;
+            if (state.hasTarget) {
+                const name = document.getElementById('target-name').value.trim();
+                const field = document.getElementById('target-field').value.trim();
+                valid = name && field;
+            } else if (state.selectedTarget) {
+                valid = true;
+            }
+            document.getElementById('btn-step3-next').disabled = !valid;
+        }
+
+        function goToStep(stepNum) {
+            // Hide all steps
+            for (let i = 1; i <= 4; i++) {
+                document.getElementById(`step-${i}`).classList.add('hidden');
+                document.getElementById(`step-indicator-${i}`).classList.remove('active', 'completed');
+                if (i < 4) {
+                    document.getElementById(`connector-${i}`).classList.remove('completed');
+                }
+            }
+            
+            // Show current step
+            document.getElementById(`step-${stepNum}`).classList.remove('hidden');
+            document.getElementById(`step-indicator-${stepNum}`).classList.add('active');
+            
+            // Mark previous steps as completed
+            for (let i = 1; i < stepNum; i++) {
+                document.getElementById(`step-indicator-${i}`).classList.add('completed');
+                document.getElementById(`connector-${i}`).classList.add('completed');
+            }
+            
+            state.step = stepNum;
+        }
+    </script>
+</body>
+</html>

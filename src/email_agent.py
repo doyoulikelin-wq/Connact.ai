@@ -326,3 +326,257 @@ def generate_email(
     
     content = _call_gemini(prompt, model=model)
     return content.strip()
+
+
+def generate_questionnaire(purpose: str, field: str, *, model: str = DEFAULT_MODEL) -> list[dict]:
+    """
+    Generate 5 questionnaire questions to quickly build a user profile.
+    Each question has 4 options, with the last option being a custom input.
+    
+    Args:
+        purpose: The user's purpose (academic, job seeking, coffee chat, etc.)
+        field: The user's field of interest
+        model: Gemini model to use
+        
+    Returns:
+        List of question dictionaries with 'question' and 'options' keys
+    """
+    prompt = f"""You are helping create a quick profile questionnaire for someone who wants to write cold emails.
+
+Their purpose: {purpose}
+Their field of interest: {field}
+
+Generate exactly 5 questions that will help understand this person's background and qualifications.
+Each question should have exactly 4 options, where the 4th option is always "Other (please specify)" for custom input.
+
+The questions should cover:
+1. Educational background
+2. Work experience level
+3. Key skills or expertise
+4. Notable achievements or projects
+5. What they're looking for (specific goals)
+
+Return a JSON array with this exact structure:
+[
+    {{
+        "question": "What is your highest level of education?",
+        "options": ["Bachelor's degree", "Master's degree", "PhD", "Other (please specify)"]
+    }},
+    ...
+]
+
+Return JSON only, no other text."""
+
+    content = _call_gemini(prompt, model=model, json_mode=True)
+    
+    try:
+        questions = json.loads(content)
+        return questions
+    except json.JSONDecodeError:
+        # Return default questions if parsing fails
+        return [
+            {
+                "question": "What is your highest level of education?",
+                "options": ["Bachelor's degree", "Master's degree", "PhD", "Other (please specify)"]
+            },
+            {
+                "question": "How many years of experience do you have?",
+                "options": ["0-2 years", "3-5 years", "5+ years", "Other (please specify)"]
+            },
+            {
+                "question": "What is your primary skill area?",
+                "options": ["Technical/Engineering", "Research/Academic", "Business/Management", "Other (please specify)"]
+            },
+            {
+                "question": "What is your most notable achievement?",
+                "options": ["Published research", "Successful project", "Industry recognition", "Other (please specify)"]
+            },
+            {
+                "question": "What are you hoping to achieve?",
+                "options": ["Research opportunity", "Job/internship", "Mentorship", "Other (please specify)"]
+            }
+        ]
+
+
+def build_profile_from_answers(
+    purpose: str,
+    field: str,
+    answers: list[str],
+    *,
+    model: str = DEFAULT_MODEL
+) -> dict:
+    """
+    Build a sender profile from questionnaire answers.
+    
+    Args:
+        purpose: The user's purpose
+        field: The user's field of interest
+        answers: List of answers to the questionnaire
+        model: Gemini model to use
+        
+    Returns:
+        Dictionary with profile information
+    """
+    answers_text = "\n".join(f"- {answer}" for answer in answers if answer)
+    
+    prompt = f"""Based on the following questionnaire answers, create a professional profile summary.
+
+Purpose: {purpose}
+Field: {field}
+
+Answers:
+{answers_text}
+
+Return a JSON object with:
+{{
+    "name": "User",
+    "summary": "A brief professional summary based on the answers",
+    "education": ["list of educational background items"],
+    "experiences": ["list of experience items"],
+    "skills": ["list of relevant skills"],
+    "projects": ["list of notable projects or achievements"]
+}}
+
+Infer reasonable details from the answers. Be professional and concise.
+Return JSON only."""
+
+    content = _call_gemini(prompt, model=model, json_mode=True)
+    
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        return {
+            "name": "User",
+            "summary": f"Professional interested in {field} for {purpose}",
+            "education": [],
+            "experiences": [],
+            "skills": [field],
+            "projects": []
+        }
+
+
+def find_target_recommendations(
+    purpose: str,
+    field: str,
+    sender_profile: dict | None = None,
+    *,
+    model: str = DEFAULT_MODEL,
+    count: int = 10
+) -> list[dict]:
+    """
+    Find recommended target contacts based on user's purpose, field, and profile.
+    
+    Args:
+        purpose: The user's purpose (academic, job seeking, coffee chat)
+        field: The field of interest
+        sender_profile: Optional sender profile for better matching
+        model: Gemini model to use
+        count: Number of recommendations to generate
+        
+    Returns:
+        List of recommendation dictionaries
+    """
+    profile_context = ""
+    if sender_profile:
+        profile_context = f"""
+Sender background:
+- Education: {', '.join(sender_profile.get('education', [])[:3]) or 'Not specified'}
+- Experience: {', '.join(sender_profile.get('experiences', [])[:3]) or 'Not specified'}
+- Skills: {', '.join(sender_profile.get('skills', [])[:5]) or 'Not specified'}
+"""
+
+    prompt = f"""You are a networking advisor helping someone find the best people to reach out to.
+
+Purpose: {purpose}
+Field: {field}
+{profile_context}
+
+Generate a list of {count} real, notable people who would be good targets for this outreach.
+Focus on well-known figures who are:
+- Active and influential in the specified field
+- Appropriate for the stated purpose
+- Likely to be receptive to professional outreach
+
+Return a JSON array with this structure:
+[
+    {{
+        "name": "Full Name",
+        "position": "Current Position/Title",
+        "field": "Their specific area",
+        "match_score": 85,
+        "match_reason": "Why they're a good match",
+        "common_interests": "Potential common ground with the sender"
+    }},
+    ...
+]
+
+The match_score should be 60-95 based on how well they fit the purpose and field.
+Include a mix of highly prominent and more accessible people.
+
+Return JSON only, no other text."""
+
+    content = _call_gemini(prompt, model=model, json_mode=True)
+    
+    try:
+        recommendations = json.loads(content)
+        # Sort by match score
+        recommendations.sort(key=lambda x: x.get('match_score', 0), reverse=True)
+        return recommendations[:count]
+    except json.JSONDecodeError:
+        # Return some default recommendations based on field
+        return [
+            {
+                "name": "Contact in " + field,
+                "position": "Professional",
+                "field": field,
+                "match_score": 70,
+                "match_reason": "Relevant to your field",
+                "common_interests": "Shared interest in " + field
+            }
+        ]
+
+
+def regenerate_email_with_style(
+    original_email: str,
+    style_instruction: str,
+    sender_info: dict | None = None,
+    receiver_info: dict | None = None,
+    *,
+    model: str = DEFAULT_MODEL
+) -> str:
+    """
+    Regenerate an email with a different style/tone.
+    
+    Args:
+        original_email: The original generated email
+        style_instruction: How to modify the style (e.g., "more professional", "more friendly")
+        sender_info: Optional sender information for context
+        receiver_info: Optional receiver information for context
+        model: Gemini model to use
+        
+    Returns:
+        The regenerated email with the new style
+    """
+    context = ""
+    if sender_info:
+        context += f"\nSender: {sender_info.get('name', 'Unknown')}"
+    if receiver_info:
+        context += f"\nReceiver: {receiver_info.get('name', 'Unknown')}"
+    
+    prompt = f"""You are an expert email writer. Rewrite the following cold email according to the style instruction.
+
+Original email:
+{original_email}
+
+Style instruction: {style_instruction}
+{context}
+
+Rewrite the email to match the requested style while:
+- Keeping the core message and purpose
+- Maintaining professionalism
+- Keeping it appropriate for a cold email
+
+Return only the rewritten email with Subject line and body. No explanations."""
+
+    content = _call_gemini(prompt, model=model)
+    return content.strip()

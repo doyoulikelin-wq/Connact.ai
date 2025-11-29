@@ -12,6 +12,10 @@ from src.email_agent import (
     ReceiverProfile,
     generate_email,
     extract_profile_from_pdf,
+    generate_questionnaire,
+    build_profile_from_answers,
+    find_target_recommendations,
+    regenerate_email_with_style,
 )
 from src.web_scraper import extract_person_profile_from_web
 
@@ -24,6 +28,9 @@ APP_PASSWORD = os.environ.get('APP_PASSWORD', 'gogogochufalo')
 
 # Store uploaded sender profile temporarily
 sender_profile_cache = {}
+
+# Version flag - set to 'v2' for new interface
+APP_VERSION = os.environ.get('APP_VERSION', 'v2')
 
 
 def login_required(f):
@@ -41,6 +48,9 @@ def index():
     """Render the main page."""
     if not session.get('authenticated'):
         return redirect(url_for('login'))
+    # Use v2 template by default
+    if APP_VERSION == 'v2':
+        return render_template('index_v2.html')
     return render_template('index.html')
 
 
@@ -202,6 +212,112 @@ def api_generate_email():
             'email': email_text
         })
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/generate-questionnaire', methods=['POST'])
+@login_required
+def api_generate_questionnaire():
+    """Generate questionnaire questions based on purpose and field."""
+    data = request.get_json()
+    
+    purpose = data.get('purpose', '').strip()
+    field = data.get('field', '').strip()
+    
+    if not purpose or not field:
+        return jsonify({'error': 'Purpose and field are required'}), 400
+    
+    try:
+        questions = generate_questionnaire(purpose, field)
+        return jsonify({
+            'success': True,
+            'questions': questions
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/profile-from-questionnaire', methods=['POST'])
+@login_required
+def api_profile_from_questionnaire():
+    """Build sender profile from questionnaire answers."""
+    data = request.get_json()
+    
+    purpose = data.get('purpose', '').strip()
+    field = data.get('field', '').strip()
+    answers = data.get('answers', [])
+    
+    if not answers:
+        return jsonify({'error': 'Answers are required'}), 400
+    
+    try:
+        profile = build_profile_from_answers(purpose, field, answers)
+        return jsonify({
+            'success': True,
+            'profile': {
+                'name': profile.get('name', 'User'),
+                'raw_text': profile.get('summary', ''),
+                'education': profile.get('education', []),
+                'experiences': profile.get('experiences', []),
+                'skills': profile.get('skills', []),
+                'projects': profile.get('projects', []),
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/find-recommendations', methods=['POST'])
+@login_required
+def api_find_recommendations():
+    """Find recommended target contacts based on user profile and goals."""
+    data = request.get_json()
+    
+    purpose = data.get('purpose', '').strip()
+    field = data.get('field', '').strip()
+    sender_profile = data.get('sender_profile', {})
+    
+    if not purpose or not field:
+        return jsonify({'error': 'Purpose and field are required'}), 400
+    
+    try:
+        recommendations = find_target_recommendations(purpose, field, sender_profile)
+        return jsonify({
+            'success': True,
+            'recommendations': recommendations
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/regenerate-email', methods=['POST'])
+@login_required
+def api_regenerate_email():
+    """Regenerate email with a different style."""
+    data = request.get_json()
+    
+    original_email = data.get('original_email', '').strip()
+    style_instruction = data.get('style_instruction', '').strip()
+    sender_data = data.get('sender', {})
+    receiver_data = data.get('receiver', {})
+    
+    if not original_email:
+        return jsonify({'error': 'Original email is required'}), 400
+    if not style_instruction:
+        return jsonify({'error': 'Style instruction is required'}), 400
+    
+    try:
+        new_email = regenerate_email_with_style(
+            original_email=original_email,
+            style_instruction=style_instruction,
+            sender_info=sender_data,
+            receiver_info=receiver_data,
+        )
+        return jsonify({
+            'success': True,
+            'email': new_email
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
