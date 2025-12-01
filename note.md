@@ -47,6 +47,9 @@
 - Step 3 选择“找匹配”时新增 5 个偏好问题：领域/专长（必选）、层级、组织类型、外展目标、知名度偏好
 - 推荐生成：`find_target_recommendations` 使用 purpose + 偏好 + 领域提示词由 Gemini 产出候选人；搜索仍只用名字 + 领域
 
+### v2.2 - 模型配置集中管理
+- 新增 `config.py` 统一 `DEFAULT_MODEL`（可用环境变量 `GEMINI_MODEL` 覆盖），`email_agent.py`/`web_scraper.py`/`cli.py` 引用同一配置
+
 ---
 
 ## 2. 核心抽象（以后都尽量不改）
