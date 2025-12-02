@@ -536,6 +536,75 @@ Return JSON only, no other text."""
         ]
 
 
+def parse_text_to_profile(
+    text_content: str,
+    name: str = "",
+    field: str = "",
+    *,
+    model: str = DEFAULT_MODEL
+) -> dict:
+    """
+    Parse text content (from uploaded TXT/MD file) into a profile structure.
+    
+    Args:
+        text_content: The text content to parse
+        name: Optional name (if not in text)
+        field: Optional field information
+        model: Gemini model to use
+        
+    Returns:
+        Dictionary with profile information
+    """
+    prompt = f"""Extract a structured profile from the following text content about a person.
+
+Text content:
+{text_content[:5000]}
+
+Additional context:
+- Name (if not found in text): {name or 'Unknown'}
+- Field: {field or 'Not specified'}
+
+Return a JSON object with this structure:
+{{
+    "name": "Person's name from text or the provided name",
+    "field": "Their field/domain",
+    "raw_text": "Brief summary of the text content",
+    "education": ["list of educational background"],
+    "experiences": ["list of work/research experience"],
+    "skills": ["list of skills and expertise"],
+    "projects": ["list of notable projects or publications"],
+    "sources": ["Uploaded document"]
+}}
+
+Extract as much relevant information as possible. Return JSON only."""
+
+    content = _call_gemini(prompt, model=model, json_mode=True)
+    
+    try:
+        profile = json.loads(content)
+        # Ensure required fields
+        profile.setdefault('name', name or 'Unknown')
+        profile.setdefault('field', field)
+        profile.setdefault('raw_text', text_content[:500])
+        profile.setdefault('education', [])
+        profile.setdefault('experiences', [])
+        profile.setdefault('skills', [])
+        profile.setdefault('projects', [])
+        profile.setdefault('sources', ['Uploaded document'])
+        return profile
+    except json.JSONDecodeError:
+        return {
+            "name": name or "Unknown",
+            "field": field,
+            "raw_text": text_content[:500],
+            "education": [],
+            "experiences": [],
+            "skills": [],
+            "projects": [],
+            "sources": ["Uploaded document"]
+        }
+
+
 def regenerate_email_with_style(
     original_email: str,
     style_instruction: str,

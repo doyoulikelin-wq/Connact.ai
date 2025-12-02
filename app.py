@@ -291,6 +291,61 @@ def api_find_recommendations():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/upload-receiver-doc', methods=['POST'])
+@login_required
+def upload_receiver_doc():
+    """Upload and parse receiver document (PDF or text)."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    uploaded_file = request.files['file']
+    if uploaded_file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    filename = uploaded_file.filename.lower()
+    name = request.form.get('name', '').strip()
+    field = request.form.get('field', '').strip()
+    
+    try:
+        if filename.endswith('.pdf'):
+            # Save to temp file and extract profile using existing function
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+                uploaded_file.save(tmp.name)
+                profile = extract_profile_from_pdf(Path(tmp.name))
+                os.unlink(tmp.name)
+            
+            return jsonify({
+                'success': True,
+                'profile': {
+                    'name': name or profile.name,
+                    'field': field,
+                    'raw_text': profile.raw_text,
+                    'education': profile.education,
+                    'experiences': profile.experiences,
+                    'skills': profile.skills,
+                    'projects': profile.projects,
+                    'sources': ['Uploaded document'],
+                }
+            })
+        elif filename.endswith('.txt') or filename.endswith('.md'):
+            # Read text content directly
+            content = uploaded_file.read().decode('utf-8')
+            
+            # Use Gemini to parse the text content
+            from src.email_agent import parse_text_to_profile
+            profile = parse_text_to_profile(content, name, field)
+            
+            return jsonify({
+                'success': True,
+                'profile': profile
+            })
+        else:
+            return jsonify({'error': 'Unsupported file type. Please upload PDF, TXT, or MD file.'}), 400
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/regenerate-email', methods=['POST'])
 @login_required
 def api_regenerate_email():
