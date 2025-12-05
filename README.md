@@ -6,7 +6,20 @@ An intelligent cold email generation tool with a step-by-step wizard interface.
 
 ## Features
 
-### v2.1 (Current) - Enhanced Target Management 🆕
+### v2.2 (Current) - Gemini Google Search Integration 🔍
+
+- **Real-time Web Search for Recommendations**
+  - Uses Gemini's built-in Google Search grounding
+  - Finds REAL people with verified current positions
+  - No more DuckDuckGo timeout errors on cloud servers
+  - Faster and more reliable than external web scraping
+
+- **Bug Fixes**
+  - Fixed: OpenAI `web_search` tool type not supported (400 error)
+  - Fixed: DuckDuckGo search timeout on Render.com
+  - Fixed: Step 1 Field selection was missing after merge
+
+### v2.1 - Enhanced Target Management
 
 - **Manual Target Document Upload**
   - Upload PDF, TXT, or MD files with target's information

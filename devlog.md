@@ -1,5 +1,78 @@
 # Development Log
 
+## 2025-12-05: v2.2 - Gemini Google Search Integration 🔍
+
+### Bug Fixes
+
+- **Fixed OpenAI web_search Error**
+  - OpenAI API does not support `web_search` tool type (only `function` and `custom`)
+  - Error: `Invalid value: 'web_search'. Supported values are: 'function' and 'custom'.`
+  - Solution: Disabled OpenAI recommendations by default, switched to Gemini
+
+- **Fixed DuckDuckGo Timeout on Render.com**
+  - DuckDuckGo search was blocked/timeout on cloud servers
+  - Error: `Connection to html.duckduckgo.com timed out`
+  - Solution: Use Gemini's built-in Google Search grounding instead
+
+- **Fixed Step 1 Field Selection Missing**
+  - Field selection (AI/ML, Software, Finance, Other) was lost during git merge
+  - Restored full Step 1 with both Purpose and Field options
+
+### New Features
+
+- **Gemini Google Search Grounding**
+  - Uses Gemini's native `google_search_retrieval` tool
+  - Real-time web search for finding target recommendations
+  - Finds verified, currently active professionals
+  - Much faster and more reliable than external scraping
+
+### Modified Files
+
+- `config.py`:
+  - Added `GEMINI_SEARCH_MODEL`: Model for search-enabled requests
+  - Added `USE_GEMINI_SEARCH`: Toggle for Google Search grounding (default: true)
+  - Changed `USE_OPENAI_WEB_SEARCH` default to `false`
+  - Changed `USE_OPENAI_RECOMMENDATIONS` default to `false`
+
+- `src/email_agent.py`:
+  - Added `_call_gemini_with_search()`: Gemini API call with Google Search grounding
+  - Updated `find_target_recommendations()`:
+    - Primary: Gemini with Google Search (new)
+    - Fallback 1: OpenAI with web_search (disabled)
+    - Fallback 2: OpenAI with manual scraping (disabled)
+    - Fallback 3: Gemini without search
+
+- `templates/index_v2.html`:
+  - Restored Field selection in Step 1
+  - Added `field` and `fieldCustom` to state
+  - Added `fieldLabels` mapping
+  - Added `getFieldLabel()` function
+  - Updated `checkStep1Valid()` to require both purpose and field
+  - Updated `getFieldText()` to prioritize Step 1 field
+
+- `README.md`: Updated to v2.2 with new features and bug fixes
+
+### Technical Details
+
+```python
+# Gemini Google Search grounding usage
+gemini_model = genai.GenerativeModel(
+    model,
+    generation_config=generation_config,
+    tools="google_search_retrieval"  # Enable Google Search
+)
+response = gemini_model.generate_content(prompt)
+```
+
+### Recommendation Flow (v2.2)
+
+1. **Gemini + Google Search** (Primary) - Real-time web search
+2. OpenAI + web_search (Disabled) - API doesn't support this
+3. OpenAI + manual scraping (Disabled) - Timeout issues
+4. **Gemini without search** (Fallback) - Uses model knowledge
+
+---
+
 ## 2025-12-02: v2.1 - Enhanced Target Management 🆕
 
 ### New Features

@@ -10,7 +10,14 @@ import google.generativeai as genai
 from openai import OpenAI
 from PyPDF2 import PdfReader
 
-from config import DEFAULT_MODEL, RECOMMENDATION_MODEL, USE_OPENAI_WEB_SEARCH
+from config import (
+    DEFAULT_MODEL,
+    GEMINI_SEARCH_MODEL,
+    USE_GEMINI_SEARCH,
+    RECOMMENDATION_MODEL,
+    USE_OPENAI_WEB_SEARCH,
+    USE_OPENAI_RECOMMENDATIONS,
+)
 
 
 @dataclass
@@ -224,6 +231,31 @@ def _call_gemini(prompt: str, *, model: str = DEFAULT_MODEL, json_mode: bool = F
     
     if not response.text:
         raise RuntimeError("Gemini response did not contain any content")
+    return response.text
+
+
+def _call_gemini_with_search(prompt: str, *, model: str = GEMINI_SEARCH_MODEL, json_mode: bool = False) -> str:
+    """
+    Call Gemini API with Google Search grounding enabled.
+    This allows the model to search the web for real-time information.
+    """
+    _configure_gemini()
+    
+    generation_config = {}
+    if json_mode:
+        generation_config["response_mime_type"] = "application/json"
+    
+    # Enable Google Search grounding
+    gemini_model = genai.GenerativeModel(
+        model,
+        generation_config=generation_config or None,
+        tools="google_search_retrieval"
+    )
+    
+    response = gemini_model.generate_content(prompt)
+    
+    if not response.text:
+        raise RuntimeError("Gemini response with search did not contain any content")
     return response.text
 
 
@@ -659,8 +691,38 @@ def find_target_recommendations(
     pref_context = _build_preference_context(preferences)
     profile_context = _build_sender_context(sender_profile)
 
-    # Try OpenAI (gpt-5.1) with built-in web_search tool
-    if USE_OPENAI_WEB_SEARCH:
+    # Primary: Gemini with Google Search grounding (fast and reliable)
+    if USE_GEMINI_SEARCH:
+        try:
+            prompt = _build_recommendation_prompt(
+                purpose=purpose,
+                field=field,
+                profile_context=profile_context,
+                pref_context=pref_context,
+                count=count,
+                web_text="",
+                sources=[],
+                include_web_section=False,
+            )
+            # Add instruction for real-time search
+            search_prompt = (
+                f"{prompt}\n\n"
+                "IMPORTANT: Use Google Search to find REAL people who are currently active in this field. "
+                "Search for recent faculty, researchers, professionals, or industry leaders. "
+                "Include their actual current positions and affiliations. "
+                "Do not make up names - only include people you can verify through search."
+            )
+            content = _call_gemini_with_search(search_prompt, model=GEMINI_SEARCH_MODEL, json_mode=True)
+            recommendations = json.loads(content).get("recommendations", [])
+            recommendations.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+            if recommendations:
+                print(f"Gemini Search found {len(recommendations)} recommendations")
+                return recommendations[:count]
+        except Exception as e:
+            print(f"Gemini Search recommendation error: {e}")
+
+    # Fallback 1: OpenAI (gpt-5.1) with built-in web_search tool - DISABLED by default
+    if USE_OPENAI_WEB_SEARCH and USE_OPENAI_RECOMMENDATIONS:
         try:
             content = _call_openai_json_with_web_search(
                 _build_recommendation_prompt(
@@ -681,31 +743,32 @@ def find_target_recommendations(
         except Exception as e:
             print(f"OpenAI recommendation (web_search) error: {e}")
 
-    # Fallback 1: our own web scrape + OpenAI
-    try:
-        web_text, web_sources = _gather_recommendation_web_context(field, purpose, preferences, max_pages=3)
-        content = _call_openai_json(
-            _build_recommendation_prompt(
-                purpose=purpose,
-                field=field,
-                profile_context=profile_context,
-                pref_context=pref_context,
-                count=count,
-                web_text=web_text,
-                sources=web_sources,
-                include_web_section=True,
-                require_tool_use=False,
-            ),
-            model=RECOMMENDATION_MODEL,
-        )
-        recommendations = json.loads(content).get("recommendations", [])
-        recommendations.sort(key=lambda x: x.get("match_score", 0), reverse=True)
-        if recommendations:
-            return recommendations[:count]
-    except Exception as e:
-        print(f"OpenAI recommendation (scrape fallback) error: {e}")
+    # Fallback 1: our own web scrape + OpenAI - DISABLED by default
+    if USE_OPENAI_RECOMMENDATIONS:
+        try:
+            web_text, web_sources = _gather_recommendation_web_context(field, purpose, preferences, max_pages=3)
+            content = _call_openai_json(
+                _build_recommendation_prompt(
+                    purpose=purpose,
+                    field=field,
+                    profile_context=profile_context,
+                    pref_context=pref_context,
+                    count=count,
+                    web_text=web_text,
+                    sources=web_sources,
+                    include_web_section=True,
+                    require_tool_use=False,
+                ),
+                model=RECOMMENDATION_MODEL,
+            )
+            recommendations = json.loads(content).get("recommendations", [])
+            recommendations.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+            if recommendations:
+                return recommendations[:count]
+        except Exception as e:
+            print(f"OpenAI recommendation (scrape fallback) error: {e}")
 
-    # Fallback 2: Gemini text-only generation
+    # Default: Gemini text-only generation (fast and reliable)
     prompt = _build_recommendation_prompt(
         purpose=purpose,
         field=field,
