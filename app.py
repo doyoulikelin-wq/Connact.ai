@@ -172,6 +172,7 @@ def search_receiver():
 def api_generate_email():
     """Generate cold email based on sender and receiver profiles."""
     data = request.get_json()
+    template = data.get('template') or None
     
     try:
         # Get sender profile
@@ -204,8 +205,8 @@ def api_generate_email():
         if not goal:
             return jsonify({'error': 'Goal is required'}), 400
         
-        # Generate email
-        email_text = generate_email(sender, receiver, goal)
+        # Generate email (optionally template-guided)
+        email_text = generate_email(sender, receiver, goal, template=template)
         
         return jsonify({
             'success': True,

@@ -1094,6 +1094,23 @@
             <h2><span class="icon">✉️</span> Step 4: Your Cold Emails</h2>
             <p class="panel-description">Here are your personalized cold emails ready to send!</p>
 
+            <!-- Optional custom email template -->
+            <div class="form-group">
+                <label for="email-template">Optional: Provide your own email template</label>
+                <p style="margin: 4px 0 8px; font-size: 13px; color: #666;">
+                    If you paste a template here, the AI will follow its structure and tone while filling in details
+                    using your profile and the target's profile. Leave empty to let the AI write emails freely.
+                </p>
+                <textarea id="email-template" rows="6" placeholder="Example:
+Subject: Coffee chat about {{field}}
+
+Hi {{receiver_name}},
+
+I&apos;m {{sender_name}}, currently ...
+
+..."></textarea>
+            </div>
+
             <!-- Email Navigation for Multiple Targets -->
             <div class="hidden" id="email-nav" style="margin-bottom: 20px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; background: #f0f4ff; padding: 12px 20px; border-radius: 10px;">
@@ -1949,6 +1966,8 @@
             state.currentEmailIndex = 0;
             
             try {
+                const templateInput = document.getElementById('email-template');
+                const templateText = templateInput ? templateInput.value.trim() : '';
                 const total = state.selectedTargets.length;
                 
                 for (let i = 0; i < total; i++) {
@@ -1989,7 +2008,8 @@
                                 ask: `I am looking to ${getPurposeText().toLowerCase()} in ${getFieldText()}`
                             },
                             receiver: receiverProfile,
-                            goal: getPurposeText()
+                            goal: getPurposeText(),
+                            template: templateText || undefined
                         })
                     });
                     

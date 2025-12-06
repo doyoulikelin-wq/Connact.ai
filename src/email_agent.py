@@ -344,7 +344,12 @@ def extract_profile_from_pdf(
     return extract_profile_from_text(pdf_text, model=model)
 
 
-def build_prompt(sender: SenderProfile, receiver: ReceiverProfile, goal: str) -> list[dict[str, str]]:
+def build_prompt(
+    sender: SenderProfile,
+    receiver: ReceiverProfile,
+    goal: str,
+    template: str | None = None,
+) -> list[dict[str, str]]:
     goal_text = goal.strip()
     if not goal_text:
         raise ValueError("Goal must be a non-empty string")
@@ -355,42 +360,76 @@ def build_prompt(sender: SenderProfile, receiver: ReceiverProfile, goal: str) ->
         bullet_points = "\n".join(f"  • {item}" for item in items)
         return f"- {title}:\n{bullet_points}\n"
 
+    # Base system instruction
+    system_content = (
+        "You craft sincere, concise first-contact cold emails that help two people build a genuine connection. "
+        "Use the provided sender and receiver details to highlight authentic overlaps and mutual value. "
+        "Output a complete email with a Subject line and body that is ready to paste into an email client."
+    )
+
+    # If a user template is provided, tell the model how to use it
+    if template and template.strip():
+        system_content += (
+            " When a user-provided email template is included, you must use it as the primary structure and tone: "
+            "keep its overall flow and key phrases where reasonable, but adapt and fill in details using the sender "
+            "and receiver information so the result is a polished, ready-to-send cold email."
+        )
+
     system_message = {
         "role": "system",
-        "content": (
-            "You craft sincere, concise first-contact cold emails that help two people build a genuine connection. "
-            "Use the provided sender and receiver details to highlight authentic overlaps and mutual value. "
-            "Output a complete email with a Subject line and body that is ready to paste into an email client."
-        ),
+        "content": system_content,
     }
 
-    user_message = {
-        "role": "user",
-        "content": (
-            "Sender profile:\n"
-            f"- Name: {sender.name}\n"
-            f"- Motivation: {sender.motivation}\n"
-            f"- Ask: {sender.ask}\n"
-            + _format_section("Education", sender.education)
-            + _format_section("Experiences", sender.experiences)
-            + _format_section("Skills", sender.skills)
-            + _format_section("Projects", sender.projects)
-            + "Sender background (free text):\n"
-            + f"{sender.raw_text}\n\n"
-            + "Receiver profile:\n"
-            + f"- Name: {receiver.name}\n"
-            + (f"- Context: {receiver.context}\n" if receiver.context else "")
-            + _format_section("Education", receiver.education)
-            + _format_section("Experiences", receiver.experiences)
-            + _format_section("Skills", receiver.skills)
-            + _format_section("Projects", receiver.projects)
-            + "Receiver background (free text):\n"
-            + f"{receiver.raw_text}\n\n"
-            + f"Goal: {goal_text}\n\n"
+    # Core content describing profiles and goal
+    base_user_content = (
+        "Sender profile:\n"
+        f"- Name: {sender.name}\n"
+        f"- Motivation: {sender.motivation}\n"
+        f"- Ask: {sender.ask}\n"
+        + _format_section("Education", sender.education)
+        + _format_section("Experiences", sender.experiences)
+        + _format_section("Skills", sender.skills)
+        + _format_section("Projects", sender.projects)
+        + "Sender background (free text):\n"
+        + f"{sender.raw_text}\n\n"
+        + "Receiver profile:\n"
+        + f"- Name: {receiver.name}\n"
+        + (f"- Context: {receiver.context}\n" if receiver.context else "")
+        + _format_section("Education", receiver.education)
+        + _format_section("Experiences", receiver.experiences)
+        + _format_section("Skills", receiver.skills)
+        + _format_section("Projects", receiver.projects)
+        + "Receiver background (free text):\n"
+        + f"{receiver.raw_text}\n\n"
+        + f"Goal: {goal_text}\n\n"
+    )
+
+    if template and template.strip():
+        # Template-guided generation
+        user_content = (
+            base_user_content
+            + "The user has provided an email template they'd like to base the message on.\n"
+            + "Use this template as the main structure and tone. Keep the subject and body well-formed and ready to send.\n\n"
+            + "User email template (between <template> tags):\n"
+            + "<template>\n"
+            + template.strip()
+            + "\n</template>\n\n"
+            + "Please return a single finished email with:\n"
+            + "1) A subject line (you may adapt the template subject if present)\n"
+            + "2) A body (max ~250 words) that follows the template's flow while integrating specific, relevant details from the profiles above."
+        )
+    else:
+        # Default smart generation (current behavior)
+        user_content = (
+            base_user_content
             + "Please return:\n"
             + "1) A concise, specific subject line\n"
             + "2) A short email body (max ~200 words) that feels human, references shared interests or context, and ends with a clear but polite call to action."
-        ),
+        )
+
+    user_message = {
+        "role": "user",
+        "content": user_content,
     }
 
     return [system_message, user_message]
@@ -402,8 +441,9 @@ def generate_email(
     goal: str,
     *,
     model: str = DEFAULT_MODEL,
+    template: str | None = None,
 ) -> str:
-    messages = build_prompt(sender, receiver, goal)
+    messages = build_prompt(sender, receiver, goal, template=template)
     
     # Combine system and user messages into a single prompt for Gemini
     system_content = messages[0]["content"]

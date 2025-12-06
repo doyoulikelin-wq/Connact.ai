@@ -38,6 +38,11 @@ def parse_args() -> argparse.Namespace:
         default=3,
         help="Maximum number of web pages to scrape when using --receiver-name (default: 3)",
     )
+    parser.add_argument(
+        "--template",
+        type=Path,
+        help="Optional path to a text file with an email template to guide generation",
+    )
     parser.add_argument("--goal", required=True, help="Goal for this email (e.g., request for a 20-min chat)")
     parser.add_argument(
         "--model",
@@ -55,6 +60,14 @@ def main() -> None:
 
     if args.receiver_name and not args.receiver_field:
         raise SystemExit("--receiver-field is required when using --receiver-name")
+
+    # Optional template file
+    template_text: str | None = None
+    if args.template:
+        try:
+            template_text = args.template.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise SystemExit(f"Failed to read template file {args.template}: {exc}") from exc
 
     if args.sender_pdf:
         sender = SenderProfile.from_pdf(
@@ -90,7 +103,7 @@ def main() -> None:
     else:
         receiver = ReceiverProfile.from_json(args.receiver_json)
 
-    email_text = generate_email(sender, receiver, args.goal, model=args.model)
+    email_text = generate_email(sender, receiver, args.goal, model=args.model, template=template_text)
     print(email_text)
 
 
