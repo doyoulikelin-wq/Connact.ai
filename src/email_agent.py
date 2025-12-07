@@ -579,7 +579,8 @@ INSTRUCTIONS:
      you have already asked {max_questions} questions, you should stop.
 2. If you need another question:
    - Ask exactly ONE clear question.
-   - Prefer open or semi-open questions that encourage short but informative answers.
+   - Provide 3-5 answer options for this question as a list of short phrases.
+   - The LAST option must always be "Other (please specify)" to allow a custom answer.
    - Do NOT repeat previous questions.
    - Tailor the question to the given purpose and field and the previous answers.
 
@@ -595,6 +596,7 @@ If you want to ask another question:
 {{
   "done": false,
   "question": "Your next question here",
+  "options": ["option 1", "option 2", "option 3", "Other (please specify)"],
   "meta": {{
     "reason": "short explanation of what this question is trying to capture (e.g., skills, projects, goals)"
   }}
@@ -612,10 +614,16 @@ Return JSON only, with no additional text."""
             data["done"] = False
         return data
     except (json.JSONDecodeError, ValueError):
-        # Fallback: ask a generic open question
+        # Fallback: ask a generic question with simple options
         return {
             "done": False,
-            "question": "Is there anything about your background, skills, or achievements that you think is most relevant for this outreach?",
+            "question": "Which aspect of your background do you think is most relevant for this outreach?",
+            "options": [
+                "My education",
+                "My work experience",
+                "My projects or achievements",
+                "Other (please specify)",
+            ],
             "meta": {"reason": "generic fallback question"},
         }
 

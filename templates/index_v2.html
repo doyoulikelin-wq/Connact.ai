@@ -1685,27 +1685,89 @@ I&apos;m {{sender_name}}, currently ...
             }
 
             const questionText = result.question || 'Tell us something about your background that is relevant for this outreach.';
+            const options = Array.isArray(result.options) ? result.options : null;
             const card = document.createElement('div');
             card.className = 'question-card';
-            card.innerHTML = `
+            
+            let innerHtml = `
                 <h4>Q${state.questionnaireHistory.length + 1}: ${questionText}</h4>
-                <div class="question-custom-input visible">
-                    <textarea id="question-answer-input" rows="3" placeholder="Type your answer here..."></textarea>
-                </div>
+            `;
+
+            if (options && options.length > 0) {
+                innerHtml += `
+                    <div class="question-options" id="question-options">
+                        ${options.map((opt, idx) => `
+                            <div class="question-option" data-index="${idx}">${opt}</div>
+                        `).join('')}
+                    </div>
+                    <div class="question-custom-input" id="question-custom-wrapper">
+                        <textarea id="question-custom-input" rows="2" placeholder="Your custom answer..."></textarea>
+                    </div>
+                `;
+            } else {
+                innerHtml += `
+                    <div class="question-custom-input visible">
+                        <textarea id="question-answer-input" rows="3" placeholder="Type your answer here..."></textarea>
+                    </div>
+                `;
+            }
+
+            innerHtml += `
                 <div class="btn-group" style="margin-top: 10px; justify-content: flex-end;">
                     <button class="btn btn-secondary" id="btn-skip-question">Skip</button>
                     <button class="btn btn-primary" id="btn-next-question" disabled>Next Question</button>
-                </div>
-            `;
+                </div>`;
+
+            card.innerHTML = innerHtml;
             container.appendChild(card);
 
-            const answerInput = document.getElementById('question-answer-input');
             const nextBtn = document.getElementById('btn-next-question');
             const skipBtn = document.getElementById('btn-skip-question');
 
-            answerInput.addEventListener('input', function() {
-                nextBtn.disabled = !this.value.trim();
-            });
+            let selectedIndex = null;
+
+            if (options && options.length > 0) {
+                const optionEls = Array.from(document.querySelectorAll('#question-options .question-option'));
+                const customWrapper = document.getElementById('question-custom-wrapper');
+                const customInput = document.getElementById('question-custom-input');
+
+                function updateNextEnabled() {
+                    if (selectedIndex === null) {
+                        nextBtn.disabled = true;
+                        return;
+                    }
+                    const isLast = selectedIndex === options.length - 1;
+                    if (isLast) {
+                        nextBtn.disabled = !customInput.value.trim();
+                    } else {
+                        nextBtn.disabled = false;
+                    }
+                }
+
+                optionEls.forEach(el => {
+                    el.addEventListener('click', function() {
+                        optionEls.forEach(o => o.classList.remove('selected'));
+                        this.classList.add('selected');
+                        selectedIndex = parseInt(this.dataset.index, 10);
+                        const isLast = selectedIndex === options.length - 1;
+                        if (isLast) {
+                            customWrapper.classList.add('visible');
+                        } else {
+                            customWrapper.classList.remove('visible');
+                        }
+                        updateNextEnabled();
+                    });
+                });
+
+                if (customInput) {
+                    customInput.addEventListener('input', updateNextEnabled);
+                }
+            } else {
+                const answerInput = document.getElementById('question-answer-input');
+                answerInput.addEventListener('input', function() {
+                    nextBtn.disabled = !this.value.trim();
+                });
+            }
 
             async function submitAnswerAndLoadNext(answer) {
                 state.questionnaireHistory.push({
@@ -1740,8 +1802,22 @@ I&apos;m {{sender_name}}, currently ...
             }
 
             nextBtn.addEventListener('click', function() {
-                const answer = answerInput.value.trim();
-                if (!answer) return;
+                let answer = '';
+                if (options && options.length > 0) {
+                    if (selectedIndex === null) return;
+                    const isLast = selectedIndex === options.length - 1;
+                    if (isLast) {
+                        const customInput = document.getElementById('question-custom-input');
+                        if (!customInput.value.trim()) return;
+                        answer = customInput.value.trim();
+                    } else {
+                        answer = options[selectedIndex];
+                    }
+                } else {
+                    const answerInput = document.getElementById('question-answer-input');
+                    answer = (answerInput.value || '').trim();
+                    if (!answer) return;
+                }
                 submitAnswerAndLoadNext(answer);
             });
 
