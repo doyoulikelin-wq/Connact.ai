@@ -6,7 +6,29 @@ An intelligent cold email generation tool with a step-by-step wizard interface.
 
 ## Features
 
-### v2.2 (Current) - Gemini Google Search Integration 🔍
+### v3.0 (Current) - Mode Selection & Privacy 🎯
+
+- **Mode Selection After Login**
+  - **Quick Start Mode**: For users without a resume
+    - No resume upload required
+    - Build profile through questionnaire
+    - Perfect for beginners or quick outreach
+  - **Professional Mode**: For users with a resume
+    - Resume upload required
+    - Track selection: Finance or Academic
+    - Target options: Have targets vs Need recommendations
+    - Tailored preference questions based on track
+
+- **Privacy Notice Modal**
+  - Clear data usage policy displayed after mode selection
+  - Explains how AI processes data
+  - Confirms data security and no permanent storage
+
+- **Track-Specific Preferences**
+  - Finance: Investment banking, Asset management, Private equity, Consulting
+  - Academic: Research collaboration, PhD applications, Postdoc positions, Academic networking
+
+### v2.2 - Gemini Google Search Integration 🔍
 
 - **Real-time Web Search for Recommendations**
   - Uses Gemini's built-in Google Search grounding
@@ -71,7 +93,13 @@ An intelligent cold email generation tool with a step-by-step wizard interface.
 
 ### Web Interface (Recommended)
 
-Visit [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/) and use password: `gogogochufalo`
+1. Visit [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
+2. Enter password: `gogogochufalo`
+3. **Choose your mode:**
+   - **Quick Start**: No resume? Build profile via questionnaire
+   - **Professional**: Upload resume, choose Finance or Academic track
+4. Review privacy notice and continue
+5. Follow the wizard steps to generate your cold email
 
 ### Local Development
 
