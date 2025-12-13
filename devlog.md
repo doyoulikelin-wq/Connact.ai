@@ -1,5 +1,9 @@
 # Development Log
 
+## 2025-12-13: UI Polish (Apple-like Visual Refresh)
+
+- Updated `templates/index_v2.html` styling to a lighter, glassy “Apple-like” look (subtle gradients, soft borders/shadows, blue accent).
+
 ## 2025-12-12: v3.0 - Mode Selection (Quick Start & Professional) 🚀
 
 ### New Features
