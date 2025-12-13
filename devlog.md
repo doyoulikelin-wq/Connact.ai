@@ -6,6 +6,7 @@
 - Quick Start: Step 2 now asks for optional resume/profile link/notes first; only if those are empty it shows the 5-question questionnaire (generated in one request).
 - Quick Start: resume upload uses the same drag & drop dropzone pattern as Professional mode.
 - Quick Start: the 5-question builder is generated only after clicking “Generate Questions”.
+- Step 3 target preferences: removed the static 5-field form; use the dynamic preference questions + Step 1 field as defaults.
 
 ## 2025-12-12: v3.0 - Mode Selection (Quick Start & Professional) 🚀
 

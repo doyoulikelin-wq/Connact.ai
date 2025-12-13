@@ -103,3 +103,4 @@
 - Quick Start：Step 2 先收集可选简历/LinkedIn/补充信息；仅当这些都为空时，才展示 5 道问卷作为兜底。
 - Quick Start：可选简历上传改为拖拽/点击上传的 dropzone，和 Professional 统一交互风格。
 - Quick Start：问卷题不再自动生成；当简历/LinkedIn/补充信息都为空时，点击 “Generate Questions” 才会生成并展示 5 题。
+- Step 3（找 targets）：移除静态的 5 项偏好表单，仅保留动态偏好问答；推荐时默认使用 Step 1 的 field，并从动态问答中尽量提取更细分的 specialization。

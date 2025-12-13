@@ -1575,70 +1575,8 @@
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>What field or specialization should we target? <span style="color:#d9534f;">*</span></label>
-                    <div class="choice-buttons" id="pref-field-options">
-                        <button class="choice-btn" data-value="AI / Machine Learning">🤖 AI / Machine Learning</button>
-                        <button class="choice-btn" data-value="Software Engineering">💻 Software Engineering</button>
-                        <button class="choice-btn" data-value="Product Management">🧭 Product Management</button>
-                        <button class="choice-btn" data-value="Data / Analytics">📊 Data / Analytics</button>
-                        <button class="choice-btn" data-value="Finance / Fintech">📈 Finance / Fintech</button>
-                        <button class="choice-btn" data-value="other">🔬 Other</button>
-                    </div>
-                    <div class="custom-input" id="pref-field-custom">
-                        <input type="text" id="pref-field-custom-input" placeholder="Enter the field or niche...">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>What level of seniority are you aiming for?</label>
-                    <div class="choice-buttons" id="pref-seniority-options">
-                        <button class="choice-btn" data-value="Entry / Junior">📘 Entry / Junior</button>
-                        <button class="choice-btn" data-value="Mid-level IC">📗 Mid-level IC</button>
-                        <button class="choice-btn" data-value="Senior / Staff IC">📙 Senior / Staff IC</button>
-                        <button class="choice-btn" data-value="Leadership (Director/VP/CXO)">📕 Leadership</button>
-                        <button class="choice-btn" data-value="Academic (Professor/PI)">🎓 Academic</button>
-                        <button class="choice-btn" data-value="Other">➕ Other</button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>What type of organization?</label>
-                    <div class="choice-buttons" id="pref-org-options">
-                        <button class="choice-btn" data-value="Big Tech / Large Enterprise">🏢 Big Tech / Enterprise</button>
-                        <button class="choice-btn" data-value="Startup / Scaleup">🚀 Startup / Scaleup</button>
-                        <button class="choice-btn" data-value="Academia / Research Lab">🔬 Academia / Lab</button>
-                        <button class="choice-btn" data-value="VC / Investment">💸 VC / Investment</button>
-                        <button class="choice-btn" data-value="Nonprofit / Public Sector">🤝 Nonprofit / Public Sector</button>
-                        <button class="choice-btn" data-value="Other">➕ Other</button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>What's your primary goal for this outreach?</label>
-                    <div class="choice-buttons" id="pref-goal-options">
-                        <button class="choice-btn" data-value="Research collaboration / mentorship">🧠 Research collab / mentorship</button>
-                        <button class="choice-btn" data-value="Job / internship opportunity">💼 Job / internship</button>
-                        <button class="choice-btn" data-value="Networking / informational chat">☕ Networking / coffee chat</button>
-                        <button class="choice-btn" data-value="Business or partnership intro">🤝 Business / partnership</button>
-                        <button class="choice-btn" data-value="Speaking / media opportunity">🎤 Speaking / media</button>
-                        <button class="choice-btn" data-value="Other">➕ Other</button>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>How well-known should the targets be?</label>
-                    <div class="choice-buttons" id="pref-prominence-options">
-                        <button class="choice-btn" data-value="Global leaders">🌍 Global leaders</button>
-                        <button class="choice-btn" data-value="Well-known but accessible">⭐ Well-known but accessible</button>
-                        <button class="choice-btn" data-value="Mid-level practitioners">📌 Mid-level practitioners</button>
-                        <button class="choice-btn" data-value="Rising talent">🌱 Rising talent</button>
-                        <button class="choice-btn" data-value="No preference">🙌 No preference</button>
-                    </div>
-                </div>
-
                 <div class="btn-group" style="justify-content: flex-end;">
-                    <button class="btn btn-primary" id="btn-find-matches" disabled>Find Matches</button>
+                    <button class="btn btn-primary" id="btn-find-matches">Find Matches</button>
                 </div>
             </div>
 
@@ -2817,51 +2755,13 @@ I&apos;m {{sender_name}}, currently ...
 
         // Setup preference questions for recommendations
         function setupPreferenceForm() {
-            const fieldOptions = document.querySelectorAll('#pref-field-options .choice-btn');
-            fieldOptions.forEach(btn => {
+            // Static preference form removed; keep dynamic questionnaire only.
+            const btn = document.getElementById('btn-find-matches');
+            if (btn) {
                 btn.addEventListener('click', function() {
-                    fieldOptions.forEach(b => b.classList.remove('selected'));
-                    this.classList.add('selected');
-                    state.targetPrefs.field = this.dataset.value;
-                    
-                    const custom = document.getElementById('pref-field-custom');
-                    if (state.targetPrefs.field === 'other') {
-                        custom.classList.add('visible');
-                    } else {
-                        custom.classList.remove('visible');
-                        state.targetPrefs.fieldCustom = '';
-                        document.getElementById('pref-field-custom-input').value = '';
-                    }
-                    updateFindMatchesEnabled();
+                    loadRecommendations();
                 });
-            });
-
-            document.getElementById('pref-field-custom-input').addEventListener('input', function() {
-                state.targetPrefs.fieldCustom = this.value;
-                updateFindMatchesEnabled();
-            });
-
-            const prefGroups = [
-                { selector: '#pref-seniority-options', key: 'seniority' },
-                { selector: '#pref-org-options', key: 'orgType' },
-                { selector: '#pref-goal-options', key: 'outreachGoal' },
-                { selector: '#pref-prominence-options', key: 'prominence' }
-            ];
-
-            prefGroups.forEach(group => {
-                const buttons = document.querySelectorAll(`${group.selector} .choice-btn`);
-                buttons.forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        buttons.forEach(b => b.classList.remove('selected'));
-                        this.classList.add('selected');
-                        state.targetPrefs[group.key] = this.dataset.value;
-                    });
-                });
-            });
-
-            document.getElementById('btn-find-matches').addEventListener('click', function() {
-                loadRecommendations();
-            });
+            }
         }
 
         // Setup file upload
@@ -3624,17 +3524,11 @@ I&apos;m {{sender_name}}, currently ...
             
             try {
                 const purposeText = getPurposeText();
-                const fieldText = getTargetFieldFromPreferences();
+                const fieldText = getTargetFieldFromPreferences() || getFieldText();
                 const prefHistory = state.targetPreferenceHistory || [];
                 const prefExtra = prefHistory.length > 0
                     ? prefHistory.map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`).join('\n\n')
                     : '';
-                
-                if (!fieldText) {
-                    loading.classList.remove('visible');
-                    alert('Please select a field/specialization before finding matches.');
-                    return;
-                }
                 
                 const response = await fetch('/api/find-recommendations', {
                     method: 'POST',
@@ -3644,10 +3538,6 @@ I&apos;m {{sender_name}}, currently ...
                         field: fieldText,
                         sender_profile: state.senderProfile,
                         preferences: {
-                            seniority: state.targetPrefs.seniority,
-                            org_type: state.targetPrefs.orgType,
-                            outreach_goal: state.targetPrefs.outreachGoal,
-                            prominence: state.targetPrefs.prominence,
                             extra: prefExtra
                         }
                     })
@@ -4395,10 +4285,16 @@ I&apos;m {{sender_name}}, currently ...
         }
 
         function getTargetFieldFromPreferences() {
-            if (state.targetPrefs.field === 'other') {
-                return state.targetPrefs.fieldCustom?.trim() || '';
+            const history = Array.isArray(state.targetPreferenceHistory) ? state.targetPreferenceHistory : [];
+            for (let i = history.length - 1; i >= 0; i--) {
+                const q = String(history[i]?.question || '').toLowerCase();
+                const a = String(history[i]?.answer || '').trim();
+                if (!a) continue;
+                if (q.includes('field') || q.includes('specialization') || q.includes('specialisation') || q.includes('domain') || q.includes('area')) {
+                    return a;
+                }
             }
-            return state.targetPrefs.field || '';
+            return '';
         }
 
         function getFieldText() {
@@ -4427,7 +4323,7 @@ I&apos;m {{sender_name}}, currently ...
         function updateFindMatchesEnabled() {
             const btn = document.getElementById('btn-find-matches');
             if (!btn) return;
-            btn.disabled = !getTargetFieldFromPreferences();
+            btn.disabled = false;
         }
 
         function resetRecommendationState() {
