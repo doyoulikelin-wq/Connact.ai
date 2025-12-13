@@ -1846,6 +1846,8 @@ I&apos;m {{sender_name}}, currently ...
             hasResume: null,
             senderProfile: null,
             questionnaireHistory: [], // [{ question, answer }]
+            questionnaireQuestions: [], // Batch questions (Quick Start)
+            questionnaireIndex: 0,
             hasTarget: null,
             selectedTargets: [],  // Array of selected targets
             currentEmailIndex: 0,  // Current email being viewed
@@ -1900,6 +1902,8 @@ I&apos;m {{sender_name}}, currently ...
                 hasResume: mode === 'quick' ? false : null,
                 senderProfile: null,
                 questionnaireHistory: [],
+                questionnaireQuestions: [],
+                questionnaireIndex: 0,
                 hasTarget: null,
                 selectedTargets: [],
                 currentEmailIndex: 0,
@@ -2946,6 +2950,35 @@ I&apos;m {{sender_name}}, currently ...
             try {
                 const purposeText = getPurposeText();
                 const fieldText = getFieldText();
+
+                // Quick Start: generate a full set of questions once
+                if (state.mode === 'quick') {
+                    if (!Array.isArray(state.questionnaireQuestions) || state.questionnaireQuestions.length === 0) {
+                        const response = await fetch('/api/generate-questionnaire', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                purpose: purposeText,
+                                field: fieldText
+                            })
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                            state.questionnaireQuestions = Array.isArray(data.questions) ? data.questions : [];
+                            state.questionnaireIndex = state.questionnaireHistory.length;
+                            loading.classList.remove('visible');
+                            renderBatchQuestion();
+                            return;
+                        }
+                        throw new Error(data.error || 'Failed to generate questions');
+                    }
+
+                    state.questionnaireIndex = state.questionnaireHistory.length;
+                    loading.classList.remove('visible');
+                    renderBatchQuestion();
+                    return;
+                }
+
                 const response = await fetch('/api/next-question', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2969,6 +3002,143 @@ I&apos;m {{sender_name}}, currently ...
                 loading.classList.remove('visible');
                 alert('Error loading questionnaire: ' + error.message);
             }
+        }
+
+        function renderBatchQuestion() {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
+            const idx = state.questionnaireHistory.length;
+            const questions = Array.isArray(state.questionnaireQuestions) ? state.questionnaireQuestions : [];
+
+            if (idx >= questions.length) {
+                const info = document.createElement('div');
+                info.className = 'notice';
+                info.innerHTML = `<span class="icon">✅</span> Great — you can continue to the next step.`;
+                container.appendChild(info);
+                checkStep2Valid();
+                return;
+            }
+
+            const item = questions[idx] || {};
+            const questionText = item.question || 'Tell us something about your background that is relevant for this outreach.';
+            const options = Array.isArray(item.options) ? item.options : null;
+            const card = document.createElement('div');
+            card.className = 'question-card';
+
+            let innerHtml = `
+                <h4>Q${idx + 1}: ${questionText}</h4>
+            `;
+
+            if (options && options.length > 0) {
+                innerHtml += `
+                    <div class="question-options" id="question-options">
+                        ${options.map((opt, optIndex) => `
+                            <div class="question-option" data-index="${optIndex}">${opt}</div>
+                        `).join('')}
+                    </div>
+                    <div class="question-custom-input" id="question-custom-wrapper">
+                        <textarea id="question-custom-input" rows="2" placeholder="Your custom answer..."></textarea>
+                    </div>
+                `;
+            } else {
+                innerHtml += `
+                    <div class="question-custom-input visible">
+                        <textarea id="question-answer-input" rows="3" placeholder="Type your answer here..."></textarea>
+                    </div>
+                `;
+            }
+
+            const nextLabel = idx === questions.length - 1 ? 'Finish' : 'Next Question';
+            innerHtml += `
+                <div class="btn-group" style="margin-top: 10px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" id="btn-skip-question">Skip</button>
+                    <button class="btn btn-primary" id="btn-next-question" disabled>${nextLabel}</button>
+                </div>`;
+
+            card.innerHTML = innerHtml;
+            container.appendChild(card);
+
+            const nextBtn = document.getElementById('btn-next-question');
+            const skipBtn = document.getElementById('btn-skip-question');
+
+            let selectedIndex = null;
+
+            if (options && options.length > 0) {
+                const optionEls = Array.from(document.querySelectorAll('#question-options .question-option'));
+                const customWrapper = document.getElementById('question-custom-wrapper');
+                const customInput = document.getElementById('question-custom-input');
+
+                function updateNextEnabled() {
+                    if (selectedIndex === null) {
+                        nextBtn.disabled = true;
+                        return;
+                    }
+                    const isLast = selectedIndex === options.length - 1;
+                    if (isLast) {
+                        nextBtn.disabled = !customInput.value.trim();
+                    } else {
+                        nextBtn.disabled = false;
+                    }
+                }
+
+                optionEls.forEach(el => {
+                    el.addEventListener('click', function() {
+                        optionEls.forEach(o => o.classList.remove('selected'));
+                        this.classList.add('selected');
+                        selectedIndex = parseInt(this.dataset.index, 10);
+                        const isLast = selectedIndex === options.length - 1;
+                        if (isLast) {
+                            customWrapper.classList.add('visible');
+                        } else {
+                            customWrapper.classList.remove('visible');
+                        }
+                        updateNextEnabled();
+                    });
+                });
+
+                if (customInput) {
+                    customInput.addEventListener('input', updateNextEnabled);
+                }
+            } else {
+                const answerInput = document.getElementById('question-answer-input');
+                answerInput.addEventListener('input', function() {
+                    nextBtn.disabled = !this.value.trim();
+                });
+            }
+
+            function submitAnswerAndShowNext(answer) {
+                state.questionnaireHistory.push({
+                    question: questionText,
+                    answer: answer || ''
+                });
+                checkStep2Valid();
+                renderBatchQuestion();
+            }
+
+            nextBtn.addEventListener('click', function() {
+                let answer = '';
+                if (options && options.length > 0) {
+                    if (selectedIndex === null) return;
+                    const isLast = selectedIndex === options.length - 1;
+                    if (isLast) {
+                        const customInput = document.getElementById('question-custom-input');
+                        if (!customInput.value.trim()) return;
+                        answer = customInput.value.trim();
+                    } else {
+                        answer = options[selectedIndex];
+                    }
+                } else {
+                    const answerInput = document.getElementById('question-answer-input');
+                    answer = (answerInput.value || '').trim();
+                    if (!answer) return;
+                }
+                submitAnswerAndShowNext(answer);
+            });
+
+            skipBtn.addEventListener('click', function() {
+                submitAnswerAndShowNext('');
+            });
         }
 
         // Render a single questionnaire question interactively

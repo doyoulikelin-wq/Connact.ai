@@ -96,3 +96,4 @@
 - 新增「全局模式切换」浮动入口：无论在向导哪个步骤，都能随时切换 Quick Start / Professional。切换会重置当前流程并自动进入对应起点（Quick 直接进入 Step 1，Professional 进入轨道选择）。
 - Step 5 邮件展示改为可编辑：拆分 Subject / Body，并提供类似 ChatGPT 的内嵌 Copy 按钮（分别复制主题与正文）。
 - Step 5 自定义语气（Custom）输入框加大，方便写更长的改写指令。
+- Quick Start 的用户画像问卷改为“一次性生成 5 题”，前端本地逐题收集答案（不再每答一题就向后端请求下一题）。
