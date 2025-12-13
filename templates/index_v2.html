@@ -1484,8 +1484,13 @@
             <!-- Resume Upload Section -->
             <div class="hidden" id="resume-upload-section">
                 <div class="form-group">
-                    <label>Upload your resume (PDF)</label>
-                    <input type="file" id="resume-file" accept=".pdf">
+                    <label>Optional: Upload your resume (PDF)</label>
+                    <div style="border: 1px dashed rgba(0,0,0,0.25); border-radius: 16px; padding: 34px; text-align: center; background: rgba(255,255,255,0.6); cursor: pointer; backdrop-filter: blur(18px);" id="qs-resume-dropzone">
+                        <div style="font-size: 2.8em; margin-bottom: 12px;">📎</div>
+                        <div style="font-size: 16px; color: var(--text); margin-bottom: 8px;">Drag & drop your resume here</div>
+                        <div style="font-size: 13px; color: var(--muted);">or click to browse (PDF only)</div>
+                        <input type="file" id="resume-file" accept=".pdf" style="display: none;">
+                    </div>
                 </div>
                 <div class="loading" id="upload-loading">
                     <div class="spinner"></div>
@@ -2848,7 +2853,36 @@ I&apos;m {{sender_name}}, currently ...
 
         // Setup file upload
         function setupFileUpload() {
-            document.getElementById('resume-file').addEventListener('change', async function() {
+            const resumeInput = document.getElementById('resume-file');
+            const dropzone = document.getElementById('qs-resume-dropzone');
+
+            if (dropzone && resumeInput) {
+                dropzone.addEventListener('click', () => resumeInput.click());
+
+                dropzone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropzone.style.borderColor = '#5856d6';
+                    dropzone.style.background = 'rgba(0, 113, 227, 0.08)';
+                });
+
+                dropzone.addEventListener('dragleave', () => {
+                    dropzone.style.borderColor = 'rgba(0,0,0,0.25)';
+                    dropzone.style.background = 'rgba(255,255,255,0.6)';
+                });
+
+                dropzone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropzone.style.borderColor = 'rgba(0,0,0,0.25)';
+                    dropzone.style.background = 'rgba(255,255,255,0.6)';
+                    if (e.dataTransfer.files.length > 0) {
+                        resumeInput.files = e.dataTransfer.files;
+                        uploadResume(e.dataTransfer.files[0]);
+                    }
+                });
+            }
+
+            if (!resumeInput) return;
+            resumeInput.addEventListener('change', async function() {
                 if (this.files.length > 0) {
                     const file = this.files[0];
                     await uploadResume(file);

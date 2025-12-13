@@ -101,3 +101,4 @@
 - `index_v2` 视觉风格升级为更“Apple-like”：浅色背景 + 玻璃拟态卡片 + 蓝色主色，整体更干净。
 - Quick Start 的 5 道问卷题改为“一次性展示”，便于快速填写与回看。
 - Quick Start：Step 2 先收集可选简历/LinkedIn/补充信息；仅当这些都为空时，才展示 5 道问卷作为兜底。
+- Quick Start：可选简历上传改为拖拽/点击上传的 dropzone，和 Professional 统一交互风格。
