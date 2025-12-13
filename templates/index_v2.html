@@ -84,12 +84,6 @@
             transform: translateY(-1px);
         }
 
-        .mode-switcher-status {
-            color: rgba(255,255,255,0.8);
-            font-size: 12px;
-            font-weight: 600;
-        }
-
         .version-badge {
             background: rgba(255,255,255,0.2);
             color: white;
@@ -1085,7 +1079,6 @@
         <span class="mode-switcher-label">Mode</span>
         <button class="mode-pill" data-mode="quick">⚡ Quick</button>
         <button class="mode-pill" data-mode="professional">💼 Professional</button>
-        <span class="mode-switcher-status" id="mode-switcher-status">Select mode</span>
     </div>
     <div class="container">
         <!-- Header -->
@@ -1939,16 +1932,6 @@ I&apos;m {{sender_name}}, currently ...
             pills.forEach(pill => {
                 pill.classList.toggle('active', pill.dataset.mode === mode);
             });
-            const status = document.getElementById('mode-switcher-status');
-            if (status) {
-                if (mode === 'professional') {
-                    status.textContent = 'Professional';
-                } else if (mode === 'quick') {
-                    status.textContent = 'Quick Start';
-                } else {
-                    status.textContent = 'Select mode';
-                }
-            }
         }
 
         function resetFormsAndPanels(mode) {

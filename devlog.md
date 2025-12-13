@@ -92,6 +92,7 @@ Mode Selection → Track (Finance/Academic) → Resume Upload → Target Choice
 - Seamless transition from professional flow to main email generation
 - Enlarged the Step 5 “Custom” tone instruction textbox for easier editing
 - Quick Start questionnaire now generates a full 5-question set upfront (instead of per-question generation)
+- Simplified the top-right mode switcher (removed redundant status text)
 
 ---
 
