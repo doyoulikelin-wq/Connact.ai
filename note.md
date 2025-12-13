@@ -105,3 +105,4 @@
 - Quick Start：问卷题不再自动生成；当简历/LinkedIn/补充信息都为空时，点击 “Generate Questions” 才会生成并展示 5 题。
 - Step 3（找 targets）：移除静态的 5 项偏好表单，仅保留动态偏好问答；推荐时默认使用 Step 1 的 field，并从动态问答中尽量提取更细分的 specialization。
 - 动态问答增加硬性上限：到 `max_questions` 必定停止，避免出现 10+ 题的情况。
+- Quick Start：进入 Step 1 会弹出一张简短教程（可选“不再提示”），帮助用户理解整个流程。

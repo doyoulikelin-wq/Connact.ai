@@ -8,6 +8,7 @@
 - Quick Start: the 5-question builder is generated only after clicking “Generate Questions”.
 - Step 3 target preferences: removed the static 5-field form; use the dynamic preference questions + Step 1 field as defaults.
 - Hard-capped dynamic questionnaires to `max_questions` to prevent over-generation.
+- Quick Start: added a small onboarding modal shown when entering Step 1 (with “Don’t show again”).
 
 ## 2025-12-12: v3.0 - Mode Selection (Quick Start & Professional) 🚀
 

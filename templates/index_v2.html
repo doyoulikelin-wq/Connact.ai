@@ -891,6 +891,17 @@
             display: flex;
         }
 
+        .onboarding-list {
+            margin: 12px 0 0;
+            padding-left: 18px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .onboarding-list li {
+            margin: 8px 0;
+        }
+
         .modal-content {
             background: var(--panel-strong);
             border: 1px solid var(--border-soft);
@@ -1770,6 +1781,32 @@ I&apos;m {{sender_name}}, currently ...
         </div>
     </div>
 
+    <!-- Quick Start Onboarding -->
+    <div class="modal-overlay" id="quick-onboarding-modal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header">
+                <h3>⚡ Quick Start Guide</h3>
+                <button class="modal-close" id="btn-qs-onboarding-close" aria-label="Close">×</button>
+            </div>
+            <p style="color: var(--muted); line-height: 1.7;">
+                This flow is optimized for speed. You can complete it in ~2 minutes.
+            </p>
+            <ul class="onboarding-list">
+                <li><strong>Step 1:</strong> pick your purpose and field.</li>
+                <li><strong>Step 2:</strong> add a resume or LinkedIn/notes (optional). If you leave them blank, click <em>Generate Questions</em> and answer 5 quick questions.</li>
+                <li><strong>Step 3:</strong> we’ll suggest targets based on your preferences.</li>
+                <li><strong>Step 5:</strong> edit <em>Subject</em>/<em>Body</em> and copy them separately.</li>
+            </ul>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px;">
+                <label style="display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px;">
+                    <input type="checkbox" id="qs-onboarding-dont-show">
+                    Don’t show this again
+                </label>
+                <button class="btn btn-primary" id="btn-qs-onboarding-ok" type="button">Got it</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Privacy Notice Modal -->
     <div class="modal-overlay" id="privacy-modal">
         <div class="modal-content" style="max-width: 550px;">
@@ -1981,7 +2018,7 @@ I&apos;m {{sender_name}}, currently ...
             resetStepsUI();
             document.querySelectorAll('.panel').forEach(panel => panel.classList.add('hidden'));
 
-            ['privacy-modal', 'profile-modal'].forEach(id => {
+            ['privacy-modal', 'profile-modal', 'quick-onboarding-modal'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('visible');
             });
@@ -2122,6 +2159,7 @@ I&apos;m {{sender_name}}, currently ...
                 const progress = document.getElementById('progress-container');
                 if (progress) progress.classList.remove('hidden');
                 goToStep(1);
+                maybeShowQuickStartOnboarding();
             } else if (mode === 'professional') {
                 const trackPanel = document.getElementById('pro-track-selection');
                 if (trackPanel) trackPanel.classList.remove('hidden');
@@ -2149,6 +2187,42 @@ I&apos;m {{sender_name}}, currently ...
             updateModeSwitcherUI(state.mode);
         }
 
+        function setupQuickStartOnboarding() {
+            const overlay = document.getElementById('quick-onboarding-modal');
+            if (!overlay) return;
+
+            const close = document.getElementById('btn-qs-onboarding-close');
+            const ok = document.getElementById('btn-qs-onboarding-ok');
+            const dontShow = document.getElementById('qs-onboarding-dont-show');
+
+            function dismiss() {
+                overlay.classList.remove('visible');
+                if (dontShow && dontShow.checked) {
+                    try {
+                        localStorage.setItem('qs_onboarding_dismissed', '1');
+                    } catch (e) {}
+                }
+            }
+
+            if (close) close.addEventListener('click', dismiss);
+            if (ok) ok.addEventListener('click', dismiss);
+
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) dismiss();
+            });
+        }
+
+        function maybeShowQuickStartOnboarding() {
+            if (state.mode !== 'quick') return;
+            let dismissed = false;
+            try {
+                dismissed = localStorage.getItem('qs_onboarding_dismissed') === '1';
+            } catch (e) {}
+            if (dismissed) return;
+            const overlay = document.getElementById('quick-onboarding-modal');
+            if (overlay) overlay.classList.add('visible');
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             setupGlobalModeSwitcher();
@@ -2160,6 +2234,7 @@ I&apos;m {{sender_name}}, currently ...
             setupProfileLinkInputs();
             setupNavigationButtons();
             setupQuickStartQuestionPrompt();
+            setupQuickStartOnboarding();
             setupGenerationMode();
             setupRegenerate();
             setupTargetDocUpload();
