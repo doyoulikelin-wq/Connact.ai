@@ -548,6 +548,17 @@ def generate_next_question(
           {"done": True, "reason": "..."} or
           {"done": False, "question": "...", "meta": {"reason": "..." }}
     """
+    asked_count = sum(
+        1
+        for qa in (history or [])
+        if isinstance(qa, dict) and str(qa.get("question", "") or "").strip()
+    )
+    if max_questions is not None and int(max_questions) > 0 and asked_count >= int(max_questions):
+        return {
+            "done": True,
+            "reason": f"Reached the maximum of {int(max_questions)} questions.",
+        }
+
     # Build history text
     history_lines: list[str] = []
     for idx, qa in enumerate(history, start=1):
@@ -648,6 +659,17 @@ def generate_next_target_question(
         max_questions: Soft cap on total preference questions
         model: Gemini model to use
     """
+    asked_count = sum(
+        1
+        for qa in (history or [])
+        if isinstance(qa, dict) and str(qa.get("question", "") or "").strip()
+    )
+    if max_questions is not None and int(max_questions) > 0 and asked_count >= int(max_questions):
+        return {
+            "done": True,
+            "reason": f"Reached the maximum of {int(max_questions)} questions.",
+        }
+
     history_lines: list[str] = []
     for idx, qa in enumerate(history, start=1):
         q = str(qa.get("question", "") or "").strip()
