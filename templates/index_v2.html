@@ -1927,6 +1927,7 @@ I&apos;m {{sender_name}}, currently ...
             questionnaireHistory: [], // [{ question, answer }]
             questionnaireQuestions: [], // Batch questions (Quick Start)
             questionnaireIndex: 0,
+            questionnaireAnswers: [], // string[] aligned to questionnaireQuestions
             hasTarget: null,
             selectedTargets: [],  // Array of selected targets
             currentEmailIndex: 0,  // Current email being viewed
@@ -1983,6 +1984,7 @@ I&apos;m {{sender_name}}, currently ...
                 questionnaireHistory: [],
                 questionnaireQuestions: [],
                 questionnaireIndex: 0,
+                questionnaireAnswers: [],
                 hasTarget: null,
                 selectedTargets: [],
                 currentEmailIndex: 0,
@@ -3035,8 +3037,9 @@ I&apos;m {{sender_name}}, currently ...
                         if (data.success) {
                             state.questionnaireQuestions = Array.isArray(data.questions) ? data.questions : [];
                             state.questionnaireIndex = state.questionnaireHistory.length;
+                            state.questionnaireAnswers = new Array(state.questionnaireQuestions.length).fill('');
                             loading.classList.remove('visible');
-                            renderBatchQuestion();
+                            renderBatchQuestionList();
                             return;
                         }
                         throw new Error(data.error || 'Failed to generate questions');
@@ -3044,7 +3047,10 @@ I&apos;m {{sender_name}}, currently ...
 
                     state.questionnaireIndex = state.questionnaireHistory.length;
                     loading.classList.remove('visible');
-                    renderBatchQuestion();
+                    if (!Array.isArray(state.questionnaireAnswers) || state.questionnaireAnswers.length !== state.questionnaireQuestions.length) {
+                        state.questionnaireAnswers = new Array(state.questionnaireQuestions.length).fill('');
+                    }
+                    renderBatchQuestionList();
                     return;
                 }
 
@@ -3073,141 +3079,140 @@ I&apos;m {{sender_name}}, currently ...
             }
         }
 
-        function renderBatchQuestion() {
+        function rebuildQuestionnaireHistoryFromAnswers() {
+            const questions = Array.isArray(state.questionnaireQuestions) ? state.questionnaireQuestions : [];
+            const answers = Array.isArray(state.questionnaireAnswers) ? state.questionnaireAnswers : [];
+            state.questionnaireHistory = questions.map((q, idx) => ({
+                question: String((q && q.question) || '').trim(),
+                answer: String(answers[idx] || '').trim()
+            })).filter(item => item.question);
+        }
+
+        function hydrateQuestionnaireAnswersFromHistory() {
+            const questions = Array.isArray(state.questionnaireQuestions) ? state.questionnaireQuestions : [];
+            const answers = new Array(questions.length).fill('');
+
+            const history = Array.isArray(state.questionnaireHistory) ? state.questionnaireHistory : [];
+            for (let i = 0; i < Math.min(history.length, answers.length); i++) {
+                const a = history[i]?.answer;
+                if (typeof a === 'string' && a.trim()) answers[i] = a.trim();
+            }
+
+            state.questionnaireAnswers = answers;
+        }
+
+        function renderBatchQuestionList() {
             const container = document.getElementById('questions-container');
             container.innerHTML = '';
 
-            const idx = state.questionnaireHistory.length;
             const questions = Array.isArray(state.questionnaireQuestions) ? state.questionnaireQuestions : [];
-
-            if (idx >= questions.length) {
+            if (questions.length === 0) {
                 const info = document.createElement('div');
                 info.className = 'notice';
-                info.innerHTML = `<span class="icon">✅</span> Great — you can continue to the next step.`;
+                info.innerHTML = `<span class="icon">⚠️</span> No questions generated. Please try again.`;
                 container.appendChild(info);
-                checkStep2Valid();
                 return;
             }
 
-            const item = questions[idx] || {};
-            const questionText = item.question || 'Tell us something about your background that is relevant for this outreach.';
-            const options = Array.isArray(item.options) ? item.options : null;
-            const card = document.createElement('div');
-            card.className = 'question-card';
-
-            let innerHtml = `
-                <h4>Q${idx + 1}: ${questionText}</h4>
-            `;
-
-            if (options && options.length > 0) {
-                innerHtml += `
-                    <div class="question-options" id="question-options">
-                        ${options.map((opt, optIndex) => `
-                            <div class="question-option" data-index="${optIndex}">${opt}</div>
-                        `).join('')}
-                    </div>
-                    <div class="question-custom-input" id="question-custom-wrapper">
-                        <textarea id="question-custom-input" rows="2" placeholder="Your custom answer..."></textarea>
-                    </div>
-                `;
-            } else {
-                innerHtml += `
-                    <div class="question-custom-input visible">
-                        <textarea id="question-answer-input" rows="3" placeholder="Type your answer here..."></textarea>
-                    </div>
-                `;
+            if (!Array.isArray(state.questionnaireAnswers) || state.questionnaireAnswers.length !== questions.length) {
+                hydrateQuestionnaireAnswersFromHistory();
             }
 
-            const nextLabel = idx === questions.length - 1 ? 'Finish' : 'Next Question';
-            innerHtml += `
-                <div class="btn-group" style="margin-top: 10px; justify-content: flex-end;">
-                    <button class="btn btn-secondary" id="btn-skip-question">Skip</button>
-                    <button class="btn btn-primary" id="btn-next-question" disabled>${nextLabel}</button>
-                </div>`;
+            questions.forEach((item, idx) => {
+                const questionText = item?.question || 'Tell us something about your background that is relevant for this outreach.';
+                const options = Array.isArray(item?.options) ? item.options : null;
 
-            card.innerHTML = innerHtml;
-            container.appendChild(card);
+                const card = document.createElement('div');
+                card.className = 'question-card';
 
-            const nextBtn = document.getElementById('btn-next-question');
-            const skipBtn = document.getElementById('btn-skip-question');
+                const answerValue = String(state.questionnaireAnswers[idx] || '');
+                const hasOptions = options && options.length > 0;
+                const lastOption = hasOptions ? options[options.length - 1] : null;
+                const matchIndex = hasOptions ? options.findIndex(o => String(o) === answerValue) : -1;
+                const shouldUseCustom = hasOptions && answerValue && matchIndex === -1;
+                const selectedIndex = shouldUseCustom ? (options.length - 1) : matchIndex;
 
-            let selectedIndex = null;
+                let innerHtml = `<h4>Q${idx + 1}: ${questionText}</h4>`;
 
-            if (options && options.length > 0) {
-                const optionEls = Array.from(document.querySelectorAll('#question-options .question-option'));
-                const customWrapper = document.getElementById('question-custom-wrapper');
-                const customInput = document.getElementById('question-custom-input');
-
-                function updateNextEnabled() {
-                    if (selectedIndex === null) {
-                        nextBtn.disabled = true;
-                        return;
-                    }
-                    const isLast = selectedIndex === options.length - 1;
-                    if (isLast) {
-                        nextBtn.disabled = !customInput.value.trim();
-                    } else {
-                        nextBtn.disabled = false;
-                    }
+                if (hasOptions) {
+                    innerHtml += `
+                        <div class="question-options" data-q-index="${idx}">
+                            ${options.map((opt, optIndex) => {
+                                const isSelected = optIndex === selectedIndex;
+                                return `<div class="question-option ${isSelected ? 'selected' : ''}" data-q="${idx}" data-index="${optIndex}">${opt}</div>`;
+                            }).join('')}
+                        </div>
+                        <div class="question-custom-input ${selectedIndex === options.length - 1 ? 'visible' : ''}" data-q-custom="${idx}">
+                            <textarea rows="2" data-q-custom-input="${idx}" placeholder="Your custom answer...">${selectedIndex === options.length - 1 ? answerValue : ''}</textarea>
+                        </div>
+                    `;
+                } else {
+                    innerHtml += `
+                        <div class="question-custom-input visible">
+                            <textarea rows="3" data-q-text-input="${idx}" placeholder="Type your answer here...">${answerValue}</textarea>
+                        </div>
+                    `;
                 }
 
-                optionEls.forEach(el => {
-                    el.addEventListener('click', function() {
-                        optionEls.forEach(o => o.classList.remove('selected'));
-                        this.classList.add('selected');
-                        selectedIndex = parseInt(this.dataset.index, 10);
-                        const isLast = selectedIndex === options.length - 1;
-                        if (isLast) {
-                            customWrapper.classList.add('visible');
+                card.innerHTML = innerHtml;
+                container.appendChild(card);
+
+                if (hasOptions) {
+                    const optionEls = Array.from(card.querySelectorAll(`.question-option[data-q="${idx}"]`));
+                    const customWrapper = card.querySelector(`[data-q-custom="${idx}"]`);
+                    const customInput = card.querySelector(`[data-q-custom-input="${idx}"]`);
+
+                    function setAnswerFromSelection(selectedOptIndex) {
+                        const isCustom = selectedOptIndex === options.length - 1;
+                        if (isCustom) {
+                            const text = String(customInput?.value || '').trim();
+                            state.questionnaireAnswers[idx] = text;
                         } else {
-                            customWrapper.classList.remove('visible');
+                            state.questionnaireAnswers[idx] = String(options[selectedOptIndex] || '').trim();
                         }
-                        updateNextEnabled();
+                        rebuildQuestionnaireHistoryFromAnswers();
+                        checkStep2Valid();
+                    }
+
+                    optionEls.forEach(el => {
+                        el.addEventListener('click', function() {
+                            optionEls.forEach(o => o.classList.remove('selected'));
+                            this.classList.add('selected');
+                            const optIndex = parseInt(this.dataset.index, 10);
+                            const isCustom = optIndex === options.length - 1;
+                            if (customWrapper) customWrapper.classList.toggle('visible', isCustom);
+                            setAnswerFromSelection(optIndex);
+                        });
                     });
-                });
 
-                if (customInput) {
-                    customInput.addEventListener('input', updateNextEnabled);
-                }
-            } else {
-                const answerInput = document.getElementById('question-answer-input');
-                answerInput.addEventListener('input', function() {
-                    nextBtn.disabled = !this.value.trim();
-                });
-            }
+                    if (customInput) {
+                        customInput.addEventListener('input', function() {
+                            const selected = card.querySelector(`.question-option.selected[data-q="${idx}"]`);
+                            const selectedOptIndex = selected ? parseInt(selected.dataset.index, 10) : -1;
+                            if (selectedOptIndex === options.length - 1) {
+                                setAnswerFromSelection(selectedOptIndex);
+                            }
+                        });
+                    }
 
-            function submitAnswerAndShowNext(answer) {
-                state.questionnaireHistory.push({
-                    question: questionText,
-                    answer: answer || ''
-                });
-                checkStep2Valid();
-                renderBatchQuestion();
-            }
-
-            nextBtn.addEventListener('click', function() {
-                let answer = '';
-                if (options && options.length > 0) {
-                    if (selectedIndex === null) return;
-                    const isLast = selectedIndex === options.length - 1;
-                    if (isLast) {
-                        const customInput = document.getElementById('question-custom-input');
-                        if (!customInput.value.trim()) return;
-                        answer = customInput.value.trim();
-                    } else {
-                        answer = options[selectedIndex];
+                    // If the last option is selected but no custom text yet, ensure history is still rebuilt
+                    if (selectedIndex === options.length - 1 && !answerValue.trim()) {
+                        state.questionnaireAnswers[idx] = '';
                     }
                 } else {
-                    const answerInput = document.getElementById('question-answer-input');
-                    answer = (answerInput.value || '').trim();
-                    if (!answer) return;
+                    const input = card.querySelector(`[data-q-text-input="${idx}"]`);
+                    if (input) {
+                        input.addEventListener('input', function() {
+                            state.questionnaireAnswers[idx] = String(this.value || '');
+                            rebuildQuestionnaireHistoryFromAnswers();
+                            checkStep2Valid();
+                        });
+                    }
                 }
-                submitAnswerAndShowNext(answer);
             });
 
-            skipBtn.addEventListener('click', function() {
-                submitAnswerAndShowNext('');
-            });
+            rebuildQuestionnaireHistoryFromAnswers();
+            checkStep2Valid();
         }
 
         // Render a single questionnaire question interactively
@@ -4330,8 +4335,9 @@ I&apos;m {{sender_name}}, currently ...
             if (state.hasResume && state.senderProfile) {
                 valid = true;
             } else if (!state.hasResume) {
-                // For interactive questionnaire: at least one answer
-                valid = state.questionnaireHistory.length > 0;
+                // For questionnaires: require at least one non-empty answer
+                valid = Array.isArray(state.questionnaireHistory)
+                    && state.questionnaireHistory.some(qa => (qa.answer || '').trim().length > 0);
             }
             document.getElementById('btn-step2-next').disabled = !valid;
         }
