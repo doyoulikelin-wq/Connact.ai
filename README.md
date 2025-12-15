@@ -9,7 +9,7 @@ An intelligent cold email generation tool with a step-by-step wizard interface.
 High-level workflow of the wizard UI (`templates/index_v2.html`) and backend APIs (`app.py`):
 
 ```mermaid
-flowchart LR
+flowchart TD
   start([Start]) --> login["Login: /login"]
   login --> mode{Mode}
   mode -->|Quick Start| step1["Step 1: Purpose + Field"]
