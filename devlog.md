@@ -10,6 +10,7 @@
 - Hard-capped dynamic questionnaires to `max_questions` to prevent over-generation.
 - Quick Start: added a small onboarding modal shown when entering Step 1 (with “Don’t show again”).
 - Quick Start: clarified onboarding copy to explain what context is collected and why.
+- Documented product principle that everything should serve the two core tasks (find targets + generate emails), emphasizing structured context, evidence/uncertainty, and a feedback loop (`AGENTS.md`, `note.md`).
 
 ## 2025-12-12: v3.0 - Mode Selection (Quick Start & Professional) 🚀
 
