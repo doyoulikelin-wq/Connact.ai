@@ -22,15 +22,15 @@ flowchart TD
   ctx_intent --> step2["Step 2: collect sender context"]
   step2 --> sender_src{Sender source}
 
-  sender_src -->|Resume PDF (required in Pro, optional in Quick)| sender_pdf["POST /api/upload-sender-pdf"]
+  sender_src -->|Resume PDF| sender_pdf["Resume PDF<br/>Pro required; Quick optional<br/>POST /api/upload-sender-pdf"]
   sender_pdf --> ctx_sender_rich["Context B (Sender, rich)<br/>name/edu/exp/skills/projects/raw_text<br/>(+ optional link/notes)"]
 
-  sender_src -->|Questionnaire (fallback in Quick)| q_questions["POST /api/generate-questionnaire OR /api/next-question"]
+  sender_src -->|Questionnaire| q_questions["Questionnaire<br/>Quick fallback<br/>POST /api/generate-questionnaire OR /api/next-question"]
   q_questions --> q_answers["User answers<br/>(stored in UI)"]
   q_answers --> q_build["POST /api/profile-from-questionnaire"]
   q_build --> ctx_sender_mid["Context B (Sender, medium)<br/>profile inferred from answers"]
 
-  sender_src -->|Link/notes only (Quick)| ctx_sender_light["Context B (Sender, light)<br/>raw_text from link/notes"]
+  sender_src -->|Link/notes only| ctx_sender_light["Context B (Sender, light)<br/>Quick: raw_text from link/notes"]
 
   %% Step 3: targets + search people
   ctx_sender_rich --> step3["Step 3: find targets"]
