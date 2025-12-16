@@ -157,6 +157,7 @@ def search_receiver():
             'profile': {
                 'name': scraped_info.name,
                 'field': scraped_info.field,
+                'raw_text': scraped_info.raw_text,
                 'education': scraped_info.education,
                 'experiences': scraped_info.experiences,
                 'skills': scraped_info.skills,
@@ -200,6 +201,7 @@ def api_generate_email():
             skills=receiver_data.get('skills', []),
             projects=receiver_data.get('projects', []),
             context=receiver_data.get('context', ''),
+            sources=receiver_data.get('sources', None),
         )
         
         # Get goal

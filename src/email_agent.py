@@ -363,8 +363,9 @@ def build_prompt(
     # Base system instruction
     system_content = (
         "You craft sincere, concise first-contact cold emails that help two people build a genuine connection. "
-        #"Use the provided sender and receiver details to highlight authentic overlaps and mutual value. "
-        "Use the sender and receiver details to explicitly surface genuine common ground and, above all, make clear what concrete value the sender can offer the receiver. "
+        "Use only facts present in the sender/receiver details or explicitly provided evidence; do not invent relationships, meetings, achievements, or affiliations. "
+        "If information is missing, keep it generic rather than guessing. "
+        "Follow this structure: Subject -> opening reason based on receiver evidence -> brief common ground -> value the sender can offer -> one clear ask (with time or a lightweight option) -> polite opt-out -> sign-off. "
         "Output a complete email with a Subject line and body that is ready to paste into an email client."
     )
 
@@ -396,6 +397,7 @@ def build_prompt(
         + "Receiver profile:\n"
         + f"- Name: {receiver.name}\n"
         + (f"- Context: {receiver.context}\n" if receiver.context else "")
+        + (f"- Sources: {', '.join(receiver.sources)}\n" if receiver.sources else "")
         + _format_section("Education", receiver.education)
         + _format_section("Experiences", receiver.experiences)
         + _format_section("Skills", receiver.skills)
@@ -817,18 +819,91 @@ Return JSON only."""
 def _build_sender_context(sender_profile: dict | None) -> str:
     if not sender_profile:
         return ""
-    return f"""
-Sender background:
-- Education: {', '.join(sender_profile.get('education', [])[:3]) or 'Not specified'}
-- Experience: {', '.join(sender_profile.get('experiences', [])[:3]) or 'Not specified'}
-- Skills: {', '.join(sender_profile.get('skills', [])[:5]) or 'Not specified'}
-"""
+
+    def _join_list(key: str, *, limit: int) -> str:
+        value = sender_profile.get(key) or []
+        if not isinstance(value, list):
+            return ""
+        cleaned = [
+            item.strip()
+            for item in value
+            if isinstance(item, str) and item.strip()
+        ]
+        return ", ".join(cleaned[:limit])
+
+    raw_text = str(sender_profile.get("raw_text") or "").strip()
+    if raw_text:
+        raw_text = " ".join(raw_text.split())
+        if len(raw_text) > 400:
+            raw_text = raw_text[:400].rstrip() + "..."
+
+    lines = [
+        "Sender background:",
+        f"- Education: {_join_list('education', limit=3) or 'Not specified'}",
+        f"- Experience: {_join_list('experiences', limit=3) or 'Not specified'}",
+        f"- Skills: {_join_list('skills', limit=6) or 'Not specified'}",
+        f"- Projects: {_join_list('projects', limit=3) or 'Not specified'}",
+    ]
+    if raw_text:
+        lines.append(f"- Summary: {raw_text}")
+
+    return "\n".join(lines) + "\n"
 
 
 def _build_preference_context(preferences: dict | None) -> str:
     if not preferences:
         return ""
-    pref_lines: list[str] = []
+
+    def _format_block(label: str, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            return ""
+        if "\n" not in cleaned:
+            return f"- {label}: {cleaned}"
+        indented = "\n".join(f"  {line.strip()}" for line in cleaned.splitlines() if line.strip())
+        return f"- {label}:\n{indented}"
+
+    contactability_map = {
+        "balanced": "balanced (relevance and reply likelihood)",
+        "reply": "prioritize likely to reply (more accessible)",
+        "prestige": "prioritize most senior/famous (prestige)",
+    }
+
+    pref_blocks: list[str] = []
+
+    track = preferences.get("track")
+    if isinstance(track, str) and track.strip():
+        pref_blocks.append(_format_block("Track", track))
+
+    search_intent = preferences.get("search_intent")
+    if isinstance(search_intent, str) and search_intent.strip():
+        pref_blocks.append(_format_block("Ideal target description", search_intent))
+
+    must_have = preferences.get("must_have")
+    if isinstance(must_have, str) and must_have.strip():
+        pref_blocks.append(_format_block("Must have keywords", must_have))
+
+    must_not = preferences.get("must_not")
+    if isinstance(must_not, str) and must_not.strip():
+        pref_blocks.append(_format_block("Must not keywords", must_not))
+
+    location = preferences.get("location")
+    if isinstance(location, str) and location.strip():
+        pref_blocks.append(_format_block("Location language timezone", location))
+
+    contactability = preferences.get("contactability")
+    if isinstance(contactability, str) and contactability.strip():
+        normalized = contactability_map.get(contactability.strip().lower(), contactability.strip())
+        pref_blocks.append(_format_block("Reply vs prestige preference", normalized))
+
+    examples = preferences.get("examples")
+    if isinstance(examples, str) and examples.strip():
+        pref_blocks.append(_format_block("Examples of ideal targets", examples))
+
+    evidence = preferences.get("evidence")
+    if isinstance(evidence, str) and evidence.strip():
+        pref_blocks.append(_format_block("Evidence links or snippets", evidence))
+
     pref_map = {
         "seniority": "Seniority target",
         "org_type": "Organization type",
@@ -839,10 +914,12 @@ def _build_preference_context(preferences: dict | None) -> str:
     for key, label in pref_map.items():
         value = preferences.get(key)
         if isinstance(value, str) and value.strip():
-            pref_lines.append(f"{label}: {value.strip()}")
-    if not pref_lines:
+            pref_blocks.append(_format_block(label, value))
+
+    pref_blocks = [block for block in pref_blocks if block]
+    if not pref_blocks:
         return ""
-    return "Additional targeting hints:\n" + "\n".join(f"- {line}" for line in pref_lines) + "\n"
+    return "Targeting preferences:\n" + "\n".join(pref_blocks) + "\n"
 
 
 def _build_recommendation_prompt(
@@ -860,7 +937,9 @@ def _build_recommendation_prompt(
     source_block = ""
     if include_web_section and web_text:
         source_block = f"\nUse the following web research snippets to ground your recommendations (cite sources when relevant):\n{web_text}"
-    sources_list = "\n".join(f"- {s}" for s in sources) if sources else ""
+    if include_web_section and sources:
+        sources_list = "\n".join(f"- {s}" for s in sources)
+        source_block = f"{source_block}\nKnown source URLs:\n{sources_list}"
 
     tool_hint = ""
     if require_tool_use:
@@ -884,12 +963,74 @@ Return a JSON object with key "recommendations" containing a list of {count} peo
 - match_score (integer 60-95)
 - match_reason (short string)
 - common_interests (short string)
-{"- sources (list of URLs) summarizing where this person appeared in web snippets" if include_web_section else ""}
+- evidence (list of 1-3 short strings; each should include a source URL and a grounded fact/snippet)
+- sources (list of URLs; can be empty only if you explicitly set uncertainty to high)
+- uncertainty (string: low, medium, or high, plus a short reason if needed)
 
-Focus on people who fit the purpose and preferences; prefer those visible in the web snippets. Be diverse and mix accessible profiles, not only famous leaders.
-If unsure about someone, omit them.
-Include source URLs when available.
+Return up to {count} people. Prefer candidates you can verify with evidence. If you cannot find at least one credible source URL for a person, either omit them or mark uncertainty as high and keep claims minimal.
+Rank candidates by: fit to purpose/field/preferences, likely contactability (if specified), and strength of evidence.
+Be diverse and mix accessible profiles, not only famous leaders.
 Return JSON only."""
+
+
+def _safe_int(value: Any, *, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_recommendations(items: Any) -> list[dict[str, Any]]:
+    if not isinstance(items, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        name = str(item.get("name", "") or "").strip()
+        if not name:
+            continue
+
+        position = str(item.get("position", "") or "").strip()
+        field = str(item.get("field", "") or "").strip()
+        match_reason = str(item.get("match_reason", "") or "").strip()
+        common_interests = str(item.get("common_interests", "") or "").strip()
+        uncertainty = str(item.get("uncertainty", "") or "").strip() or "medium"
+
+        match_score = _safe_int(item.get("match_score", 0), default=0)
+        match_score = max(0, min(match_score, 100))
+
+        sources_value = item.get("sources", [])
+        sources: list[str] = []
+        if isinstance(sources_value, list):
+            sources = [str(s).strip() for s in sources_value if isinstance(s, str) and s.strip()]
+        elif isinstance(sources_value, str) and sources_value.strip():
+            sources = [sources_value.strip()]
+
+        evidence_value = item.get("evidence", [])
+        evidence: list[str] = []
+        if isinstance(evidence_value, list):
+            evidence = [str(e).strip() for e in evidence_value if isinstance(e, str) and str(e).strip()]
+        elif isinstance(evidence_value, str) and evidence_value.strip():
+            evidence = [evidence_value.strip()]
+
+        normalized.append(
+            {
+                "name": name,
+                "position": position or field,
+                "field": field or position,
+                "match_score": match_score or 70,
+                "match_reason": match_reason,
+                "common_interests": common_interests,
+                "evidence": evidence,
+                "sources": sources,
+                "uncertainty": uncertainty,
+            }
+        )
+
+    return normalized
 
 
 def _gather_recommendation_web_context(
@@ -907,8 +1048,18 @@ def _gather_recommendation_web_context(
         from web_scraper import WebScraper  # type: ignore
 
     scraper = WebScraper()
-    query_name = field or purpose or "targets"
-    query_field = purpose or field or ""
+    preferences = preferences or {}
+
+    search_intent = str(preferences.get("search_intent") or "").strip()
+    must_have = str(preferences.get("must_have") or "").strip()
+    location = str(preferences.get("location") or "").strip()
+    seniority = str(preferences.get("seniority") or "").strip()
+    org_type = str(preferences.get("org_type") or "").strip()
+    track = str(preferences.get("track") or "").strip()
+
+    query_name = search_intent or field or purpose or "targets"
+    query_field_parts = [purpose, field, track, must_have, location, seniority, org_type]
+    query_field = " ".join(part.strip() for part in query_field_parts if isinstance(part, str) and part.strip())
 
     search_results = scraper.search_person(query_name, query_field, max_results=max_pages + 2)
     if not search_results:
@@ -984,11 +1135,13 @@ def find_target_recommendations(
                 "IMPORTANT: Use Google Search to find REAL people who are currently active in this field. "
                 "Search for recent faculty, researchers, professionals, or industry leaders. "
                 "Include their actual current positions and affiliations. "
+                "For each person, include evidence and source URLs from what you found. "
                 "Do not make up names - only include people you can verify through search."
             )
             content = _call_gemini_with_search(search_prompt, model=GEMINI_SEARCH_MODEL, json_mode=True)
-            recommendations = json.loads(content).get("recommendations", [])
-            recommendations.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+            raw_items = json.loads(content).get("recommendations", [])
+            recommendations = _normalize_recommendations(raw_items)
+            recommendations.sort(key=lambda x: _safe_int(x.get("match_score", 0), default=0), reverse=True)
             if recommendations:
                 print(f"Gemini Search found {len(recommendations)} recommendations")
                 return recommendations[:count]
@@ -1010,8 +1163,9 @@ def find_target_recommendations(
                 ),
                 model=RECOMMENDATION_MODEL,
             )
-            recommendations = json.loads(content).get("recommendations", [])
-            recommendations.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+            raw_items = json.loads(content).get("recommendations", [])
+            recommendations = _normalize_recommendations(raw_items)
+            recommendations.sort(key=lambda x: _safe_int(x.get("match_score", 0), default=0), reverse=True)
             if recommendations:
                 return recommendations[:count]
         except Exception as e:
@@ -1035,12 +1189,40 @@ def find_target_recommendations(
                 ),
                 model=RECOMMENDATION_MODEL,
             )
-            recommendations = json.loads(content).get("recommendations", [])
-            recommendations.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+            raw_items = json.loads(content).get("recommendations", [])
+            recommendations = _normalize_recommendations(raw_items)
+            recommendations.sort(key=lambda x: _safe_int(x.get("match_score", 0), default=0), reverse=True)
             if recommendations:
                 return recommendations[:count]
         except Exception as e:
             print(f"OpenAI recommendation (scrape fallback) error: {e}")
+
+    # Fallback 2: lightweight web scrape + Gemini (keeps evidence grounded even without Gemini Search)
+    try:
+        web_text, web_sources = _gather_recommendation_web_context(field, purpose, preferences, max_pages=1)
+        if web_text or web_sources:
+            content = _call_gemini(
+                _build_recommendation_prompt(
+                    purpose=purpose,
+                    field=field,
+                    profile_context=profile_context,
+                    pref_context=pref_context,
+                    count=count,
+                    web_text=web_text,
+                    sources=web_sources,
+                    include_web_section=True,
+                    require_tool_use=False,
+                ),
+                model=model,
+                json_mode=True,
+            )
+            raw_items = json.loads(content).get("recommendations", [])
+            recommendations = _normalize_recommendations(raw_items)
+            recommendations.sort(key=lambda x: _safe_int(x.get("match_score", 0), default=0), reverse=True)
+            if recommendations:
+                return recommendations[:count]
+    except Exception as e:
+        print(f"Gemini recommendation (scrape fallback) error: {e}")
 
     # Default: Gemini text-only generation (fast and reliable)
     prompt = _build_recommendation_prompt(
@@ -1056,8 +1238,9 @@ def find_target_recommendations(
     content = _call_gemini(prompt, model=model, json_mode=True)
     
     try:
-        recommendations = json.loads(content).get("recommendations", [])
-        recommendations.sort(key=lambda x: x.get('match_score', 0), reverse=True)
+        raw_items = json.loads(content).get("recommendations", [])
+        recommendations = _normalize_recommendations(raw_items)
+        recommendations.sort(key=lambda x: _safe_int(x.get("match_score", 0), default=0), reverse=True)
         if recommendations:
             return recommendations[:count]
     except json.JSONDecodeError:
@@ -1071,7 +1254,10 @@ def find_target_recommendations(
             "field": field,
             "match_score": 70,
             "match_reason": "Relevant to your field",
-            "common_interests": "Shared interest in " + field
+            "common_interests": "Shared interest in " + field,
+            "evidence": [],
+            "sources": [],
+            "uncertainty": "high: no sources available",
         }
     ]
 

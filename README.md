@@ -2,83 +2,89 @@
 
 An intelligent cold email generation tool with a step-by-step wizard interface.
 
-🌐 **Live Demo**: [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
-
 ## Workflow
 
 Workflow of the wizard UI (`templates/index_v2.html`) and backend APIs (`app.py`), focusing on when each piece of info is collected (top → bottom) and what each core call can use (dotted arrows):
 
 ```mermaid
 flowchart TD
-  start[Start] --> login[Login] --> mode{Mode}
+  start[Start] --> login[Login] --> mode{Select mode}
 
-  mode -->|Quick| step1_q[Step 1: choose purpose and field]
-  mode -->|Professional| pro_track[Professional: choose track] --> step1_p[Set default purpose and field]
+  mode --> quick_mode[Quick]
+  mode --> pro_mode[Professional]
 
-  step1_q --> info_purpose_field[[purpose + field]]
+  pro_mode --> pro_track_step[Choose track] --> info_track[[professional track]]
+
+  quick_mode --> step1_q[Step 1 choose purpose and field]
+  pro_track_step --> step1_p[Step 1 choose purpose and field]
+
+  step1_q --> info_purpose_field[[purpose and field]]
   step1_p --> info_purpose_field
 
-  info_purpose_field --> step2[Step 2: collect sender info]
-  step2 --> sender_src{Sender source}
+  info_purpose_field --> step2[Step 2 sender info]
+  step2 --> sender_src{Sender info source}
 
-  sender_src -->|Resume PDF| api_upload_sender[POST /api/upload-sender-pdf]
-  api_upload_sender --> info_sender_resume[[sender profile from resume]]
+  sender_src --> api_upload_sender[POST /api/upload-sender-pdf] --> info_sender_resume[[sender profile from resume]]
+  sender_src --> sender_q[Questionnaire] --> api_questions[POST /api/generate-questionnaire] --> info_sender_answers[[questionnaire answers]] --> api_build_sender[POST /api/profile-from-questionnaire] --> info_sender_qa[[sender profile from answers]]
+  sender_src --> sender_link_notes[Link and notes] --> info_sender_link_notes[[sender profile link and notes]]
 
-  sender_src -->|Questionnaire| api_questions[POST /api/generate-questionnaire OR /api/next-question]
-  api_questions --> info_sender_answers[[questionnaire answers]]
-  info_sender_answers --> api_build_sender[POST /api/profile-from-questionnaire]
-  api_build_sender --> info_sender_qa[[sender profile from answers]]
-
-  sender_src -->|Link and notes only| info_sender_notes[[sender notes only]]
-
-  info_sender_resume --> step3[Step 3: find targets]
+  info_sender_resume --> step3[Step 3 targets]
   info_sender_qa --> step3
-  info_sender_notes --> step3
+  info_sender_link_notes --> step3
 
   step3 --> target_src{Targets source}
-  target_src -->|Manual| info_manual_targets[[manual targets list]] --> selected_targets[[selected targets]]
 
-  target_src -->|Upload receiver doc| api_upload_receiver[POST /api/upload-receiver-doc]
-  api_upload_receiver --> info_receiver_doc[[receiver profile from document]]
-  info_receiver_doc --> selected_targets
+  target_src --> manual_targets[Manual targets] --> info_manual_targets[[manual targets list]] --> selected_targets[[selected targets]]
+  manual_targets --> info_target_link_notes[[target profile link and notes]] --> selected_targets
 
-  target_src -->|Recommendations| api_pref[POST /api/next-target-question]
-  api_pref --> info_target_prefs[[target preferences]]
-  info_target_prefs --> api_find_recs[POST /api/find-recommendations]
-  api_find_recs --> info_candidates[[candidate list with sources]] --> selected_targets
+  target_src --> upload_receiver_doc[Upload receiver doc] --> api_upload_receiver[POST /api/upload-receiver-doc] --> info_receiver_doc[[receiver profile from document]] --> selected_targets
 
-  selected_targets --> step4[Step 4: optional template] --> info_template[[template text]]
+  target_src --> recommend_targets[Recommendations] --> step3_prefs[Collect target preferences]
+  step3_prefs --> info_target_prefs[[target preferences from questions]]
+  step3_prefs --> info_targeting_details[[ideal target description keywords location reply vs prestige examples evidence]]
+  info_target_prefs --> api_find_recs[POST /api/find-recommendations] --> info_candidates[[candidate list with evidence and uncertainty]] --> selected_targets
 
-  info_template --> step5[Step 5: generate email per target]
-  step5 --> receiver_ready{Receiver profile ready?}
+  selected_targets --> step4[Step 4 email setup]
+  step4 --> info_email_instructions[[email goal ask value constraints hard rules evidence]]
+  step4 --> info_template[[template text]]
 
-  receiver_ready -->|Doc exists| info_receiver_doc --> api_generate_email[POST /api/generate-email]
-  receiver_ready -->|Need web| api_search_receiver[POST /api/search-receiver]
-  api_search_receiver --> info_receiver_web[[receiver profile from web with sources]]
-  info_receiver_web --> api_generate_email
+  info_email_instructions --> step5[Step 5 generate email]
+  info_template --> step5
+  info_target_link_notes --> step5
 
+  step5 --> receiver_ready{Receiver profile ready}
+  receiver_ready --> info_receiver_doc
+  receiver_ready --> api_search_receiver[POST /api/search-receiver] --> info_receiver_web[[receiver profile from web with sources]]
+
+  info_receiver_web --> api_generate_email[POST /api/generate-email]
+  info_receiver_doc --> api_generate_email
   api_generate_email --> info_email[[email output]]
 
-  %% What each core call uses (dotted arrows point to the call)
+  %% What each core call can use (dotted arrows point to the call)
   info_purpose_field -.-> api_find_recs
+  info_track -.-> api_find_recs
   info_sender_resume -.-> api_find_recs
   info_sender_qa -.-> api_find_recs
-  info_sender_notes -.-> api_find_recs
+  info_sender_link_notes -.-> api_find_recs
   info_target_prefs -.-> api_find_recs
+  info_targeting_details -.-> api_find_recs
 
   info_purpose_field -.-> api_generate_email
   info_sender_resume -.-> api_generate_email
   info_sender_qa -.-> api_generate_email
-  info_sender_notes -.-> api_generate_email
+  info_sender_link_notes -.-> api_generate_email
+  info_target_link_notes -.-> api_generate_email
   info_receiver_doc -.-> api_generate_email
   info_receiver_web -.-> api_generate_email
+  info_email_instructions -.-> api_generate_email
   info_template -.-> api_generate_email
 ```
 
 Quick reading:
-- Search people (`POST /api/find-recommendations`): uses boxes `purpose + field`, one of (`sender profile from resume` | `sender profile from answers` | `sender notes only`), plus `target preferences` (if provided).
-- Generate email (`POST /api/generate-email`): uses boxes `purpose + field`, sender info (same), receiver profile (`receiver profile from document` or `receiver profile from web with sources`), plus optional `template text`.
-- Info richness (roughly): resume/doc uploads > questionnaire/web enrichment > link/notes only.
+- Search people (`POST /api/find-recommendations`): uses boxes `purpose and field`, optional `professional track`, sender info (`sender profile from resume` or `sender profile from answers` or `sender profile link and notes`), plus targeting inputs (`target preferences from questions` and optional `ideal target description keywords location reply vs prestige examples evidence`).
+- Generate email (`POST /api/generate-email`): uses boxes `purpose and field`, sender info, receiver profile (`receiver profile from document` or `receiver profile from web with sources`), plus optional `target profile link and notes`, `email goal ask value constraints hard rules evidence`, and `template text`.
+
+🌐 **Live Demo**: [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
 
 ## Features
 

@@ -1,5 +1,15 @@
 # Development Log
 
+## 2025-12-16: Context Expansion (Targeting + Email)
+
+- Step 3: added optional structured targeting inputs (ideal target description, must-have/must-not keywords, location, reply vs prestige, examples, evidence) for both Quick and Professional, and passed them into `preferences` for `POST /api/find-recommendations`.
+- Recommendations: updated prompt + normalization so each candidate can include `evidence`, `sources`, and `uncertainty` (and the UI modal now surfaces them).
+- Step 4: added optional email instruction inputs (goal, ask, value, constraints, hard rules, evidence) and fed them into generation (goal/ask fields + sender free-text) to reduce hallucinations.
+- Receiver enrichment: `POST /api/search-receiver` now returns `raw_text`, and `POST /api/generate-email` preserves receiver `sources` so the email prompt can cite verifiable info.
+- Updated `README.md` workflow diagram to show the time order of info collection and what each core API call can use.
+
+Files: `templates/index_v2.html`, `src/email_agent.py`, `app.py`, `README.md`
+
 ## 2025-12-13: UI Polish (Apple-like Visual Refresh)
 
 - Updated `templates/index_v2.html` styling to a lighter, glassy “Apple-like” look (subtle gradients, soft borders/shadows, blue accent).

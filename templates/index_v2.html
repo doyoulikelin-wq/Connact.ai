@@ -1381,6 +1381,47 @@
                 <span class="icon">🤖</span>
                 <strong>AI-Powered:</strong> Based on your resume and these preferences, we'll find highly relevant targets in <span id="pref-track-display">your field</span>.
             </div>
+
+            <!-- Optional: structured targeting context -->
+            <div class="form-group" style="margin-top: 10px;">
+                <button class="btn btn-secondary btn-icon" id="btn-toggle-pro-target-advanced" type="button">
+                    ⚙️ Add more targeting details (optional)
+                </button>
+            </div>
+            <div class="hidden" id="pro-target-advanced">
+                <div class="form-group">
+                    <label>What kind of people are you trying to reach? (role/org/subfield)</label>
+                    <textarea id="pro-target-search-intent" rows="3" placeholder="Describe the ideal target in one or two sentences..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Must-have keywords (comma-separated)</label>
+                    <input type="text" id="pro-target-must-have" placeholder="e.g., IB analyst, buy-side, LLM, NLP">
+                </div>
+                <div class="form-group">
+                    <label>Must-not keywords (comma-separated)</label>
+                    <input type="text" id="pro-target-must-not" placeholder="e.g., crypto, web3">
+                </div>
+                <div class="form-group">
+                    <label>Location / language / timezone (optional)</label>
+                    <input type="text" id="pro-target-location" placeholder="e.g., UK, English, GMT">
+                </div>
+                <div class="form-group">
+                    <label>Preference: reply likelihood vs prestige</label>
+                    <div class="choice-buttons" id="pro-target-contactability">
+                        <button class="choice-btn" data-value="balanced" type="button">⚖️ Balanced</button>
+                        <button class="choice-btn" data-value="reply" type="button">📩 More likely to reply</button>
+                        <button class="choice-btn" data-value="prestige" type="button">🏆 Most senior/famous</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Examples of ideal targets (optional)</label>
+                    <textarea id="pro-target-examples" rows="3" placeholder="One per line (names or orgs)..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Evidence links or snippets (optional)</label>
+                    <textarea id="pro-target-evidence" rows="3" placeholder="URLs or short snippets to ground the search..."></textarea>
+                </div>
+            </div>
             
             <div id="pro-preference-questions">
                 <!-- Dynamic preference questions will be loaded here -->
@@ -1573,6 +1614,53 @@
                 <div class="notice" style="margin-bottom: 12px;">
                     <span class="icon">💡</span> Tell us what to look for and we'll propose great targets.
                 </div>
+
+                <!-- Optional: structured targeting context -->
+                <div class="form-group" style="margin-top: 10px;">
+                    <button class="btn btn-secondary btn-icon" id="btn-toggle-target-advanced" type="button">
+                        ⚙️ Add more targeting details (optional)
+                    </button>
+                </div>
+                <div class="hidden" id="target-advanced">
+                    <div class="form-group">
+                        <label>What kind of people are you trying to reach? (role/org/subfield)</label>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                            Examples: "Assistant professor in NLP", "startup PM in healthcare", "VC associate investing in devtools".
+                        </p>
+                        <textarea id="target-search-intent" rows="3" placeholder="Describe the ideal target in one or two sentences..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Must-have keywords (comma-separated)</label>
+                        <input type="text" id="target-must-have" placeholder="e.g., LLM, retrieval, healthcare">
+                    </div>
+                    <div class="form-group">
+                        <label>Must-not keywords (comma-separated)</label>
+                        <input type="text" id="target-must-not" placeholder="e.g., crypto, web3">
+                    </div>
+                    <div class="form-group">
+                        <label>Location / language / timezone (optional)</label>
+                        <input type="text" id="target-location" placeholder="e.g., US, English, PST">
+                    </div>
+                    <div class="form-group">
+                        <label>Preference: reply likelihood vs prestige</label>
+                        <div class="choice-buttons" id="target-contactability">
+                            <button class="choice-btn" data-value="balanced" type="button">⚖️ Balanced</button>
+                            <button class="choice-btn" data-value="reply" type="button">📩 More likely to reply</button>
+                            <button class="choice-btn" data-value="prestige" type="button">🏆 Most senior/famous</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Examples of ideal targets (optional)</label>
+                        <textarea id="target-examples" rows="3" placeholder="One per line (names or orgs)..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Evidence links or snippets (optional)</label>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                            Paste any URLs/snippets you want the recommender to use as evidence. Avoid anything uncertain.
+                        </p>
+                        <textarea id="target-evidence" rows="3" placeholder="URLs or short snippets to ground the search..."></textarea>
+                    </div>
+                </div>
                 <!-- Interactive target preference questionnaire -->
                 <div class="questionnaire" id="target-questionnaire">
                     <h3 style="margin-bottom: 12px; color: #333;">Refine your ideal targets</h3>
@@ -1711,6 +1799,39 @@ Hi {{receiver_name}},
 I&apos;m {{sender_name}}, currently ...
 
 ..."></textarea>
+            </div>
+
+            <!-- Optional: email goal / ask / constraints -->
+            <div class="notice" style="margin-top: 16px;">
+                <span class="icon">✅</span>
+                Optional but recommended: add a clear ask + what you can offer. This makes the email specific and reduces invented details.
+            </div>
+            <div class="form-group">
+                <label>Goal for this email (optional)</label>
+                <input type="text" id="email-goal" placeholder="e.g., Request a 15–20 min chat next week">
+            </div>
+            <div class="form-group">
+                <label>Your request (one clear ask)</label>
+                <textarea id="email-ask" rows="2" placeholder="e.g., Would you be open to a 15–20 min chat? I’m free Tue/Thu afternoon (PST)."></textarea>
+            </div>
+            <div class="form-group">
+                <label>What value can you offer them? (recommended)</label>
+                <textarea id="email-value" rows="3" placeholder="e.g., I can share X, help with Y, contribute Z..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Constraints (tone / length / language) (optional)</label>
+                <input type="text" id="email-constraints" placeholder="e.g., concise, friendly, English, under 180 words">
+            </div>
+            <div class="form-group">
+                <label>Hard rules / do not mention (optional)</label>
+                <textarea id="email-taboos" rows="2" placeholder="e.g., Don’t claim we met; avoid flattery; don’t mention company X."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Evidence you want the email to cite (optional)</label>
+                <p style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                    Paste links or short snippets you’re confident are true. The model should not invent facts beyond these.
+                </p>
+                <textarea id="email-evidence" rows="3" placeholder="URLs or snippets to cite..."></textarea>
             </div>
 
             <div class="btn-group">
@@ -1889,6 +2010,18 @@ I&apos;m {{sender_name}}, currently ...
                 <h4>💡 Why This Match</h4>
                 <p id="modal-match-reason">-</p>
             </div>
+            <div class="profile-section">
+                <h4>🔎 Evidence</h4>
+                <ul id="modal-evidence"><li>-</li></ul>
+            </div>
+            <div class="profile-section">
+                <h4>🔗 Sources</h4>
+                <ul id="modal-sources"><li>-</li></ul>
+            </div>
+            <div class="profile-section">
+                <h4>⚠️ Uncertainty</h4>
+                <p id="modal-uncertainty">-</p>
+            </div>
             <div class="btn-group" style="justify-content: center;">
                 <button class="btn btn-primary" onclick="selectFromModal()">✅ Select This Target</button>
             </div>
@@ -1931,6 +2064,21 @@ I&apos;m {{sender_name}}, currently ...
             senderProfileExtra: '',
             targetProfileLink: '',
             targetProfileExtra: '',
+            // Optional targeting context (Step 3 / Professional preferences)
+            targetSearchIntent: '',
+            targetMustHave: '',
+            targetMustNot: '',
+            targetLocation: '',
+            targetExamples: '',
+            targetEvidence: '',
+            targetContactability: 'balanced', // balanced | reply | prestige
+            // Optional email context (Step 4)
+            emailGoal: '',
+            emailAsk: '',
+            emailValue: '',
+            emailConstraints: '',
+            emailTaboos: '',
+            emailEvidence: '',
             targetPreferenceHistory: [],
             generationMode: null,  // 'smart' or 'template'
             regenerateStyle: null,
@@ -1989,6 +2137,19 @@ I&apos;m {{sender_name}}, currently ...
                 senderProfileExtra: '',
                 targetProfileLink: '',
                 targetProfileExtra: '',
+                targetSearchIntent: '',
+                targetMustHave: '',
+                targetMustNot: '',
+                targetLocation: '',
+                targetExamples: '',
+                targetEvidence: '',
+                targetContactability: 'balanced',
+                emailGoal: '',
+                emailAsk: '',
+                emailValue: '',
+                emailConstraints: '',
+                emailTaboos: '',
+                emailEvidence: '',
                 targetPreferenceHistory: [],
                 generationMode: null,
                 regenerateStyle: null,
@@ -2038,11 +2199,15 @@ I&apos;m {{sender_name}}, currently ...
                 if (el) el.classList.remove('visible');
             });
 
-            ['resume-upload-section', 'resume-success', 'quick-start-notice', 'target-preferences', 'manual-target-section', 'recommendation-section', 'email-nav', 'email-result', 'target-doc-success']
+            ['resume-upload-section', 'resume-success', 'quick-start-notice', 'target-preferences', 'target-advanced', 'manual-target-section', 'recommendation-section', 'email-nav', 'email-result', 'target-doc-success', 'pro-target-advanced']
                 .forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.classList.add('hidden');
                 });
+            const targetAdvBtn = document.getElementById('btn-toggle-target-advanced');
+            if (targetAdvBtn) targetAdvBtn.textContent = '⚙️ Add more targeting details (optional)';
+            const proTargetAdvBtn = document.getElementById('btn-toggle-pro-target-advanced');
+            if (proTargetAdvBtn) proTargetAdvBtn.textContent = '⚙️ Add more targeting details (optional)';
 
             ['target-questionnaire', 'questionnaire-section'].forEach(id => {
                 const el = document.getElementById(id);
@@ -2235,6 +2400,8 @@ I&apos;m {{sender_name}}, currently ...
             setupChoiceButtons();
             setupFileUpload();
             setupProfileLinkInputs();
+            setupTargetingContextInputs();
+            setupEmailContextInputs();
             setupNavigationButtons();
             setupQuickStartQuestionPrompt();
             setupQuickStartOnboarding();
@@ -2688,7 +2855,14 @@ I&apos;m {{sender_name}}, currently ...
                         sender_profile: state.senderProfile,
                         preferences: {
                             track: state.proTrack,
-                            extra: prefExtra
+                            extra: prefExtra,
+                            search_intent: (state.targetSearchIntent || '').trim(),
+                            must_have: (state.targetMustHave || '').trim(),
+                            must_not: (state.targetMustNot || '').trim(),
+                            location: (state.targetLocation || '').trim(),
+                            contactability: (state.targetContactability || 'balanced').trim(),
+                            examples: (state.targetExamples || '').trim(),
+                            evidence: (state.targetEvidence || '').trim(),
                         }
                     })
                 });
@@ -2984,12 +3158,15 @@ I&apos;m {{sender_name}}, currently ...
             document.getElementById('modal-position').textContent = rec.position || rec.field || '-';
             document.getElementById('modal-match-score').innerHTML = `<span style="color: ${rec.match_score >= 80 ? '#28a745' : rec.match_score >= 60 ? '#ffc107' : '#dc3545'}; font-weight: bold;">${rec.match_score}%</span> compatibility`;
             document.getElementById('modal-match-reason').textContent = rec.match_reason || '-';
+            document.getElementById('modal-uncertainty').textContent = rec.uncertainty || '-';
             
             // Show education, experience, skills, projects if available (fetched profile)
             const eduList = document.getElementById('modal-education');
             const expList = document.getElementById('modal-experience');
             const skillList = document.getElementById('modal-skills');
             const projList = document.getElementById('modal-projects');
+            const evidenceList = document.getElementById('modal-evidence');
+            const sourcesList = document.getElementById('modal-sources');
             
             if (rec.education && rec.education.length) {
                 eduList.innerHTML = rec.education.map(e => `<li>${e}</li>`).join('');
@@ -3013,6 +3190,51 @@ I&apos;m {{sender_name}}, currently ...
                 projList.innerHTML = rec.projects.map(p => `<li>${p}</li>`).join('');
             } else {
                 projList.innerHTML = '<li style="color: #999;">Will be fetched when generating email</li>';
+            }
+
+            evidenceList.innerHTML = '';
+            if (Array.isArray(rec.evidence) && rec.evidence.length) {
+                rec.evidence.forEach(e => {
+                    const li = document.createElement('li');
+                    li.textContent = String(e || '');
+                    evidenceList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.style.color = '#999';
+                li.textContent = 'No evidence provided';
+                evidenceList.appendChild(li);
+            }
+
+            sourcesList.innerHTML = '';
+            if (Array.isArray(rec.sources) && rec.sources.length) {
+                const urls = rec.sources.map(u => String(u || '').trim()).filter(Boolean);
+                if (urls.length) {
+                    urls.forEach(url => {
+                        const li = document.createElement('li');
+                        if (/^https?:\\/\\//i.test(url)) {
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.target = '_blank';
+                            a.rel = 'noopener noreferrer';
+                            a.textContent = url;
+                            li.appendChild(a);
+                        } else {
+                            li.textContent = url;
+                        }
+                        sourcesList.appendChild(li);
+                    });
+                } else {
+                    const li = document.createElement('li');
+                    li.style.color = '#999';
+                    li.textContent = 'No sources';
+                    sourcesList.appendChild(li);
+                }
+            } else {
+                const li = document.createElement('li');
+                li.style.color = '#999';
+                li.textContent = 'No sources';
+                sourcesList.appendChild(li);
             }
             
             document.getElementById('profile-modal').classList.add('visible');
@@ -3616,7 +3838,14 @@ I&apos;m {{sender_name}}, currently ...
                         field: fieldText,
                         sender_profile: state.senderProfile,
                         preferences: {
-                            extra: prefExtra
+                            extra: prefExtra,
+                            search_intent: (state.targetSearchIntent || '').trim(),
+                            must_have: (state.targetMustHave || '').trim(),
+                            must_not: (state.targetMustNot || '').trim(),
+                            location: (state.targetLocation || '').trim(),
+                            contactability: (state.targetContactability || 'balanced').trim(),
+                            examples: (state.targetExamples || '').trim(),
+                            evidence: (state.targetEvidence || '').trim(),
                         }
                     })
                 });
@@ -4053,6 +4282,23 @@ I&apos;m {{sender_name}}, currently ...
                         senderRawText += `\n\nAdditional profile notes:\n${senderExtra}`;
                     }
 
+                    const emailValue = (state.emailValue || '').trim();
+                    const emailConstraints = (state.emailConstraints || '').trim();
+                    const emailTaboos = (state.emailTaboos || '').trim();
+                    const emailEvidence = (state.emailEvidence || '').trim();
+                    if (emailValue) {
+                        senderRawText += `\n\nValue I can offer:\n${emailValue}`;
+                    }
+                    if (emailConstraints) {
+                        senderRawText += `\n\nEmail constraints:\n${emailConstraints}`;
+                    }
+                    if (emailTaboos) {
+                        senderRawText += `\n\nHard rules (do not mention / do not invent):\n${emailTaboos}`;
+                    }
+                    if (emailEvidence) {
+                        senderRawText += `\n\nEvidence you may cite:\n${emailEvidence}`;
+                    }
+
                     let receiverRawText = receiverProfile.raw_text || '';
                     const targetLink = (state.targetProfileLink || '').trim();
                     const targetExtra = (state.targetProfileExtra || '').trim();
@@ -4065,15 +4311,18 @@ I&apos;m {{sender_name}}, currently ...
                     receiverProfile.raw_text = receiverRawText;
 
                     // Generate email
+                    const goalText = (state.emailGoal || '').trim() || getPurposeText();
+                    const askText = (state.emailAsk || '').trim()
+                        || `I am looking to ${getPurposeText().toLowerCase()} in ${getFieldText()}`;
                     const bodyPayload = {
                         sender: {
                             ...state.senderProfile,
                             raw_text: senderRawText,
                             motivation: getPurposeText(),
-                            ask: `I am looking to ${getPurposeText().toLowerCase()} in ${getFieldText()}`
+                            ask: askText
                         },
                         receiver: receiverProfile,
-                        goal: getPurposeText()
+                        goal: goalText
                     };
 
                     if (state.generationMode === 'template' && templateText) {
@@ -4200,6 +4449,86 @@ I&apos;m {{sender_name}}, currently ...
                     state.targetProfileExtra = this.value;
                 });
             }
+        }
+
+        function setupTargetingContextInputs() {
+            function setupToggle(toggleId, panelId) {
+                const toggleBtn = document.getElementById(toggleId);
+                const panel = document.getElementById(panelId);
+                if (!toggleBtn || !panel) return;
+                toggleBtn.addEventListener('click', function() {
+                    const willShow = panel.classList.contains('hidden');
+                    panel.classList.toggle('hidden');
+                    toggleBtn.textContent = willShow
+                        ? '✖ Hide targeting details'
+                        : '⚙️ Add more targeting details (optional)';
+                });
+            }
+
+            function bindInput(id, setter) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('input', function() {
+                    setter(String(el.value || ''));
+                });
+            }
+
+            function setupContactability(containerId) {
+                const container = document.getElementById(containerId);
+                if (!container) return;
+                const buttons = Array.from(container.querySelectorAll('.choice-btn'));
+                if (!buttons.length) return;
+
+                function select(value) {
+                    state.targetContactability = value;
+                    buttons.forEach(b => b.classList.toggle('selected', b.dataset.value === value));
+                }
+
+                buttons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        select(String(btn.dataset.value || 'balanced'));
+                    });
+                });
+
+                select(state.targetContactability || 'balanced');
+            }
+
+            setupToggle('btn-toggle-target-advanced', 'target-advanced');
+            setupToggle('btn-toggle-pro-target-advanced', 'pro-target-advanced');
+
+            bindInput('target-search-intent', (v) => { state.targetSearchIntent = v; });
+            bindInput('target-must-have', (v) => { state.targetMustHave = v; });
+            bindInput('target-must-not', (v) => { state.targetMustNot = v; });
+            bindInput('target-location', (v) => { state.targetLocation = v; });
+            bindInput('target-examples', (v) => { state.targetExamples = v; });
+            bindInput('target-evidence', (v) => { state.targetEvidence = v; });
+
+            bindInput('pro-target-search-intent', (v) => { state.targetSearchIntent = v; });
+            bindInput('pro-target-must-have', (v) => { state.targetMustHave = v; });
+            bindInput('pro-target-must-not', (v) => { state.targetMustNot = v; });
+            bindInput('pro-target-location', (v) => { state.targetLocation = v; });
+            bindInput('pro-target-examples', (v) => { state.targetExamples = v; });
+            bindInput('pro-target-evidence', (v) => { state.targetEvidence = v; });
+
+            setupContactability('target-contactability');
+            setupContactability('pro-target-contactability');
+        }
+
+        function setupEmailContextInputs() {
+            function bind(id, key) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.addEventListener('input', function() {
+                    state[key] = String(el.value || '');
+                });
+            }
+
+            bind('email-goal', 'emailGoal');
+            bind('email-ask', 'emailAsk');
+            bind('email-value', 'emailValue');
+            bind('email-constraints', 'emailConstraints');
+            bind('email-taboos', 'emailTaboos');
+            bind('email-evidence', 'emailEvidence');
         }
 
         // Setup generation mode (smart vs template)
