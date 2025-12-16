@@ -12,80 +12,59 @@ Workflow of the wizard UI (`templates/index_v2.html`) and backend APIs (`app.py`
 flowchart TD
   start([Start]) --> login["Login: /login"] --> mode{Mode}
 
-  %% Step 1: intent info
-  mode -->|Quick Start| qs_step1["Step 1 - Quick: set intent<br/>pick purpose + field"]
-  mode -->|Professional| pro_track["Pro: select track<br/>finance / academic"] --> pro_intent["Auto: set purpose + field defaults"]
-  qs_step1 --> ctx_intent["Purpose + field<br/>used for target search and email goal"]
-  pro_intent --> ctx_intent
+  mode -->|Quick Start| s1_quick["Step 1: pick purpose and field"]
+  mode -->|Professional| pro_track["Professional: pick track"] --> pro_defaults["Auto: set purpose and field defaults"]
+  s1_quick --> intent["Collected: purpose and field"]
+  pro_defaults --> intent
 
-  %% Step 2: sender info
-  ctx_intent --> step2["Step 2: collect sender info"]
-  step2 --> sender_src{Sender source}
+  intent --> s2["Step 2: collect sender info"]
+  s2 --> sender_src{Sender source}
 
-  sender_src -->|Resume PDF| sender_pdf["Resume PDF<br/>Pro required / Quick optional<br/>POST /api/upload-sender-pdf"]
-  sender_pdf --> ctx_sender_rich["Sender profile - resume parsed<br/>name/edu/exp/skills/projects/raw_text<br/>plus optional link/notes"]
+  sender_src -->|Resume PDF| api_sender_pdf["POST /api/upload-sender-pdf"] --> sender_resume["Collected: sender profile from resume + optional link/notes"]
 
-  sender_src -->|Questionnaire| q_questions["Questionnaire<br/>Quick fallback<br/>POST /api/generate-questionnaire OR /api/next-question"]
-  q_questions --> q_answers["User answers<br/>stored in UI"]
-  q_answers --> q_build["POST /api/profile-from-questionnaire"]
-  q_build --> ctx_sender_mid["Sender profile - from questionnaire<br/>profile inferred from answers"]
+  sender_src -->|Questionnaire| api_q["POST /api/generate-questionnaire OR /api/next-question"]
+  api_q --> answers["Collected: questionnaire answers"]
+  answers --> api_build["POST /api/profile-from-questionnaire"] --> sender_qa["Collected: sender profile from answers"]
 
-  sender_src -->|Link/notes only| ctx_sender_light["Sender notes only<br/>Quick: raw_text from link and notes"]
+  sender_src -->|Link and notes only| sender_notes["Collected: sender notes only"]
 
-  %% Step 3: targets + search people
-  ctx_sender_rich --> step3["Step 3: find targets"]
-  ctx_sender_mid --> step3
-  ctx_sender_light --> step3
-  step3 --> targets_src{How to get targets?}
+  sender_resume --> s3["Step 3: find targets"]
+  sender_qa --> s3
+  sender_notes --> s3
 
-  targets_src -->|Manual list| manual_targets["Manual targets<br/>name + field"] --> selected["Selected targets"]
-  targets_src -->|Upload receiver doc| upload_doc["POST /api/upload-receiver-doc"] --> ctx_receiver_doc["Receiver profile - from document<br/>parsed from PDF, TXT, or MD"] --> selected
+  s3 --> target_src{Targets source}
+  target_src -->|Manual| manual_targets["Manual targets: name and field"] --> selected["Selected targets"]
+  target_src -->|Upload receiver doc| api_receiver_doc["POST /api/upload-receiver-doc"] --> receiver_doc["Collected: receiver profile from document"] --> selected
 
-  targets_src -->|AI recommendations| pref_q["Preference Q&A optional<br/>POST /api/next-target-question"]
-  pref_q --> ctx_prefs["Target preferences<br/>Q&A transcript and filters"]
-  ctx_prefs --> rec_call["Search people: POST /api/find-recommendations<br/>Gemini Search grounding default"]
-  rec_call --> rec_list["Candidate list<br/>name + position + match_score + reason<br/>sources when available"] --> selected
+  target_src -->|AI recommendations| api_pref["POST /api/next-target-question"]
+  api_pref --> prefs["Collected: targeting preferences"]
+  prefs --> api_recs["Search people: POST /api/find-recommendations"] --> candidates["Candidates list + sources when available"] --> selected
 
-  %% Step 4: template
-  selected --> step4["Step 4: template optional"] --> ctx_template["Email template text<br/>optional"]
+  selected --> s4["Step 4: optional template"] --> template["Collected: template text if provided"]
 
-  %% Step 5: generate email per target
-  ctx_template --> step5["Step 5: generate emails per target"]
-  step5 --> receiver_ready{Receiver info ready?}
-  receiver_ready -->|Already have doc profile| ctx_receiver_doc --> gen_call["Generate email: POST /api/generate-email<br/>template optional"]
-  receiver_ready -->|Need enrichment| search_receiver["POST /api/search-receiver<br/>uses name + field"] --> ctx_receiver_web["Receiver profile - web enriched<br/>from /api/search-receiver plus sources<br/>plus optional link and notes"] --> gen_call
+  template --> s5["Step 5: generate email per target"]
+  s5 --> receiver_ready{Receiver info ready?}
+  receiver_ready -->|Doc profile exists| receiver_doc --> api_gen["Generate email: POST /api/generate-email"]
+  receiver_ready -->|Need enrichment| api_search["POST /api/search-receiver"] --> receiver_web["Collected: receiver profile from web + sources"] --> api_gen
 
-  gen_call --> email_out["Email output<br/>Subject + body"] --> rewrite{Rewrite style?}
-  rewrite -->|Yes| regen_api["POST /api/regenerate-email"] --> email_out
+  api_gen --> email["Email output"] --> rewrite{Rewrite?}
+  rewrite -->|Yes| api_regen["POST /api/regenerate-email"] --> email
   rewrite -->|No| done([Done])
 
   %% Inputs used by core calls (dotted)
-  ctx_intent -.-> rec_call
-  ctx_sender_rich -.-> rec_call
-  ctx_sender_mid -.-> rec_call
-  ctx_sender_light -.-> rec_call
-  ctx_prefs -.-> rec_call
+  intent -.-> api_recs
+  sender_resume -.-> api_recs
+  sender_qa -.-> api_recs
+  sender_notes -.-> api_recs
+  prefs -.-> api_recs
 
-  ctx_intent -.-> gen_call
-  ctx_sender_rich -.-> gen_call
-  ctx_sender_mid -.-> gen_call
-  ctx_sender_light -.-> gen_call
-  ctx_receiver_doc -.-> gen_call
-  ctx_receiver_web -.-> gen_call
-  ctx_template -.-> gen_call
-
-  %% Styling
-  classDef ctx fill:#f6f8fa,stroke:#57606a,color:#24292f;
-  classDef api fill:#ddf4ff,stroke:#0969da,color:#0b3d91;
-  classDef step fill:#fff8c5,stroke:#9a6700,color:#24292f;
-  classDef choice fill:#ffebe9,stroke:#cf222e,color:#24292f;
-  classDef out fill:#dafbe1,stroke:#1a7f37,color:#24292f;
-
-  class ctx_intent,ctx_sender_rich,ctx_sender_mid,ctx_sender_light,ctx_prefs,ctx_receiver_doc,ctx_receiver_web,ctx_template ctx;
-  class sender_pdf,q_questions,q_build,upload_doc,pref_q,rec_call,search_receiver,gen_call,regen_api api;
-  class qs_step1,pro_track,pro_intent,step2,step3,step4,step5,q_answers step;
-  class mode,sender_src,targets_src,receiver_ready,rewrite choice;
-  class selected,rec_list,email_out out;
+  intent -.-> api_gen
+  sender_resume -.-> api_gen
+  sender_qa -.-> api_gen
+  sender_notes -.-> api_gen
+  receiver_doc -.-> api_gen
+  receiver_web -.-> api_gen
+  template -.-> api_gen
 ```
 
 Quick reading:
