@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Finance benchmark case (v0)",
+  "type": "object",
+  "required": ["id", "domain", "input", "expected"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "domain": { "type": "string", "const": "finance" },
+    "track": { "type": "string" },
+    "created_at": { "type": "string" },
+    "source": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["synthetic", "survey", "interview", "support_ticket", "internal"]
+        },
+        "source_id": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "input": {
+      "type": "object",
+      "required": ["find_recommendations_request", "generate_email_request"],
+      "properties": {
+        "find_recommendations_request": {
+          "type": "object",
+          "required": ["purpose", "field"],
+          "properties": {
+            "purpose": { "type": "string", "minLength": 1 },
+            "field": { "type": "string", "minLength": 1 },
+            "sender_profile": { "type": "object" },
+            "preferences": { "type": "object" }
+          },
+          "additionalProperties": true
+        },
+        "benchmark_context": {
+          "type": "object",
+          "properties": {
+            "candidate_pool": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/candidate" }
+            },
+            "notes": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "generate_email_request": { "$ref": "#/$defs/generateEmailRequest" }
+      },
+      "additionalProperties": false
+    },
+    "expected": {
+      "type": "object",
+      "required": ["generate_email"],
+      "properties": {
+        "find_recommendations": {
+          "type": "object",
+          "properties": {
+            "k": { "type": "integer", "minimum": 1 },
+            "must_include_candidate_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "must_exclude_candidate_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "reference_ranking_candidate_ids": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "notes": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "generate_email": {
+          "type": "object",
+          "required": ["assertions"],
+          "properties": {
+            "reference": { "$ref": "#/$defs/emailReference" },
+            "assertions": { "$ref": "#/$defs/emailAssertions" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "evidenceSnippet": {
+      "type": "object",
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "text": { "type": "string", "minLength": 1 },
+        "url": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["candidate_id", "name"],
+      "properties": {
+        "candidate_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "position": { "type": "string" },
+        "field": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidence_snippets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceSnippet" }
+        },
+        "notes": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "profileBase": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "raw_text": { "type": "string" },
+        "education": { "type": "array", "items": { "type": "string" } },
+        "experiences": { "type": "array", "items": { "type": "string" } },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "projects": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "senderProfile": {
+      "allOf": [
+        { "$ref": "#/$defs/profileBase" },
+        {
+          "type": "object",
+          "properties": {
+            "motivation": { "type": "string" },
+            "ask": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "receiverProfile": {
+      "allOf": [
+        { "$ref": "#/$defs/profileBase" },
+        {
+          "type": "object",
+          "properties": {
+            "context": { "type": "string" },
+            "sources": {
+              "anyOf": [
+                { "type": "array", "items": { "type": "string" } },
+                { "type": "null" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "generateEmailRequest": {
+      "type": "object",
+      "required": ["sender", "receiver", "goal"],
+      "properties": {
+        "sender": { "$ref": "#/$defs/senderProfile" },
+        "receiver": { "$ref": "#/$defs/receiverProfile" },
+        "goal": { "type": "string", "minLength": 1 },
+        "template": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+      },
+      "additionalProperties": true
+    },
+    "emailReference": {
+      "type": "object",
+      "properties": {
+        "subject": { "type": "string" },
+        "body_lines": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "emailAssertions": {
+      "type": "object",
+      "required": ["language", "max_words", "required_elements"],
+      "properties": {
+        "language": { "type": "string", "enum": ["en", "zh", "mixed"] },
+        "max_words": { "type": "integer", "minimum": 20 },
+        "must_include_phrases": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "forbidden_phrases": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_elements": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["subject_line", "why_them", "value", "clear_ask", "opt_out"]
+          }
+        },
+        "compliance": {
+          "type": "object",
+          "properties": {
+            "forbid_investment_advice": { "type": "boolean" },
+            "forbid_return_promises": { "type": "boolean" },
+            "forbid_insider_info": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
+

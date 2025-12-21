@@ -1,5 +1,12 @@
 # Development Log
 
+## 2025-12-20: Finance Benchmark Starter Pack (v0)
+
+- Added a finance-focused benchmark starter kit: schema, 10 synthetic cases (format demo), rubric, anonymization/labeling template, and a marketing research + survey template.
+- Goal: make “find people” and “generate email” evaluation more reproducible (expected constraints + evidence-aware scoring), and provide a clear path to replace synthetic cases with anonymized real samples.
+
+Files: `benchmarks/finance/README.md`, `benchmarks/finance/schema_v0.json`, `benchmarks/finance/finance_v0.json`, `benchmarks/finance/rubric_v0.md`, `benchmarks/finance/anonymization_and_labeling_template.md`, `benchmarks/finance/survey_template.md`, `README.md`
+
 ## 2025-12-16: Context Expansion (Targeting + Email)
 
 - Step 3: added optional structured targeting inputs (ideal target description, must-have/must-not keywords, location, reply vs prestige, examples, evidence) for both Quick and Professional, and passed them into `preferences` for `POST /api/find-recommendations`.

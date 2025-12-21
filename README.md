@@ -245,6 +245,10 @@ python -m src.cli \
 - **PDF Parsing**: PyPDF2
 - **Web Scraping**: BeautifulSoup4, Requests
 
+## Benchmark (Finance)
+
+Starter benchmark assets (schema + 10 v0 cases + rubric + survey template) live in `benchmarks/finance/`.
+
 ## License
 
 MIT

@@ -1,0 +1,1310 @@
+[
+  {
+    "id": "fin_v0_001",
+    "domain": "finance",
+    "track": "investment_banking",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic", "notes": "格式演示样本（虚构人物与链接）" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Coffee Chat",
+        "field": "Finance",
+        "sender_profile": {
+          "raw_text": "Person A 是一名大三学生，正在准备投行暑期实习。",
+          "education": ["B.S. in Economics (in progress)"],
+          "experiences": ["Campus investment club analyst (TMT pitch)"],
+          "skills": ["Accounting basics", "Excel", "DCF", "PowerPoint"],
+          "projects": ["Built a comps table for 10 software companies"]
+        },
+        "preferences": {
+          "track": "Investment Banking",
+          "search_intent": "寻找纽约的 TMT 投行 Analyst/Associate，愿意做 15 分钟 coffee chat，最好做过软件/互联网并购。",
+          "must_have": "TMT, investment banking, analyst OR associate, New York",
+          "must_not": "crypto, day trading",
+          "location": "NYC, English",
+          "contactability": "reply"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_001_c1",
+            "name": "Jordan Lee",
+            "position": "Analyst, TMT Investment Banking, Example Bank (NYC)",
+            "field": "Investment Banking",
+            "sources": ["https://example.com/example-bank/tmt-team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_001_e_c1_1",
+                "text": "Example Bank TMT team page lists Jordan Lee as an Analyst in New York.",
+                "url": "https://example.com/example-bank/tmt-team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_001_c2",
+            "name": "Priya Patel",
+            "position": "Associate, M&A, Example Capital (NYC)",
+            "field": "Investment Banking",
+            "sources": ["https://example.com/example-capital/ma-team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_001_e_c2_1",
+                "text": "Example Capital M&A team lists Priya Patel as Associate (NYC).",
+                "url": "https://example.com/example-capital/ma-team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_001_c3",
+            "name": "Sam Nguyen",
+            "position": "Equity Research Analyst (Technology), Example Securities",
+            "field": "Sell-side Research",
+            "sources": ["https://example.com/example-securities/research/technology"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_001_e_c3_1",
+                "text": "Technology research page lists Sam Nguyen as an analyst covering software.",
+                "url": "https://example.com/example-securities/research/technology"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_001_c4",
+            "name": "Taylor Kim",
+            "position": "Quant Researcher, Example Hedge Fund",
+            "field": "Hedge Fund",
+            "sources": ["https://example.com/example-hf/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_001_e_c4_1",
+                "text": "Team page lists Taylor Kim as a Quant Researcher.",
+                "url": "https://example.com/example-hf/team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_001_c5",
+            "name": "Morgan Davis",
+            "position": "Product Manager, ExamplePay",
+            "field": "Fintech",
+            "sources": ["https://example.com/examplepay/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_001_e_c5_1",
+                "text": "ExamplePay team page lists Morgan Davis as Product Manager.",
+                "url": "https://example.com/examplepay/team"
+              }
+            ]
+          }
+        ],
+        "notes": "闭卷评测时：只允许从 candidate_pool 里挑选并排序；每个候选必须引用其 evidence_snippets。"
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "Junior student interested in TMT investment banking; did a campus software comps project.",
+          "education": ["B.S. in Economics (in progress)"],
+          "experiences": ["Campus investment club analyst (TMT pitch)"],
+          "skills": ["Excel", "DCF", "Comps"],
+          "projects": ["Software comps + short memo"],
+          "motivation": "Learn how to break into TMT IB and what daily work looks like.",
+          "ask": "15-minute coffee chat / call next week"
+        },
+        "receiver": {
+          "name": "Jordan Lee",
+          "raw_text": "Jordan Lee is an Analyst on Example Bank's TMT Investment Banking team in New York. Recent work noted: software M&A (publicly described at a high level).",
+          "education": ["B.A. in Finance"],
+          "experiences": ["Analyst, TMT IB, Example Bank (NYC)"],
+          "skills": ["M&A", "Financial modeling"],
+          "projects": [],
+          "context": "Reach out for a short informational chat.",
+          "sources": ["https://example.com/example-bank/tmt-team"]
+        },
+        "goal": "Write a first-contact cold email in English, <=170 words. Structure: Subject -> why you (cite TMT + NYC) -> value -> one clear ask (15 min next week) -> opt-out. Do not claim we met before or that you worked on specific deals together.",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_001_c1", "fin_v0_001_c3"],
+        "must_exclude_candidate_ids": ["fin_v0_001_c5"],
+        "reference_ranking_candidate_ids": ["fin_v0_001_c1", "fin_v0_001_c3", "fin_v0_001_c2"],
+        "notes": "c1 最匹配；c3 可作为研究/替代路径；c2 次优但仍相关。"
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "Quick 15-min chat about TMT IB?",
+          "body_lines": [
+            "Hi Jordan,",
+            "",
+            "I’m a junior studying economics and I’m exploring TMT investment banking. I saw you’re an Analyst on Example Bank’s TMT team in New York, and I’d love to learn how you approached recruiting and what the day-to-day looks like on the team.",
+            "",
+            "This semester I built a comps table and a short memo on a set of software companies through our campus investment club, and I’m trying to pressure-test whether TMT IB is the right path for me.",
+            "",
+            "Would you be open to a 15-minute call next week? If easier, I’m happy to send 2–3 specific questions over email.",
+            "",
+            "No worries at all if your schedule is packed — thanks for considering.",
+            "",
+            "Best,",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "en",
+          "max_words": 170,
+          "must_include_phrases": ["15-minute", "next week", "TMT"],
+          "forbidden_phrases": ["we spoke", "as we discussed", "guaranteed returns"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_002",
+    "domain": "finance",
+    "track": "private_equity",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Job Seeking",
+        "field": "Finance",
+        "sender_profile": {
+          "raw_text": "Person A：2 年审计 + 1 年投行并购组，目标转向中端 PE（Healthcare）。",
+          "education": ["M.S. in Accounting"],
+          "experiences": ["Big 4 audit (2y)", "IB M&A analyst (1y)"],
+          "skills": ["LBO", "Financial modeling", "Due diligence"],
+          "projects": ["Healthcare services LBO case study"]
+        },
+        "preferences": {
+          "track": "Private Equity",
+          "search_intent": "寻找 US 中端 PE 的 Associate（偏 Healthcare/HC services），愿意分享转 PE 的准备与面试建议。",
+          "must_have": "private equity, associate, healthcare",
+          "must_not": "real estate",
+          "location": "US, English",
+          "contactability": "balanced"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_002_c1",
+            "name": "Avery Chen",
+            "position": "Associate, Healthcare Private Equity, Example Partners",
+            "field": "Private Equity",
+            "sources": ["https://example.com/example-partners/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_002_e_c1_1",
+                "text": "Example Partners team page lists Avery Chen as Healthcare PE Associate.",
+                "url": "https://example.com/example-partners/team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_002_c2",
+            "name": "Diego Silva",
+            "position": "Vice President, Real Estate Investing, Example Capital",
+            "field": "Private Equity",
+            "sources": ["https://example.com/example-capital/real-estate"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_002_e_c2_1",
+                "text": "Diego Silva is listed as a VP on the Real Estate investing team.",
+                "url": "https://example.com/example-capital/real-estate"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_002_c3",
+            "name": "Nina Rao",
+            "position": "Healthcare Investment Banking Analyst, Example Bank",
+            "field": "Investment Banking",
+            "sources": ["https://example.com/example-bank/healthcare-team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_002_e_c3_1",
+                "text": "Healthcare team page lists Nina Rao as an Analyst.",
+                "url": "https://example.com/example-bank/healthcare-team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_002_c4",
+            "name": "Owen Park",
+            "position": "Principal, Growth Equity (Consumer), Example Growth",
+            "field": "Growth Equity",
+            "sources": ["https://example.com/example-growth/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_002_e_c4_1",
+                "text": "Owen Park is listed as a Principal focused on consumer growth.",
+                "url": "https://example.com/example-growth/team"
+              }
+            ]
+          }
+        ],
+        "notes": "候选池里只有 c1 强命中（PE+HC+Associate）。"
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "Former Big 4 audit + current IB M&A analyst; building LBO skills with healthcare case studies.",
+          "education": ["M.S. in Accounting"],
+          "experiences": ["Big 4 audit (2y)", "IB M&A analyst (1y)"],
+          "skills": ["LBO", "Modeling", "Due diligence"],
+          "projects": ["Healthcare services LBO case study"],
+          "motivation": "Transition into mid-market healthcare PE and learn how to prepare effectively.",
+          "ask": "20-minute call or 3 questions over email"
+        },
+        "receiver": {
+          "name": "Avery Chen",
+          "raw_text": "Avery Chen is an Associate at Example Partners focused on healthcare private equity.",
+          "education": [],
+          "experiences": ["Associate, Healthcare PE, Example Partners"],
+          "skills": [],
+          "projects": [],
+          "context": "Ask for recruiting prep advice.",
+          "sources": ["https://example.com/example-partners/team"]
+        },
+        "goal": "Write a first-contact email in English, <=180 words. Mention healthcare PE focus. Ask for a 20-min call; offer async option. Keep it professional and do not imply any confidential deal information.",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_002_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_002_c2"],
+        "reference_ranking_candidate_ids": ["fin_v0_002_c1", "fin_v0_002_c3", "fin_v0_002_c4"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "20-min chat on preparing for healthcare PE?",
+          "body_lines": [
+            "Hi Avery,",
+            "",
+            "I’m currently an IB M&A analyst (previously Big 4 audit) and I’m actively preparing for a move into mid-market private equity. I noticed you’re an Associate at Example Partners focused on healthcare, and I’d really value your perspective on what preparation mattered most when you made the jump.",
+            "",
+            "Lately I’ve been building LBO reps through a healthcare services case study, and I’m trying to calibrate what interviewers expect beyond technicals.",
+            "",
+            "Would you be open to a 20-minute call in the next 1–2 weeks? If you prefer, I can send 3 concise questions by email.",
+            "",
+            "Thanks for considering, and totally understand if timing isn’t good.",
+            "",
+            "Best,",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "en",
+          "max_words": 180,
+          "must_include_phrases": ["healthcare", "20-minute"],
+          "forbidden_phrases": ["inside information", "guarantee", "confidential deal"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_003",
+    "domain": "finance",
+    "track": "asset_management",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Coffee Chat",
+        "field": "Finance",
+        "sender_profile": {
+          "raw_text": "Person A：做 climate data 的产品经理，想了解公募/资管如何做能源转型主题投资研究。",
+          "education": ["B.Eng. in Industrial Engineering"],
+          "experiences": ["Product Manager, climate data startup"],
+          "skills": ["Data products", "Market research", "Python"],
+          "projects": ["Built a dataset on renewable project pipelines"]
+        },
+        "preferences": {
+          "track": "Asset Management",
+          "search_intent": "寻找覆盖能源转型/可再生能源的 portfolio manager 或 research analyst（公募/资管），愿意分享研究框架。",
+          "must_have": "renewables, energy transition, portfolio manager OR research analyst",
+          "must_not": "day trading",
+          "location": "Global, English",
+          "contactability": "balanced"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_003_c1",
+            "name": "Casey Wright",
+            "position": "ESG Portfolio Manager, Example Asset Management",
+            "field": "Asset Management",
+            "sources": ["https://example.com/example-am/esg-team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_003_e_c1_1",
+                "text": "ESG team page lists Casey Wright as a Portfolio Manager covering sustainable strategies.",
+                "url": "https://example.com/example-am/esg-team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_003_c2",
+            "name": "Mei Lin",
+            "position": "Energy Transition Research Analyst, Example AM",
+            "field": "Asset Management",
+            "sources": ["https://example.com/example-am/research/energy-transition"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_003_e_c2_1",
+                "text": "Research page lists Mei Lin covering energy transition and renewables.",
+                "url": "https://example.com/example-am/research/energy-transition"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_003_c3",
+            "name": "Riley Johnson",
+            "position": "Oil & Gas Sell-side Analyst, Example Securities",
+            "field": "Sell-side Research",
+            "sources": ["https://example.com/example-securities/research/energy"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_003_e_c3_1",
+                "text": "Energy research page lists Riley Johnson covering oil & gas.",
+                "url": "https://example.com/example-securities/research/energy"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "PM at a climate data startup; building datasets on renewable project pipelines.",
+          "education": ["B.Eng. in Industrial Engineering"],
+          "experiences": ["Product Manager, climate data startup"],
+          "skills": ["Data products", "Python"],
+          "projects": ["Renewable project pipeline dataset"],
+          "motivation": "Understand how buy-side investors evaluate energy transition themes and data needs.",
+          "ask": "15-minute chat"
+        },
+        "receiver": {
+          "name": "Mei Lin",
+          "raw_text": "Mei Lin is a research analyst covering energy transition / renewables at Example Asset Management.",
+          "education": [],
+          "experiences": ["Research Analyst, Energy Transition, Example AM"],
+          "skills": [],
+          "projects": [],
+          "context": "Learn their research framework and what data is most useful.",
+          "sources": ["https://example.com/example-am/research/energy-transition"]
+        },
+        "goal": "Write a concise English email (<=160 words). Reference their energy transition coverage. Offer one concrete value: share a short summary of a renewable pipeline dataset. Ask for 15 min; include opt-out; no investment advice or performance claims.",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_003_c2"],
+        "reference_ranking_candidate_ids": ["fin_v0_003_c2", "fin_v0_003_c1", "fin_v0_003_c3"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "Quick question on energy transition research",
+          "body_lines": [
+            "Hi Mei,",
+            "",
+            "I came across your work covering energy transition and renewables at Example Asset Management. I’m a product manager at a climate data startup, and I’m trying to understand how buy-side teams structure their research and what datasets are most useful in practice.",
+            "",
+            "I’ve recently built a lightweight dataset on renewable project pipelines (capacity, timing, geography) and can share a short summary if it’s helpful.",
+            "",
+            "Would you be open to a 15-minute chat sometime next week? Totally understand if you’re too busy — any direction on what to read would already be appreciated.",
+            "",
+            "Best,",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "en",
+          "max_words": 160,
+          "must_include_phrases": ["energy transition", "15-minute"],
+          "forbidden_phrases": ["outperform", "guarantee", "inside information"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_004",
+    "domain": "finance",
+    "track": "fintech_bd",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Partnership",
+        "field": "Fintech",
+        "sender_profile": {
+          "raw_text": "Person A：B2B 支付风控 SaaS 的 BD，想找支付公司的合作方。",
+          "education": [],
+          "experiences": ["BD, risk & fraud SaaS"],
+          "skills": ["Partnerships", "Payments", "Fraud"],
+          "projects": []
+        },
+        "preferences": {
+          "track": "Fintech",
+          "search_intent": "寻找支付公司/收单机构的 partnerships/strategy 负责人（APAC），能讨论联合解决方案或渠道合作。",
+          "must_have": "payments, partnerships OR strategy, APAC",
+          "must_not": "consumer crypto",
+          "location": "APAC, English",
+          "contactability": "reply"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_004_c1",
+            "name": "Arun Iyer",
+            "position": "Head of Partnerships (APAC), ExamplePay",
+            "field": "Fintech",
+            "sources": ["https://example.com/examplepay/leadership"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_004_e_c1_1",
+                "text": "Leadership page lists Arun Iyer as Head of Partnerships (APAC).",
+                "url": "https://example.com/examplepay/leadership"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_004_c2",
+            "name": "Helena Costa",
+            "position": "Product Manager, ExamplePay",
+            "field": "Fintech",
+            "sources": ["https://example.com/examplepay/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_004_e_c2_1",
+                "text": "Team page lists Helena Costa as Product Manager.",
+                "url": "https://example.com/examplepay/team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_004_c3",
+            "name": "Ken Tan",
+            "position": "Partnerships, Example Logistics",
+            "field": "Logistics",
+            "sources": ["https://example.com/example-logistics/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_004_e_c3_1",
+                "text": "Example Logistics lists Ken Tan in partnerships.",
+                "url": "https://example.com/example-logistics/team"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "BD at a B2B fraud/risk SaaS helping payment teams reduce false positives and manual review cost.",
+          "education": [],
+          "experiences": ["BD, risk & fraud SaaS"],
+          "skills": ["Payments", "Fraud", "Partnerships"],
+          "projects": [],
+          "motivation": "Explore a partnership where we complement your payment acceptance stack.",
+          "ask": "20-minute intro call"
+        },
+        "receiver": {
+          "name": "Arun Iyer",
+          "raw_text": "Arun Iyer leads APAC Partnerships at ExamplePay.",
+          "education": [],
+          "experiences": ["Head of Partnerships (APAC), ExamplePay"],
+          "skills": [],
+          "projects": [],
+          "context": "Discuss partnership opportunities for risk/fraud tooling.",
+          "sources": ["https://example.com/examplepay/leadership"]
+        },
+        "goal": "Write an English outbound email (<=170 words). Mention APAC partnerships role. Offer a specific value prop (reduce fraud losses / false positives) without hard numbers. Ask for a 20-min call; include opt-out; avoid hype.",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_004_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_004_c3"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "Potential risk/fraud partnership (APAC)",
+          "body_lines": [
+            "Hi Arun,",
+            "",
+            "I noticed you lead APAC Partnerships at ExamplePay. I’m on the BD team at a B2B risk & fraud SaaS that helps payment teams reduce false positives and manual review, while keeping fraud risk controlled.",
+            "",
+            "I’m reaching out because we may be a useful complement to your acceptance stack for merchants in the region, especially for teams balancing approval rates and fraud loss.",
+            "",
+            "Would you be open to a 20-minute intro call next week to see if a partnership makes sense? If you’re not the right person, I’d appreciate any pointer — and no worries if now isn’t a priority.",
+            "",
+            "Best,",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "en",
+          "max_words": 170,
+          "must_include_phrases": ["APAC", "20-minute"],
+          "forbidden_phrases": ["guarantee", "double your revenue"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_005",
+    "domain": "finance",
+    "track": "corp_finance_fpna",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Job Seeking",
+        "field": "Finance",
+        "sender_profile": {
+          "raw_text": "Person A：SaaS FP&A 方向求职，之前做过商业分析。",
+          "education": ["B.A. in Statistics"],
+          "experiences": ["Business analyst (2y)"],
+          "skills": ["SQL", "Excel", "Budgeting"],
+          "projects": ["Built monthly revenue bridge dashboard"]
+        },
+        "preferences": {
+          "track": "Corporate Finance",
+          "search_intent": "寻找 SaaS 公司 FP&A manager/senior analyst，愿意分享团队日常与面试准备。",
+          "must_have": "FP&A, SaaS, manager OR senior analyst",
+          "must_not": "investment banking",
+          "location": "US, English",
+          "contactability": "reply"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_005_c1",
+            "name": "Jamie Rivera",
+            "position": "FP&A Manager, Example SaaS Co",
+            "field": "Corporate Finance",
+            "sources": ["https://example.com/example-saas/team/finance"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_005_e_c1_1",
+                "text": "Finance team page lists Jamie Rivera as FP&A Manager.",
+                "url": "https://example.com/example-saas/team/finance"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_005_c2",
+            "name": "Leo Zhang",
+            "position": "IB Analyst, Example Bank",
+            "field": "Investment Banking",
+            "sources": ["https://example.com/example-bank/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_005_e_c2_1",
+                "text": "Team page lists Leo Zhang as an IB Analyst.",
+                "url": "https://example.com/example-bank/team"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "Business analyst with strong SQL/Excel; moving toward SaaS FP&A roles.",
+          "education": ["B.A. in Statistics"],
+          "experiences": ["Business analyst (2y)"],
+          "skills": ["SQL", "Excel", "Budgeting"],
+          "projects": ["Revenue bridge dashboard"],
+          "motivation": "Learn what good FP&A work looks like in a SaaS finance team and how to prepare for interviews.",
+          "ask": "15-minute chat"
+        },
+        "receiver": {
+          "name": "Jamie Rivera",
+          "raw_text": "Jamie Rivera is an FP&A Manager at Example SaaS Co.",
+          "education": [],
+          "experiences": ["FP&A Manager, Example SaaS Co"],
+          "skills": [],
+          "projects": [],
+          "context": "Ask for insight on SaaS FP&A role and interview prep.",
+          "sources": ["https://example.com/example-saas/team/finance"]
+        },
+        "goal": "Write a concise English email (<=150 words). Mention SaaS FP&A. Ask for 15 minutes. Offer value: share a revenue bridge template / dashboard approach. Include opt-out. Avoid exaggerated claims.",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_005_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_005_c2"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "15-min question on SaaS FP&A work",
+          "body_lines": [
+            "Hi Jamie,",
+            "",
+            "I saw you’re an FP&A Manager at Example SaaS Co. I’m currently a business analyst and I’m moving toward SaaS FP&A roles — I’d love to understand what “good” FP&A looks like day-to-day on a finance team and how you’d recommend preparing for interviews.",
+            "",
+            "Recently I built a monthly revenue bridge dashboard (SQL + Excel) and I’m happy to share the template/approach if useful.",
+            "",
+            "Would you be open to a quick 15-minute chat next week? No worries at all if your schedule is packed.",
+            "",
+            "Best,",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "en",
+          "max_words": 150,
+          "must_include_phrases": ["FP&A", "15-minute"],
+          "forbidden_phrases": ["guarantee", "we met"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_006",
+    "domain": "finance",
+    "track": "consulting_financial_services",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Coffee Chat",
+        "field": "Finance",
+        "sender_profile": {
+          "raw_text": "Person A：应届生，想了解金融行业里的咨询（FS/Strategy）路径。",
+          "education": ["B.A. in Economics"],
+          "experiences": ["Intern, corporate strategy (3 months)"],
+          "skills": ["Case interview", "Excel", "Market sizing"],
+          "projects": []
+        },
+        "preferences": {
+          "track": "Consulting",
+          "search_intent": "寻找做金融服务（银行/支付/资本市场）方向的 strategy/management consulting consultant/manager，愿意分享入行与项目类型。",
+          "must_have": "financial services, consulting, strategy",
+          "must_not": "software engineering",
+          "location": "Global, English",
+          "contactability": "reply"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_006_c1",
+            "name": "Sofia Martin",
+            "position": "Consultant (Financial Services), Example Consulting",
+            "field": "Consulting",
+            "sources": ["https://example.com/example-consulting/financial-services-team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_006_e_c1_1",
+                "text": "Financial services team page lists Sofia Martin as Consultant.",
+                "url": "https://example.com/example-consulting/financial-services-team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_006_c2",
+            "name": "Ethan Brooks",
+            "position": "Engineering Manager, Example Cloud",
+            "field": "Software",
+            "sources": ["https://example.com/example-cloud/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_006_e_c2_1",
+                "text": "Team page lists Ethan Brooks as Engineering Manager.",
+                "url": "https://example.com/example-cloud/team"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "New grad exploring financial services consulting; did a short corporate strategy internship.",
+          "education": ["B.A. in Economics"],
+          "experiences": ["Intern, corporate strategy (3 months)"],
+          "skills": ["Case interview", "Excel"],
+          "projects": [],
+          "motivation": "Understand project types and recruiting for FS consulting.",
+          "ask": "15-minute coffee chat"
+        },
+        "receiver": {
+          "name": "Sofia Martin",
+          "raw_text": "Sofia Martin is a Consultant in the Financial Services practice at Example Consulting.",
+          "education": [],
+          "experiences": ["Consultant (Financial Services), Example Consulting"],
+          "skills": [],
+          "projects": [],
+          "context": "Ask about FS consulting recruiting and project mix.",
+          "sources": ["https://example.com/example-consulting/financial-services-team"]
+        },
+        "goal": "写一封中文邮件（<=180 字），Subject 用英文或中文均可。必须包含：为什么是对方（FS practice），我能提供什么（简短调研/整理笔记），一个明确 ask（15 分钟），以及 opt-out。避免夸大、避免说“我们之前聊过”。",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_006_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_006_c2"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "15分钟请教：金融服务咨询的项目与入行",
+          "body_lines": [
+            "Sofia 你好，",
+            "",
+            "我看到你在 Example Consulting 的 Financial Services practice 做咨询顾问。作为应届生，我最近在研究金融服务方向咨询的项目类型和入行路径，想向你请教一些一线视角。",
+            "",
+            "我可以提前把我做过的岗位/项目调研整理成 1 页笔记，方便你快速判断是否值得聊。",
+            "",
+            "如果你方便的话，想约你 15 分钟电话/线上 coffee chat。若你最近很忙也完全理解，也欢迎你推荐更合适的同事或资料。",
+            "",
+            "谢谢！",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "zh",
+          "max_words": 180,
+          "must_include_phrases": ["15", "Financial Services"],
+          "forbidden_phrases": ["我们之前聊过", "保证"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_007",
+    "domain": "finance",
+    "track": "venture_capital_fundraising",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Fundraising",
+        "field": "Fintech",
+        "sender_profile": {
+          "raw_text": "Person A：支付基础设施创业者，准备种子轮，想找关注 fintech infra 的 VC。",
+          "education": [],
+          "experiences": ["Founder, payments infrastructure startup"],
+          "skills": ["Payments", "APIs", "Go-to-market"],
+          "projects": []
+        },
+        "preferences": {
+          "track": "Venture Capital",
+          "search_intent": "寻找关注 fintech infra / payments / B2B SaaS 的 seed VC（最好在 US 或 Global），能看一页 deck 并给反馈。",
+          "must_have": "seed, fintech, payments, investor",
+          "must_not": "late-stage only",
+          "location": "Global, English",
+          "contactability": "balanced"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_007_c1",
+            "name": "Dana Scott",
+            "position": "Partner, Example VC (Seed, Fintech)",
+            "field": "Venture Capital",
+            "sources": ["https://example.com/example-vc/fintech"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_007_e_c1_1",
+                "text": "Example VC fintech page lists Dana Scott as a Partner investing in seed-stage fintech.",
+                "url": "https://example.com/example-vc/fintech"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_007_c2",
+            "name": "Hiro Tanaka",
+            "position": "Principal, Example Growth Fund (Series C+)",
+            "field": "Growth Equity",
+            "sources": ["https://example.com/example-growth/portfolio"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_007_e_c2_1",
+                "text": "Portfolio page indicates focus on Series C and beyond.",
+                "url": "https://example.com/example-growth/portfolio"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "Founder building payments infrastructure APIs for B2B merchants; seeking seed feedback.",
+          "education": [],
+          "experiences": ["Founder, payments infrastructure startup"],
+          "skills": ["Payments", "B2B SaaS"],
+          "projects": [],
+          "motivation": "Get feedback from a seed fintech investor; explore fit for a seed round.",
+          "ask": "15-minute call or quick deck feedback"
+        },
+        "receiver": {
+          "name": "Dana Scott",
+          "raw_text": "Dana Scott is a Partner at Example VC investing in seed-stage fintech and payments.",
+          "education": [],
+          "experiences": ["Partner (Seed Fintech), Example VC"],
+          "skills": [],
+          "projects": [],
+          "context": "Seed fundraising outreach.",
+          "sources": ["https://example.com/example-vc/fintech"]
+        },
+        "goal": "写一封中文邮件（<=220 字），包含：为什么找你（seed fintech/payments）、一句话我们做什么、能提供什么（1页 deck + 数据点概览）、一个明确 ask（15 分钟或邮件反馈）、opt-out。避免夸大指标与承诺。",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_007_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_007_c2"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "种子轮请教：支付基础设施（15分钟/邮件反馈）",
+          "body_lines": [
+            "Dana 你好，",
+            "",
+            "我看到你在 Example VC 主要关注 seed 阶段的 fintech / payments。我们正在做一套面向 B2B 商户的支付基础设施 API（更快接入、多渠道路由与对账），目前在做种子轮准备。",
+            "",
+            "如果你愿意，我可以发你 1 页 deck + 关键数据点概览，供你快速判断是否有兴趣。",
+            "",
+            "方便的话想约你 15 分钟聊一下；如果你更偏好异步，也欢迎你直接在邮件里给几条反馈。若目前不在你关注范围，也完全理解。",
+            "",
+            "谢谢，",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "zh",
+          "max_words": 220,
+          "must_include_phrases": ["seed", "payments", "15"],
+          "forbidden_phrases": ["保证", "收益", "内幕"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_008",
+    "domain": "finance",
+    "track": "risk_credit",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Coffee Chat",
+        "field": "Fintech",
+        "sender_profile": {
+          "raw_text": "Person A：做信用风险建模，想了解数字银行的风控体系与数据。",
+          "education": ["M.S. in Statistics"],
+          "experiences": ["Credit risk modeler (3y)"],
+          "skills": ["Python", "ML", "Credit risk"],
+          "projects": ["PD/LGD model monitoring"]
+        },
+        "preferences": {
+          "track": "Risk",
+          "search_intent": "寻找数字银行/消费信贷平台的 Head of Credit Risk 或 Risk Analytics leader，愿意分享风控组织和模型治理。",
+          "must_have": "credit risk, risk analytics, head OR director",
+          "must_not": "trading",
+          "location": "Global, English",
+          "contactability": "balanced"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_008_c1",
+            "name": "Fatima Al-Khalid",
+            "position": "Director, Risk Analytics, Example Digital Bank",
+            "field": "Risk",
+            "sources": ["https://example.com/example-digital-bank/risk-team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_008_e_c1_1",
+                "text": "Risk team page lists Fatima Al-Khalid as Director of Risk Analytics.",
+                "url": "https://example.com/example-digital-bank/risk-team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_008_c2",
+            "name": "Ben Turner",
+            "position": "Trader, Example Markets",
+            "field": "Trading",
+            "sources": ["https://example.com/example-markets/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_008_e_c2_1",
+                "text": "Team page lists Ben Turner as a trader.",
+                "url": "https://example.com/example-markets/team"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "Credit risk modeler with 3 years experience; focus on PD/LGD monitoring and governance.",
+          "education": ["M.S. in Statistics"],
+          "experiences": ["Credit risk modeler (3y)"],
+          "skills": ["Python", "ML", "Credit risk"],
+          "projects": ["PD/LGD monitoring"],
+          "motivation": "Learn how digital banks organize risk analytics and model governance.",
+          "ask": "15-minute chat"
+        },
+        "receiver": {
+          "name": "Fatima Al-Khalid",
+          "raw_text": "Fatima Al-Khalid is Director of Risk Analytics at Example Digital Bank.",
+          "education": [],
+          "experiences": ["Director, Risk Analytics, Example Digital Bank"],
+          "skills": [],
+          "projects": [],
+          "context": "Ask about risk org and model governance practices.",
+          "sources": ["https://example.com/example-digital-bank/risk-team"]
+        },
+        "goal": "Write an English email (<=170 words). Mention risk analytics leadership role. Ask for 15 minutes. Offer value: share a short checklist on model monitoring best practices. Include opt-out. Avoid any sensitive/confidential requests.",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_008_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_008_c2"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "Quick question on risk analytics & model governance",
+          "body_lines": [
+            "Hi Fatima,",
+            "",
+            "I noticed you’re Director of Risk Analytics at Example Digital Bank. I’m a credit risk modeler (PD/LGD monitoring and model governance) and I’m trying to learn how digital banks structure their risk analytics teams and keep models healthy over time.",
+            "",
+            "If useful, I can share a short checklist we use for monitoring/alerting and review cadence — purely process-level, no sensitive details.",
+            "",
+            "Would you be open to a 15-minute chat sometime next week? If not, no worries at all — I appreciate your time.",
+            "",
+            "Best,",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "en",
+          "max_words": 170,
+          "must_include_phrases": ["Risk Analytics", "15-minute"],
+          "forbidden_phrases": ["share your dataset", "confidential", "inside info"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_009",
+    "domain": "finance",
+    "track": "wealth_management",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Partnership",
+        "field": "Finance",
+        "sender_profile": {
+          "raw_text": "Person A：独立理财顾问，想与私人银行建立 referral 合作。",
+          "education": [],
+          "experiences": ["Independent financial advisor"],
+          "skills": ["Financial planning", "Client onboarding"],
+          "projects": []
+        },
+        "preferences": {
+          "track": "Wealth Management",
+          "search_intent": "寻找私人银行/财富管理的 relationship manager 或市场负责人，能讨论客户转介合作。",
+          "must_have": "private banking OR wealth management, relationship manager OR partnerships",
+          "must_not": "institutional trading",
+          "location": "Global, Chinese or English",
+          "contactability": "reply"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_009_c1",
+            "name": "Grace Huang",
+            "position": "Relationship Manager, Example Private Bank",
+            "field": "Wealth Management",
+            "sources": ["https://example.com/example-private-bank/wealth-team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_009_e_c1_1",
+                "text": "Wealth team page lists Grace Huang as Relationship Manager.",
+                "url": "https://example.com/example-private-bank/wealth-team"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_009_c2",
+            "name": "Ivan Petrov",
+            "position": "Institutional Sales Trader, Example Securities",
+            "field": "Trading",
+            "sources": ["https://example.com/example-securities/team"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_009_e_c2_1",
+                "text": "Team page lists Ivan Petrov as an institutional sales trader.",
+                "url": "https://example.com/example-securities/team"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "Independent advisor focusing on long-term financial planning and onboarding for HNW clients.",
+          "education": [],
+          "experiences": ["Independent financial advisor"],
+          "skills": ["Financial planning", "Client onboarding"],
+          "projects": [],
+          "motivation": "Explore a referral partnership for clients who need private banking services.",
+          "ask": "15-minute intro call"
+        },
+        "receiver": {
+          "name": "Grace Huang",
+          "raw_text": "Grace Huang is a Relationship Manager at Example Private Bank.",
+          "education": [],
+          "experiences": ["Relationship Manager, Example Private Bank"],
+          "skills": [],
+          "projects": [],
+          "context": "Discuss a referral partnership (clients needing private banking).",
+          "sources": ["https://example.com/example-private-bank/wealth-team"]
+        },
+        "goal": "写一封中文邮件（<=200 字），专业克制，不要承诺收益。说明合作设想（转介/共同服务），提出一个 15 分钟的电话沟通请求，并给出 opt-out。",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_009_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_009_c2"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "请教：是否方便聊聊客户转介合作（15分钟）",
+          "body_lines": [
+            "Grace 你好，",
+            "",
+            "我看到你在 Example Private Bank 做财富管理关系经理。我是一名独立理财顾问，主要做高净值客户的长期规划与 onboarding。部分客户在账户、信贷或跨境服务上会需要更完整的私人银行能力。",
+            "",
+            "想请教你们是否有兴趣探讨一种转介/共同服务的合作方式：由你们提供私行产品与账户服务，我这边负责规划与持续跟进（具体边界可再细化）。",
+            "",
+            "如果你方便，能否约 15 分钟电话简单聊一下？若你不负责此类合作，也完全理解，烦请指路合适同事即可。",
+            "",
+            "谢谢，",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "zh",
+          "max_words": 200,
+          "must_include_phrases": ["15", "合作"],
+          "forbidden_phrases": ["保证收益", "内幕"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "fin_v0_010",
+    "domain": "finance",
+    "track": "compliance_aml",
+    "created_at": "2025-12-20",
+    "source": { "type": "synthetic" },
+    "input": {
+      "find_recommendations_request": {
+        "purpose": "Sales Outreach",
+        "field": "Finance",
+        "sender_profile": {
+          "raw_text": "Person A：合规 SaaS 销售，产品做 AML case management。",
+          "education": [],
+          "experiences": ["Sales, compliance SaaS"],
+          "skills": ["AML", "KYC", "B2B sales"],
+          "projects": []
+        },
+        "preferences": {
+          "track": "Compliance",
+          "search_intent": "寻找银行/支付机构的 AML/Financial Crime 合规负责人，能讨论 case management 流程与工具。",
+          "must_have": "AML, compliance, financial crime, head OR director",
+          "must_not": "marketing",
+          "location": "Global, English",
+          "contactability": "reply"
+        }
+      },
+      "benchmark_context": {
+        "candidate_pool": [
+          {
+            "candidate_id": "fin_v0_010_c1",
+            "name": "Noah Bennett",
+            "position": "Head of AML, Example Bank",
+            "field": "Compliance",
+            "sources": ["https://example.com/example-bank/compliance-leadership"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_010_e_c1_1",
+                "text": "Compliance leadership page lists Noah Bennett as Head of AML.",
+                "url": "https://example.com/example-bank/compliance-leadership"
+              }
+            ]
+          },
+          {
+            "candidate_id": "fin_v0_010_c2",
+            "name": "Olivia Stone",
+            "position": "Brand Marketing Lead, Example Bank",
+            "field": "Marketing",
+            "sources": ["https://example.com/example-bank/marketing"],
+            "evidence_snippets": [
+              {
+                "id": "fin_v0_010_e_c2_1",
+                "text": "Marketing page lists Olivia Stone as Brand Marketing Lead.",
+                "url": "https://example.com/example-bank/marketing"
+              }
+            ]
+          }
+        ]
+      },
+      "generate_email_request": {
+        "sender": {
+          "name": "Person A",
+          "raw_text": "Sales at a compliance SaaS focused on AML case management and investigator workflows.",
+          "education": [],
+          "experiences": ["Sales, compliance SaaS"],
+          "skills": ["AML", "Case management"],
+          "projects": [],
+          "motivation": "See if our AML case management can help reduce investigator friction and improve auditability.",
+          "ask": "20-minute discovery call"
+        },
+        "receiver": {
+          "name": "Noah Bennett",
+          "raw_text": "Noah Bennett is Head of AML at Example Bank.",
+          "education": [],
+          "experiences": ["Head of AML, Example Bank"],
+          "skills": [],
+          "projects": [],
+          "context": "Offer a short discovery call about AML case management workflows.",
+          "sources": ["https://example.com/example-bank/compliance-leadership"]
+        },
+        "goal": "Write an English sales outreach email (<=170 words). Mention their AML leadership. Keep it compliant: no claims about guaranteed regulatory outcomes. Ask for a 20-min discovery call; include opt-out; be specific about what you want to learn (current workflow pain points).",
+        "template": null
+      }
+    },
+    "expected": {
+      "find_recommendations": {
+        "k": 3,
+        "must_include_candidate_ids": ["fin_v0_010_c1"],
+        "must_exclude_candidate_ids": ["fin_v0_010_c2"]
+      },
+      "generate_email": {
+        "reference": {
+          "subject": "Question on AML case management workflows",
+          "body_lines": [
+            "Hi Noah,",
+            "",
+            "I noticed you lead AML at Example Bank. I’m on the team at a compliance SaaS focused on AML case management — helping investigators manage alerts, evidence, and approvals with clearer audit trails and fewer manual handoffs.",
+            "",
+            "I’m reaching out to learn how your team currently runs case management (tools, handoffs, and where friction shows up) and to see whether we might be a fit. I’m not looking to replace everything — just to understand what’s working and what isn’t.",
+            "",
+            "Would you be open to a 20-minute discovery call next week? If it’s not relevant, no worries at all and I won’t follow up.",
+            "",
+            "Best,",
+            "Person A"
+          ]
+        },
+        "assertions": {
+          "language": "en",
+          "max_words": 170,
+          "must_include_phrases": ["AML", "20-minute"],
+          "forbidden_phrases": ["guarantee compliance", "guaranteed regulatory approval", "inside information"],
+          "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
+          "compliance": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          }
+        }
+      }
+    }
+  }
+]
+
