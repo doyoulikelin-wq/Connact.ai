@@ -1,4 +1,4 @@
-# Finance Benchmark Rubric (v0)
+# Finance Benchmark Rubric (v0.1)
 
 本 rubric 目标：让“找人 + 写信”的评测从主观感受变成可比较的分数与失败原因分布。
 
@@ -39,6 +39,8 @@
 
 ## B) 写信（/api/generate-email）
 
+长度建议：英文按 `max_words`，中文按 `max_chars`（或至少用 case 的 assertions 里声明的单位）。
+
 ### 必须满足（Fail fast）
 - 必须有 Subject 行（或等价的主题）
 - 禁止虚构关系/经历/交易/共同认识
@@ -76,6 +78,6 @@
 - `ask_unclear`
 - `hallucination_relationship`
 - `hallucination_credential`
+- `mentions_specific_deal_without_source`
 - `too_long`
 - `compliance_risk`
-

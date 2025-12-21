@@ -247,7 +247,7 @@ python -m src.cli \
 
 ## Benchmark (Finance)
 
-Starter benchmark assets (schema + 10 v0 cases + rubric + survey template) live in `benchmarks/finance/`.
+Starter benchmark assets (schema v0.1 + 10 sample cases + rubric + survey template) live in `benchmarks/finance/`.
 
 ## License
 

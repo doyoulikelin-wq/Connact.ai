@@ -136,5 +136,5 @@
 ### Benchmark（评测闭环）
 
 - 用“输入 + 预期约束（assertions）”来评测，而不是追求逐字一致；重点看：证据可追溯性、结构完整、ask 清晰、合规边界、是否虚构。
-- finance benchmark 起步包：`benchmarks/finance/`（schema、10 条 v0 样本、rubric、匿名化模板、问卷模板）。
+- finance benchmark 起步包：`benchmarks/finance/`（schema v0.1、10 条样本、rubric、匿名化模板、问卷模板；包含 banker 常用维度：seniority/group/tier/渠道/时间线等）。
 - 找人评测建议先做可复现版本：证据快照或固定候选池；流程跑通后再评开放检索。

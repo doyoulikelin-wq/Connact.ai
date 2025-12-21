@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Finance benchmark case (v0)",
+  "title": "Finance benchmark case (v0.1)",
   "type": "object",
   "required": ["id", "domain", "input", "expected"],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
+    "version": { "type": "string" },
     "domain": { "type": "string", "const": "finance" },
     "track": { "type": "string" },
     "created_at": { "type": "string" },
@@ -31,8 +32,8 @@
           "properties": {
             "purpose": { "type": "string", "minLength": 1 },
             "field": { "type": "string", "minLength": 1 },
-            "sender_profile": { "type": "object" },
-            "preferences": { "type": "object" }
+            "sender_profile": { "$ref": "#/$defs/profileBase" },
+            "preferences": { "$ref": "#/$defs/targetingPreferences" }
           },
           "additionalProperties": true
         },
@@ -128,7 +129,56 @@
         "education": { "type": "array", "items": { "type": "string" } },
         "experiences": { "type": "array", "items": { "type": "string" } },
         "skills": { "type": "array", "items": { "type": "string" } },
-        "projects": { "type": "array", "items": { "type": "string" } }
+        "projects": { "type": "array", "items": { "type": "string" } },
+        "links": { "type": "array", "items": { "type": "string" } },
+        "evidence_snippets": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceSnippet" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "targetingPreferences": {
+      "type": "object",
+      "properties": {
+        "track": { "type": "string" },
+        "search_intent": { "type": "string" },
+        "must_have": { "type": "string" },
+        "must_not": { "type": "string" },
+        "location": { "type": "string" },
+        "contactability": { "type": "string" },
+        "contact_channels": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["email", "linkedin", "phone", "other"] }
+        },
+        "target_role_titles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "seniority": { "type": "string" },
+        "org_type": { "type": "string" },
+        "bank_tier": {
+          "type": "string",
+          "enum": ["BB", "EB", "MM", "Regional", "Boutique", "Unknown"]
+        },
+        "group": { "type": "string" },
+        "group_type": { "type": "string", "enum": ["coverage", "product", "unknown"] },
+        "sector": { "type": "string" },
+        "stage": { "type": "string" },
+        "recruiting_context": {
+          "type": "object",
+          "properties": {
+            "role_type": { "type": "string", "enum": ["SA", "FT", "experienced", "unknown"] },
+            "timeline": { "type": "string" },
+            "notes": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "outreach_goal": { "type": "string" },
+        "prominence": { "type": "string" },
+        "examples": { "type": "string" },
+        "evidence": { "type": "string" },
+        "extra": { "type": "string" }
       },
       "additionalProperties": true
     },
@@ -168,7 +218,47 @@
         "sender": { "$ref": "#/$defs/senderProfile" },
         "receiver": { "$ref": "#/$defs/receiverProfile" },
         "goal": { "type": "string", "minLength": 1 },
-        "template": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "template": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "email_spec": { "$ref": "#/$defs/emailSpec" }
+      },
+      "additionalProperties": true
+    },
+    "askSpec": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["call", "coffee_chat", "intro", "email_reply", "other"]
+        },
+        "duration_minutes": { "type": "integer", "minimum": 5 },
+        "timeframe": { "type": "string" },
+        "time_windows": { "type": "array", "items": { "type": "string" } },
+        "async_option": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "complianceGuardrails": {
+      "type": "object",
+      "properties": {
+        "forbid_investment_advice": { "type": "boolean" },
+        "forbid_return_promises": { "type": "boolean" },
+        "forbid_insider_info": { "type": "boolean" },
+        "forbid_mentioning_unpublished_deals": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "emailSpec": {
+      "type": "object",
+      "properties": {
+        "output_language": { "type": "string", "enum": ["en", "zh", "mixed"] },
+        "tone": { "type": "string" },
+        "max_words": { "type": "integer", "minimum": 20 },
+        "max_chars": { "type": "integer", "minimum": 60 },
+        "one_ask": { "$ref": "#/$defs/askSpec" },
+        "value_offer": { "type": "string" },
+        "hard_rules": { "type": "array", "items": { "type": "string" } },
+        "compliance_guardrails": { "$ref": "#/$defs/complianceGuardrails" },
+        "must_cite_evidence": { "type": "boolean" }
       },
       "additionalProperties": true
     },
@@ -185,10 +275,12 @@
     },
     "emailAssertions": {
       "type": "object",
-      "required": ["language", "max_words", "required_elements"],
+      "required": ["language", "required_elements"],
+      "anyOf": [{ "required": ["max_words"] }, { "required": ["max_chars"] }],
       "properties": {
         "language": { "type": "string", "enum": ["en", "zh", "mixed"] },
         "max_words": { "type": "integer", "minimum": 20 },
+        "max_chars": { "type": "integer", "minimum": 60 },
         "must_include_phrases": {
           "type": "array",
           "items": { "type": "string" }
@@ -218,4 +310,3 @@
     }
   }
 }
-

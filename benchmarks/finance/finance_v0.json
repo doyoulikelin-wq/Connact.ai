@@ -2,6 +2,7 @@
   {
     "id": "fin_v0_001",
     "domain": "finance",
+    "version": "0.1",
     "track": "investment_banking",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic", "notes": "格式演示样本（虚构人物与链接）" },
@@ -22,7 +23,19 @@
           "must_have": "TMT, investment banking, analyst OR associate, New York",
           "must_not": "crypto, day trading",
           "location": "NYC, English",
-          "contactability": "reply"
+          "contactability": "reply",
+          "contact_channels": ["linkedin", "email"],
+          "target_role_titles": ["Analyst", "Associate"],
+          "seniority": "Analyst or Associate",
+          "org_type": "Investment Bank",
+          "bank_tier": "Unknown",
+          "group": "TMT",
+          "group_type": "coverage",
+          "recruiting_context": {
+            "role_type": "SA",
+            "timeline": "Next 2-4 weeks",
+            "notes": "Informational coffee chat; student recruiting context"
+          }
         }
       },
       "benchmark_context": {
@@ -119,10 +132,41 @@
           "skills": ["M&A", "Financial modeling"],
           "projects": [],
           "context": "Reach out for a short informational chat.",
-          "sources": ["https://example.com/example-bank/tmt-team"]
+          "sources": ["https://example.com/example-bank/tmt-team"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_001_e_r1",
+              "text": "Example Bank TMT team page lists Jordan Lee as an Analyst in New York.",
+              "url": "https://example.com/example-bank/tmt-team"
+            }
+          ]
         },
         "goal": "Write a first-contact cold email in English, <=170 words. Structure: Subject -> why you (cite TMT + NYC) -> value -> one clear ask (15 min next week) -> opt-out. Do not claim we met before or that you worked on specific deals together.",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "en",
+          "tone": "professional, concise",
+          "max_words": 170,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 15,
+            "timeframe": "next week",
+            "async_option": "If easier, I can send 2–3 questions by email."
+          },
+          "value_offer": "Share a short comps/memo framework from a campus TMT pitch.",
+          "hard_rules": [
+            "Do not claim a prior relationship",
+            "Do not mention non-public deals",
+            "Use only provided facts/evidence"
+          ],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true,
+            "forbid_mentioning_unpublished_deals": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -169,6 +213,7 @@
   {
     "id": "fin_v0_002",
     "domain": "finance",
+    "version": "0.1",
     "track": "private_equity",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -189,7 +234,17 @@
           "must_have": "private equity, associate, healthcare",
           "must_not": "real estate",
           "location": "US, English",
-          "contactability": "balanced"
+          "contactability": "balanced",
+          "contact_channels": ["linkedin", "email"],
+          "target_role_titles": ["Associate"],
+          "seniority": "Associate",
+          "org_type": "Private Equity (mid-market)",
+          "sector": "Healthcare / HC services",
+          "recruiting_context": {
+            "role_type": "experienced",
+            "timeline": "Next 4-8 weeks",
+            "notes": "Prep advice and expectations for PE interviews"
+          }
         }
       },
       "benchmark_context": {
@@ -272,10 +327,37 @@
           "skills": [],
           "projects": [],
           "context": "Ask for recruiting prep advice.",
-          "sources": ["https://example.com/example-partners/team"]
+          "sources": ["https://example.com/example-partners/team"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_002_e_r1",
+              "text": "Example Partners team page lists Avery Chen as Healthcare PE Associate.",
+              "url": "https://example.com/example-partners/team"
+            }
+          ]
         },
         "goal": "Write a first-contact email in English, <=180 words. Mention healthcare PE focus. Ask for a 20-min call; offer async option. Keep it professional and do not imply any confidential deal information.",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "en",
+          "tone": "professional, direct",
+          "max_words": 180,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 20,
+            "timeframe": "next 1-2 weeks",
+            "async_option": "If easier, I can send 3 concise questions by email."
+          },
+          "value_offer": "Share a brief write-up from a healthcare services LBO case study (non-confidential).",
+          "hard_rules": ["Do not reference confidential deals", "Do not imply insider access"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true,
+            "forbid_mentioning_unpublished_deals": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -321,6 +403,7 @@
   {
     "id": "fin_v0_003",
     "domain": "finance",
+    "version": "0.1",
     "track": "asset_management",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -341,7 +424,11 @@
           "must_have": "renewables, energy transition, portfolio manager OR research analyst",
           "must_not": "day trading",
           "location": "Global, English",
-          "contactability": "balanced"
+          "contactability": "balanced",
+          "contact_channels": ["linkedin", "email"],
+          "target_role_titles": ["Portfolio Manager", "Research Analyst"],
+          "org_type": "Asset Management",
+          "sector": "Energy transition / renewables"
         }
       },
       "benchmark_context": {
@@ -409,10 +496,36 @@
           "skills": [],
           "projects": [],
           "context": "Learn their research framework and what data is most useful.",
-          "sources": ["https://example.com/example-am/research/energy-transition"]
+          "sources": ["https://example.com/example-am/research/energy-transition"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_003_e_r1",
+              "text": "Research page lists Mei Lin covering energy transition and renewables.",
+              "url": "https://example.com/example-am/research/energy-transition"
+            }
+          ]
         },
         "goal": "Write a concise English email (<=160 words). Reference their energy transition coverage. Offer one concrete value: share a short summary of a renewable pipeline dataset. Ask for 15 min; include opt-out; no investment advice or performance claims.",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "en",
+          "tone": "professional, curious",
+          "max_words": 160,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 15,
+            "timeframe": "next week",
+            "async_option": "If you prefer, I can send a short list of questions over email."
+          },
+          "value_offer": "Share a short summary of a renewable project pipeline dataset (public/aggregated).",
+          "hard_rules": ["No performance claims", "No investment advice"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -455,6 +568,7 @@
   {
     "id": "fin_v0_004",
     "domain": "finance",
+    "version": "0.1",
     "track": "fintech_bd",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -475,7 +589,12 @@
           "must_have": "payments, partnerships OR strategy, APAC",
           "must_not": "consumer crypto",
           "location": "APAC, English",
-          "contactability": "reply"
+          "contactability": "reply",
+          "contact_channels": ["email", "linkedin"],
+          "target_role_titles": ["Head of Partnerships", "Partnerships", "Strategy"],
+          "org_type": "Payments / acquiring / fintech",
+          "sector": "Payments",
+          "extra": "Prefer roles that own partnerships strategy and can sponsor a pilot / channel discussion."
         }
       },
       "benchmark_context": {
@@ -543,10 +662,36 @@
           "skills": [],
           "projects": [],
           "context": "Discuss partnership opportunities for risk/fraud tooling.",
-          "sources": ["https://example.com/examplepay/leadership"]
+          "sources": ["https://example.com/examplepay/leadership"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_004_e_r1",
+              "text": "Leadership page lists Arun Iyer as Head of Partnerships (APAC).",
+              "url": "https://example.com/examplepay/leadership"
+            }
+          ]
         },
         "goal": "Write an English outbound email (<=170 words). Mention APAC partnerships role. Offer a specific value prop (reduce fraud losses / false positives) without hard numbers. Ask for a 20-min call; include opt-out; avoid hype.",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "en",
+          "tone": "professional, low-hype",
+          "max_words": 170,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 20,
+            "timeframe": "next week",
+            "async_option": "If a call isn’t ideal, I can send a 3-bullet overview by email."
+          },
+          "value_offer": "Complement payment acceptance with risk/fraud tooling to reduce false positives and manual review (no hard numbers).",
+          "hard_rules": ["No exaggerated ROI claims", "No guaranteed outcomes"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -589,6 +734,7 @@
   {
     "id": "fin_v0_005",
     "domain": "finance",
+    "version": "0.1",
     "track": "corp_finance_fpna",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -609,7 +755,11 @@
           "must_have": "FP&A, SaaS, manager OR senior analyst",
           "must_not": "investment banking",
           "location": "US, English",
-          "contactability": "reply"
+          "contactability": "reply",
+          "contact_channels": ["linkedin", "email"],
+          "target_role_titles": ["FP&A Manager", "Senior FP&A Analyst"],
+          "org_type": "SaaS company (corporate finance)",
+          "seniority": "Senior analyst or manager"
         }
       },
       "benchmark_context": {
@@ -663,10 +813,36 @@
           "skills": [],
           "projects": [],
           "context": "Ask for insight on SaaS FP&A role and interview prep.",
-          "sources": ["https://example.com/example-saas/team/finance"]
+          "sources": ["https://example.com/example-saas/team/finance"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_005_e_r1",
+              "text": "Finance team page lists Jamie Rivera as FP&A Manager.",
+              "url": "https://example.com/example-saas/team/finance"
+            }
+          ]
         },
         "goal": "Write a concise English email (<=150 words). Mention SaaS FP&A. Ask for 15 minutes. Offer value: share a revenue bridge template / dashboard approach. Include opt-out. Avoid exaggerated claims.",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "en",
+          "tone": "friendly-professional",
+          "max_words": 150,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 15,
+            "timeframe": "next week",
+            "async_option": "If easier, I can send a short list of questions over email."
+          },
+          "value_offer": "Share a simple revenue bridge template / dashboard approach (SQL + Excel).",
+          "hard_rules": ["No exaggerated claims", "No fake prior connection"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -709,6 +885,7 @@
   {
     "id": "fin_v0_006",
     "domain": "finance",
+    "version": "0.1",
     "track": "consulting_financial_services",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -729,7 +906,11 @@
           "must_have": "financial services, consulting, strategy",
           "must_not": "software engineering",
           "location": "Global, English",
-          "contactability": "reply"
+          "contactability": "reply",
+          "contact_channels": ["linkedin", "email"],
+          "target_role_titles": ["Consultant", "Manager"],
+          "org_type": "Consulting",
+          "sector": "Financial Services"
         }
       },
       "benchmark_context": {
@@ -783,10 +964,36 @@
           "skills": [],
           "projects": [],
           "context": "Ask about FS consulting recruiting and project mix.",
-          "sources": ["https://example.com/example-consulting/financial-services-team"]
+          "sources": ["https://example.com/example-consulting/financial-services-team"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_006_e_r1",
+              "text": "Financial services team page lists Sofia Martin as Consultant.",
+              "url": "https://example.com/example-consulting/financial-services-team"
+            }
+          ]
         },
         "goal": "写一封中文邮件（<=180 字），Subject 用英文或中文均可。必须包含：为什么是对方（FS practice），我能提供什么（简短调研/整理笔记），一个明确 ask（15 分钟），以及 opt-out。避免夸大、避免说“我们之前聊过”。",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "zh",
+          "tone": "专业克制",
+          "max_chars": 180,
+          "one_ask": {
+            "type": "coffee_chat",
+            "duration_minutes": 15,
+            "timeframe": "下周",
+            "async_option": "如果你更方便，也可以我先发 3 个问题邮件请教。"
+          },
+          "value_offer": "我可以提前整理一页岗位/项目调研笔记，减少你的时间成本。",
+          "hard_rules": ["避免夸大", "不要说“我们之前聊过”"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -813,7 +1020,7 @@
         },
         "assertions": {
           "language": "zh",
-          "max_words": 180,
+          "max_chars": 180,
           "must_include_phrases": ["15", "Financial Services"],
           "forbidden_phrases": ["我们之前聊过", "保证"],
           "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
@@ -829,6 +1036,7 @@
   {
     "id": "fin_v0_007",
     "domain": "finance",
+    "version": "0.1",
     "track": "venture_capital_fundraising",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -849,7 +1057,12 @@
           "must_have": "seed, fintech, payments, investor",
           "must_not": "late-stage only",
           "location": "Global, English",
-          "contactability": "balanced"
+          "contactability": "balanced",
+          "contact_channels": ["email", "linkedin"],
+          "target_role_titles": ["Partner", "Principal"],
+          "org_type": "Venture Capital",
+          "stage": "Seed",
+          "sector": "Fintech infra / payments / B2B SaaS"
         }
       },
       "benchmark_context": {
@@ -903,10 +1116,36 @@
           "skills": [],
           "projects": [],
           "context": "Seed fundraising outreach.",
-          "sources": ["https://example.com/example-vc/fintech"]
+          "sources": ["https://example.com/example-vc/fintech"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_007_e_r1",
+              "text": "Example VC fintech page lists Dana Scott as a Partner investing in seed-stage fintech.",
+              "url": "https://example.com/example-vc/fintech"
+            }
+          ]
         },
         "goal": "写一封中文邮件（<=220 字），包含：为什么找你（seed fintech/payments）、一句话我们做什么、能提供什么（1页 deck + 数据点概览）、一个明确 ask（15 分钟或邮件反馈）、opt-out。避免夸大指标与承诺。",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "zh",
+          "tone": "专业克制",
+          "max_chars": 220,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 15,
+            "timeframe": "下周",
+            "async_option": "如果你更偏好异步，我也可以直接发 1 页 deck 请你邮件里给几条反馈。"
+          },
+          "value_offer": "提供 1 页 deck + 关键数据点概览，方便快速判断是否匹配。",
+          "hard_rules": ["不夸大指标", "不承诺收益", "不暗示内幕信息"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -933,7 +1172,7 @@
         },
         "assertions": {
           "language": "zh",
-          "max_words": 220,
+          "max_chars": 220,
           "must_include_phrases": ["seed", "payments", "15"],
           "forbidden_phrases": ["保证", "收益", "内幕"],
           "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
@@ -949,6 +1188,7 @@
   {
     "id": "fin_v0_008",
     "domain": "finance",
+    "version": "0.1",
     "track": "risk_credit",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -969,7 +1209,11 @@
           "must_have": "credit risk, risk analytics, head OR director",
           "must_not": "trading",
           "location": "Global, English",
-          "contactability": "balanced"
+          "contactability": "balanced",
+          "contact_channels": ["linkedin", "email"],
+          "target_role_titles": ["Head of Credit Risk", "Director", "Risk Analytics leader"],
+          "org_type": "Digital bank / consumer lending platform",
+          "sector": "Credit risk / risk analytics"
         }
       },
       "benchmark_context": {
@@ -1023,10 +1267,36 @@
           "skills": [],
           "projects": [],
           "context": "Ask about risk org and model governance practices.",
-          "sources": ["https://example.com/example-digital-bank/risk-team"]
+          "sources": ["https://example.com/example-digital-bank/risk-team"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_008_e_r1",
+              "text": "Risk team page lists Fatima Al-Khalid as Director of Risk Analytics.",
+              "url": "https://example.com/example-digital-bank/risk-team"
+            }
+          ]
         },
         "goal": "Write an English email (<=170 words). Mention risk analytics leadership role. Ask for 15 minutes. Offer value: share a short checklist on model monitoring best practices. Include opt-out. Avoid any sensitive/confidential requests.",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "en",
+          "tone": "professional, respectful",
+          "max_words": 170,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 15,
+            "timeframe": "next week",
+            "async_option": "If easier, I can send a short checklist + 3 questions by email."
+          },
+          "value_offer": "Share a short process-level checklist for model monitoring and review cadence (non-sensitive).",
+          "hard_rules": ["Do not request confidential data", "Do not imply insider access"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -1069,6 +1339,7 @@
   {
     "id": "fin_v0_009",
     "domain": "finance",
+    "version": "0.1",
     "track": "wealth_management",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -1089,7 +1360,11 @@
           "must_have": "private banking OR wealth management, relationship manager OR partnerships",
           "must_not": "institutional trading",
           "location": "Global, Chinese or English",
-          "contactability": "reply"
+          "contactability": "reply",
+          "contact_channels": ["email", "linkedin"],
+          "target_role_titles": ["Relationship Manager", "Partnerships", "Business Development"],
+          "org_type": "Private bank / wealth management",
+          "sector": "Wealth management / private banking"
         }
       },
       "benchmark_context": {
@@ -1143,10 +1418,36 @@
           "skills": [],
           "projects": [],
           "context": "Discuss a referral partnership (clients needing private banking).",
-          "sources": ["https://example.com/example-private-bank/wealth-team"]
+          "sources": ["https://example.com/example-private-bank/wealth-team"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_009_e_r1",
+              "text": "Wealth team page lists Grace Huang as Relationship Manager.",
+              "url": "https://example.com/example-private-bank/wealth-team"
+            }
+          ]
         },
         "goal": "写一封中文邮件（<=200 字），专业克制，不要承诺收益。说明合作设想（转介/共同服务），提出一个 15 分钟的电话沟通请求，并给出 opt-out。",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "zh",
+          "tone": "专业克制",
+          "max_chars": 200,
+          "one_ask": {
+            "type": "call",
+            "duration_minutes": 15,
+            "timeframe": "下周",
+            "async_option": "如果电话不方便，也可以我先发一页合作设想请你指正。"
+          },
+          "value_offer": "探讨转介/共同服务边界，减少双方试错成本（不承诺任何收益）。",
+          "hard_rules": ["不承诺收益", "不提供投资建议"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -1173,7 +1474,7 @@
         },
         "assertions": {
           "language": "zh",
-          "max_words": 200,
+          "max_chars": 200,
           "must_include_phrases": ["15", "合作"],
           "forbidden_phrases": ["保证收益", "内幕"],
           "required_elements": ["subject_line", "why_them", "value", "clear_ask", "opt_out"],
@@ -1189,6 +1490,7 @@
   {
     "id": "fin_v0_010",
     "domain": "finance",
+    "version": "0.1",
     "track": "compliance_aml",
     "created_at": "2025-12-20",
     "source": { "type": "synthetic" },
@@ -1209,7 +1511,11 @@
           "must_have": "AML, compliance, financial crime, head OR director",
           "must_not": "marketing",
           "location": "Global, English",
-          "contactability": "reply"
+          "contactability": "reply",
+          "contact_channels": ["email", "linkedin"],
+          "target_role_titles": ["Head of AML", "Director", "Financial Crime leader"],
+          "org_type": "Bank / payments institution",
+          "sector": "AML / financial crime compliance"
         }
       },
       "benchmark_context": {
@@ -1263,10 +1569,31 @@
           "skills": [],
           "projects": [],
           "context": "Offer a short discovery call about AML case management workflows.",
-          "sources": ["https://example.com/example-bank/compliance-leadership"]
+          "sources": ["https://example.com/example-bank/compliance-leadership"],
+          "evidence_snippets": [
+            {
+              "id": "fin_v0_010_e_r1",
+              "text": "Compliance leadership page lists Noah Bennett as Head of AML.",
+              "url": "https://example.com/example-bank/compliance-leadership"
+            }
+          ]
         },
         "goal": "Write an English sales outreach email (<=170 words). Mention their AML leadership. Keep it compliant: no claims about guaranteed regulatory outcomes. Ask for a 20-min discovery call; include opt-out; be specific about what you want to learn (current workflow pain points).",
-        "template": null
+        "template": null,
+        "email_spec": {
+          "output_language": "en",
+          "tone": "professional, compliant",
+          "max_words": 170,
+          "one_ask": { "type": "call", "duration_minutes": 20, "timeframe": "next week" },
+          "value_offer": "Offer a brief walkthrough of AML case management workflows and learn their current pain points (no guaranteed regulatory outcomes).",
+          "hard_rules": ["No guaranteed compliance outcomes", "No exaggerated claims"],
+          "compliance_guardrails": {
+            "forbid_investment_advice": true,
+            "forbid_return_promises": true,
+            "forbid_insider_info": true
+          },
+          "must_cite_evidence": true
+        }
       }
     },
     "expected": {
@@ -1307,4 +1634,3 @@
     }
   }
 ]
-

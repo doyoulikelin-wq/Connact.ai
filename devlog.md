@@ -1,5 +1,12 @@
 # Development Log
 
+## 2025-12-21: Finance Benchmark v0.1 - Richer Context Fields
+
+- Expanded the finance benchmark schema/cases to include more structured context for realistic evaluation (especially for banker workflows): role titles, seniority, bank tier, coverage/product group, sector/stage, recruiting context, contact channels, plus an optional `email_spec` for explicit ask/value/hard rules/compliance.
+- Updated rubric/templates so teams can collect this info via interviews/surveys and convert real samples into reproducible benchmark cases.
+
+Files: `benchmarks/finance/schema_v0.json`, `benchmarks/finance/finance_v0.json`, `benchmarks/finance/README.md`, `benchmarks/finance/anonymization_and_labeling_template.md`, `benchmarks/finance/rubric_v0.md`, `benchmarks/finance/survey_template.md`, `README.md`
+
 ## 2025-12-20: Finance Benchmark Starter Pack (v0)
 
 - Added a finance-focused benchmark starter kit: schema, 10 synthetic cases (format demo), rubric, anonymization/labeling template, and a marketing research + survey template.

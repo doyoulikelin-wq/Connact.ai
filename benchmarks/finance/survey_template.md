@@ -1,6 +1,6 @@
 # Finance Marketing Research → Benchmark 数据采集模板
 
-这份文档的目标：用最小成本收集“真实用户输入 + 他们认为满意的输出标准”，并能直接转成 `benchmarks/finance/schema_v0.json` 的 case。
+这份文档的目标：用最小成本收集“真实用户输入 + 他们认为满意的输出标准”，并能直接转成 `benchmarks/finance/schema_v0.json`（v0.1）的 case。
 
 ## 0) 你要先定的 3 个研究目标（写进问卷开头）
 
@@ -37,6 +37,23 @@
    - 你为什么找对方（1–2 个具体理由）？
    - 你希望对方做什么（一个清晰 ask：通话时长/时间窗口/替代选项）？
    - 你能提供什么价值（1–2 句）？
+
+4.1) （可选，但强烈推荐）把“想找什么人”拆成可选结构化字段：
+   - 目标岗位 titles（例如 Analyst/Associate/VP/Partner/Head of ...）：
+   - seniority（例如 analyst/associate/manager/director）：
+   - 机构类型 org_type（IB/PE/VC/AM/Fintech/Corp/Risk/Compliance）：
+   - （banker）bank_tier（BB/EB/MM/Regional/Boutique）：
+   - （banker）group（coverage: TMT/HC/FIG… 或 product: M&A/LevFin/ECM/DCM…）：
+   - sector / stage（例如 Healthcare / Seed）：
+   - 地区/语言/时区：
+   - 你更希望通过什么渠道联系（email/LinkedIn/其他）：
+
+4.2) （可选）把 ask 写成结构化：
+   - ask 类型（call / coffee chat / deck feedback / intro / other）：
+   - 时长（分钟）：
+   - 时间范围（例如 next week / next 2 weeks）：
+   - 可选时间窗（例如 Tue 2-5pm ET）：
+   - 异步替代方案（例如“我可以先发 3 个问题邮件请教”）：
 5) 你当时手头有哪些“可引用证据”？
    - 简历要点 / LinkedIn 摘录 / 官网团队页 / 文章链接 / 研报摘录 / 职位描述 / 其它
 6) 请粘贴 1–3 条“可公开引用”的证据摘录（每条 1–3 句）+ 来源链接（如果有）
@@ -82,12 +99,12 @@
 
 把每个受访者的“场景采集 + 证据摘录”整理成：
 - `input.find_recommendations_request.sender_profile`：用 bullet 方式归纳（education/experiences/skills/projects/raw_text）
-- `input.find_recommendations_request.preferences`：把“想找什么人”写成 `search_intent` + must-have/must-not + location + contactability
-- `input.generate_email_request.receiver`：用公开证据/摘录填充 `raw_text` + `sources`
-- `input.generate_email_request.goal`：把“满意标准”写成约束（字数/语气/语言/ask/禁区）
+- `input.find_recommendations_request.preferences`：优先填结构化字段（`target_role_titles/seniority/org_type/bank_tier/group/sector/stage/recruiting_context/contact_channels`）+ `search_intent` + must-have/must-not + location + contactability
+- `input.generate_email_request.receiver`：用公开证据/摘录填充 `raw_text` + `sources`，并尽量补 `evidence_snippets`
+- `input.generate_email_request.email_spec`：把“满意标准”结构化（language/tone/长度/one-ask/value/hard rules/compliance guardrails）
+- `input.generate_email_request.goal`：保留一段可读的自然语言 goal（方便人审与兼容现有接口）
 - `expected.generate_email.assertions`：把“满意标准”翻译为可判定项（must_include / forbidden / required_elements / compliance）
 
 如果你需要“预期找人输出”是稳定的：
 - 把你调研得到的候选（或公开页面快照）整理成 `benchmark_context.candidate_pool`
 - 在 `expected.find_recommendations.must_include_candidate_ids` 里写“必须出现的候选/类型”
-
