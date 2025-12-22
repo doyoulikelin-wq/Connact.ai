@@ -1,0 +1,12 @@
+{
+  "id": "d8901e06-07ba-4394-b02f-a60a192fbf0f",
+  "user_info": {
+    "test": true
+  },
+  "prompt_find_target": "test prompt",
+  "output_find_target": "test output",
+  "prompt_generate_email": "",
+  "output_generate_email": "",
+  "timestamp": "2025-12-23T03:52:22.721699+08:00",
+  "metadata": {}
+}

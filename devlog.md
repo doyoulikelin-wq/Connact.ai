@@ -1,5 +1,89 @@
 # Development Log
 
+## 2025-12-23: 用户上传数据存储功能
+
+- 新增用户上传文件（简历 PDF + Target 信息）的持久化存储功能
+- **存储结构**：
+  - 路径：`data/users/{日期}/{时间戳}_{session_id}/`
+  - 文件：`resume.pdf`（原始简历）、`resume_profile.json`（解析后数据）、`targets.json`（目标人选列表）、`metadata.json`（完整会话记录）
+- **新增模块**：`src/services/user_uploads.py`
+  - `UserUploadStorage` 类：单例模式管理用户上传数据
+  - `save_user_resume()` / `save_user_targets()` / `add_user_target()`：便捷函数
+- **API 更新**：
+  - `/api/upload-sender-pdf`：上传简历时自动保存原始 PDF 和解析数据
+  - `/api/save-targets`（新增）：保存用户选择的 target 列表
+- **前端更新**：
+  - 添加 `generateSessionId()` 生成唯一会话 ID
+  - `state.sessionId` 贯穿整个用户会话
+  - 在 `generateAllEmails()` 前自动保存 targets
+
+Files: `src/services/user_uploads.py`（新增）, `app.py`, `templates/index_v2.html`
+
+## 2025-12-23: UI 科幻梦核视觉主题更新
+
+- 在保持 v2 全部功能和布局不变的前提下，更新视觉设计为科幻梦核风格
+- **配色方案**：
+  - 主背景：深空紫黑色（#0a0a12）
+  - 主强调色：霓虹紫（#7b68ee → #9d8bff）
+  - 次强调色：电子青（#00d4ff）、霓虹粉（#ff6b9d）
+  - 成功/警告/错误：霓虹绿/金/红
+- **字体**：添加 Brice Semi Expanded 字体（CDN）+ Inter 回退
+- **视觉效果**：
+  - 悬浮 LCD 面板效果（玻璃模糊 + 内发光边框）
+  - 柔和漫射光背景（多层渐变动画）
+  - 景深模糊效果（body::before 脉冲动画）
+  - 优雅渐变过渡（cubic-bezier 缓动）
+  - 动态环境反射（hover 时发光增强）
+- **组件更新**：
+  - .panel: 玻璃态 + 顶部渐变线 + hover 发光
+  - .btn-primary: 渐变背景 + 霓虹投影
+  - .option-card, .choice-btn: 扫光动画 + 边框发光
+  - .mode-card: 全息卡片效果
+  - .recommendation-item: 悬浮卡片动画
+  - 滚动条: 自定义霓虹紫渐变样式
+- **内联样式更新**：dropzone、notice、success 提示全部更新为深色主题
+
+Files: `templates/index_v2.html`
+
+## 2025-12-23: UI v3 Multi-Step Layout Refactor
+
+- 创建 `index_v3.html` 新模板，采用组件化多步骤布局
+- 四个核心组件：
+  1. **TopBar**: 顶部导航栏（品牌标识 + 模式切换 + 退出）
+  2. **StepNav**: 步骤导航（5 步：目的 → 个人信息 → 目标人选 → 模板 → 生成）
+  3. **ModeSelector**: 模式选择卡片（快速 vs 专业）
+  4. **PrivacyModal**: 隐私声明弹窗（同意后才能继续）
+  5. **PurposeStep**: 目的选择步骤（4 卡片选择 + 领域选择）
+- 设计风格：简洁、现代、Apple 风格设计系统
+- CSS 变量：统一颜色、间距、圆角、阴影、过渡
+- 状态管理：使用单一 `state` 对象管理全局状态
+- 添加 `/v3` 测试路由（保持 v2 为默认）
+
+Files: `templates/index_v3.html`, `app.py`
+
+## 2025-12-23: Finance Track Fixed Questions (IBD Structure + Career Ladder + Bank Types)
+
+- Professional Mode - Finance track 现在使用固定多选题而非动态生成
+- 问题基于三个参考文档设计：
+  - `question_fin/finance_structure.txt`: IBD 组织结构（Product Groups vs Sector Groups）
+  - `question_fin/investment_banking_career_ladder.txt`: 职级阶梯（Analyst → MD）及各级职责
+  - `question_fin/different_kinds_investment_banks.txt`: 银行类型分类
+- **6 个固定多选题**（按逻辑顺序）：
+  1. **银行类型偏好**：Bulge Bracket / Commercial Banks with IB / Middle Market / Boutiques（含具体公司示例）
+  2. **Product vs Sector 偏好**：Product Groups / Sector Groups / Both
+  3. **Product Group 细分**（条件显示：仅当选择 Product/Both）：M&A Advisory, DCM, Leveraged Finance, ECM
+  4. **Sector Group 细分**（条件显示：仅当选择 Sector/Both）：TMT, Healthcare, FIG, Energy, Industrials, Consumer, Real Estate, Sponsors 等
+  5. **目标级别偏好**：Analyst(1-3年) / Associate(4-6年) / VP/Director(7-9年) / ED/SVP(10-12年) / MD(12+年)
+  6. **联系目的**：Learn about role / Career advice / Referral / Industry insight / Mentorship
+- **UI 特性**：
+  - 多选支持（复选框样式）
+  - 条件逻辑跳转（根据 Q2 决定是否显示 Q3/Q4）
+  - 完成后显示偏好摘要
+  - Skip 跳过支持
+- Academic track 保持动态问题生成（调用 API）
+
+Files: `templates/index_v2.html`
+
 ## 2025-12-21: Prompt Data Collection Feature
 
 - 新增 Prompt 数据收集功能，用于收集 `find_target` 和 `generate_email` 两个步骤的 prompt 与输出。

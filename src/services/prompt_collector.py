@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from dataclasses import dataclass, field, asdict
@@ -30,6 +30,11 @@ from threading import Lock
 
 # 数据存储目录
 DATA_DIR = Path(__file__).parent.parent.parent / "data" / "prompt_logs"
+
+
+def get_local_now() -> datetime:
+    """获取本地时间（带时区）"""
+    return datetime.now().astimezone()
 
 
 @dataclass
@@ -50,7 +55,8 @@ class PromptRecord:
         if not self.id:
             self.id = str(uuid.uuid4())
         if not self.timestamp:
-            self.timestamp = datetime.utcnow().isoformat() + "Z"
+            # 使用本地时间，带时区信息
+            self.timestamp = get_local_now().isoformat()
     
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -180,13 +186,21 @@ class PromptDataCollector:
     
     def _save_record(self, record: PromptRecord) -> Path:
         """保存记录到 JSON 文件"""
-        # 按日期分目录
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        # 解析 record 的 timestamp 来确定日期和时间
+        try:
+            # 尝试解析带时区的 ISO 格式
+            ts_dt = datetime.fromisoformat(record.timestamp)
+        except (ValueError, TypeError):
+            # 回退到当前本地时间
+            ts_dt = get_local_now()
+        
+        # 按日期分目录（使用 record 的时间）
+        date_str = ts_dt.strftime("%Y-%m-%d")
         day_dir = DATA_DIR / date_str
         day_dir.mkdir(parents=True, exist_ok=True)
         
-        # 文件名：{timestamp}_{id[:8]}.json
-        ts = datetime.utcnow().strftime("%H%M%S")
+        # 文件名：{timestamp}_{id[:8]}.json（使用 record 的时间）
+        ts = ts_dt.strftime("%H%M%S")
         filename = f"{ts}_{record.id[:8]}.json"
         filepath = day_dir / filename
         

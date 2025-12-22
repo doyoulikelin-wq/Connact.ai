@@ -33,6 +33,19 @@ except ImportError:
     PROMPT_COLLECTOR_ENABLED = False
     prompt_collector = None
 
+# 用户上传数据存储
+try:
+    from src.services.user_uploads import (
+        user_upload_storage,
+        save_user_resume,
+        save_user_targets,
+        add_user_target,
+    )
+    USER_UPLOAD_ENABLED = True
+except ImportError:
+    USER_UPLOAD_ENABLED = False
+    user_upload_storage = None
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'coldemail-secret-key-2024')
@@ -63,9 +76,19 @@ def index():
     if not session.get('authenticated'):
         return redirect(url_for('login'))
     # Use v2 template by default
-    if APP_VERSION == 'v2':
+    if APP_VERSION == 'v3':
+        return render_template('index_v3.html')
+    elif APP_VERSION == 'v2':
         return render_template('index_v2.html')
     return render_template('index.html')
+
+
+@app.route('/v3')
+def index_v3():
+    """Render the v3 interface for testing."""
+    if not session.get('authenticated'):
+        return redirect(url_for('login'))
+    return render_template('index_v3.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -117,6 +140,17 @@ def upload_sender_pdf():
         return jsonify({'error': 'File must be a PDF'}), 400
     
     try:
+        # Get session ID
+        session_id = request.form.get('session_id', 'default')
+        original_filename = pdf_file.filename
+        
+        # 保存用户上传的原始 PDF 文件
+        if USER_UPLOAD_ENABLED and user_upload_storage:
+            # 先保存原始 PDF
+            user_upload_storage.save_resume_pdf(session_id, pdf_file, original_filename)
+            # 重置文件指针以便后续读取
+            pdf_file.seek(0)
+        
         # Save to temp file and extract profile
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
             pdf_file.save(tmp.name)
@@ -124,8 +158,7 @@ def upload_sender_pdf():
             os.unlink(tmp.name)  # Clean up temp file
         
         # Cache the extracted profile
-        session_id = request.form.get('session_id', 'default')
-        sender_profile_cache[session_id] = {
+        profile_dict = {
             'name': profile.name,
             'raw_text': profile.raw_text,
             'education': profile.education,
@@ -133,10 +166,15 @@ def upload_sender_pdf():
             'skills': profile.skills,
             'projects': profile.projects,
         }
+        sender_profile_cache[session_id] = profile_dict
+        
+        # 保存解析后的简历数据
+        if USER_UPLOAD_ENABLED and user_upload_storage:
+            user_upload_storage.save_resume_profile(session_id, profile_dict)
         
         return jsonify({
             'success': True,
-            'profile': sender_profile_cache[session_id]
+            'profile': profile_dict
         })
     
     except Exception as e:
@@ -472,6 +510,32 @@ def api_regenerate_email():
         return jsonify({
             'success': True,
             'email': new_email
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/save-targets', methods=['POST'])
+@login_required
+def api_save_targets():
+    """Save user's selected targets for later analysis."""
+    if not USER_UPLOAD_ENABLED or not user_upload_storage:
+        return jsonify({'success': True, 'message': 'Upload storage disabled'})
+    
+    data = request.get_json()
+    
+    session_id = data.get('session_id', 'default')
+    targets = data.get('targets', [])
+    
+    if not targets:
+        return jsonify({'error': 'No targets provided'}), 400
+    
+    try:
+        path = save_user_targets(session_id, targets)
+        return jsonify({
+            'success': True,
+            'path': path,
+            'count': len(targets)
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

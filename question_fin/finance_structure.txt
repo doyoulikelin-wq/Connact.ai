@@ -1,0 +1,103 @@
+Investment Banking Division (IBD) — Structure Overview (Product vs. Sector)
+
+1) What “IBD” covers at the highest level
+IBD generally combines two big workstreams:
+
+A. Corporate Finance / Advisory (strategy + transaction advice)
+- Helps clients decide what to do and how to structure it.
+- Typical topics: M&A decisions, strategic reviews, restructuring.
+
+B. Capital Markets / Execution (underwriting + issuance execution)
+- Helps clients raise capital by executing equity or debt issuance.
+- Typical topics: underwriting, marketing, pricing, syndication, and deal execution.
+
+In practice, IBD is commonly organized along two axes:
+- Product Groups (specialists by transaction / product type)
+- Sector Groups (generalists by industry and client relationship)
+
+This creates a “matrix”: Sector teams own client relationships and originate ideas; Product teams provide deep technical execution on specific transaction types.
+
+--------------------------------------------------------------------------------
+2) Product Groups (transaction specialists)
+Product Groups are organized by the type of transaction/product and tend to be staffed by specialists who execute deals across many industries.
+
+2.1 Advisory / Mergers & Acquisitions (M&A)
+Core focus: advice-driven, transaction-structure-centric work.
+Typical mandate:
+- M&A advisory (buy-side, sell-side, mergers)
+- Strategic reviews (portfolio review, divestiture options, growth strategy)
+- Restructuring (capital structure solutions, creditor negotiations, turnaround advisory)
+
+2.2 Debt Capital Markets (DCM)
+Core focus: debt issuance execution and market-facing coordination.
+Typical mandate:
+- Advise on debt structure (tenor, covenants, fixed vs. floating)
+- Timing and market positioning; investor messaging
+- Underwriting syndicate coordination and execution mechanics
+
+2.3 Leveraged Finance / Origination
+Core focus: financing for riskier credits and sponsor-driven deals, with an “origination” element.
+Typical mandate:
+- LBO / sponsor deal financing
+- High-yield bonds and leveraged loans (depending on bank structure)
+- Structuring complex capital stacks (multiple tranches, covenant packages)
+
+2.4 Equity Capital Markets (ECM)
+Core focus: equity issuance execution and interface with equity investors and market dynamics.
+Typical mandate:
+- Equity issuance strategy (market windows, structure)
+- Underwriting, marketing, pricing, and execution coordination
+- Equity story framing and investor communication support
+(Note: ECM sits under the broader “Capital Markets / Execution” track in many org charts.)
+
+2.5 “Product Group” mindset (why people choose it)
+People drawn to Product Groups typically:
+- Want a particular skill set and deeper specialization
+- Prefer being a specialist vs. a generalist
+- Focus on executing transactions (the “how” of deals)
+- Interact with all sector groups (because products apply across industries)
+
+--------------------------------------------------------------------------------
+3) Sector Groups (industry coverage and relationship owners)
+Sector Groups (also called Industry Coverage) are organized by industry and typically:
+- Own primary client relationships
+- Generate ideas and originate transactions
+- Provide deep industry context and long-term strategic dialogue
+- Coordinate with Product Groups to execute deals
+
+Common Sector Groups (as shown in the diagram)
+- Consumer Products & Retail
+- Financial Institutions (often called FIG: Financial Institutions Group)
+- Healthcare
+- Real Estate, Lodging & Leisure
+- Power & Utilities
+- Energy
+- Industrials
+- Private Funds (structure varies by bank; sometimes overlaps with Sponsors/FIG)
+- Technology / Media / Telecom (TMT)
+- Financial Sponsors (coverage of private equity and sponsor clients)
+
+3.1 “Sector Group” mindset (why people choose it)
+People drawn to Sector Groups typically:
+- Want to build a toolbox of skills across multiple products
+- Enjoy relationship-building with clients
+- Have strong interest in a specific industry
+- Interact with all product groups (because coverage teams pull in specialists as needed)
+
+--------------------------------------------------------------------------------
+4) How deals happen in the matrix (workflow)
+A typical end-to-end workflow:
+1) Sector coverage identifies a client need (growth, acquisition, refinancing, capital raise).
+2) Coverage pulls in relevant product specialists:
+   - M&A for strategic / deal advisory
+   - DCM for debt solutions
+   - Leveraged Finance for sponsor/LBO or higher-risk financing
+   - ECM for equity solutions
+3) Coverage + product teams run the process together:
+   - Sector coverage: client communication, relationship management, industry narrative
+   - Product groups: technical structuring, modeling support, execution steps, market coordination
+
+Key takeaway
+- Sector = relationship + industry + origination
+- Product = transaction expertise + execution
+- IBD works best when both collaborate tightly across the “product x sector” matrix
