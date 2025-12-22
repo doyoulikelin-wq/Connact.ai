@@ -1,0 +1,19 @@
+{
+  "id": "a8bc2558-00bd-44d3-ab95-6c258324969e",
+  "user_info": {
+    "purpose": "Coffee Chat",
+    "field": "AI/ML",
+    "sender_name": "Test User"
+  },
+  "prompt_find_target": "",
+  "output_find_target": "",
+  "prompt_generate_email": "System instruction: You craft sincere, concise first-contact cold emails that help two people build a genuine connection. Use only facts present in the sender/receiver details or explicitly provided evidence; do not invent relationships, meetings, achievements, or affiliations. If information is missing, keep it generic rather than guessing. Follow this structure: Subject -> opening reason based on receiver evidence -> brief common ground -> value the sender can offer -> one clear ask (with time or a lightweight option) -> polite opt-out -> sign-off. Output a complete email with a Subject line and body that is ready to paste into an email client.\n\nUser request:\nSender profile:\n- Name: Test User\n- Motivation: 想了解 AI 研究方向\n- Ask: 希望能聊 15 分钟\n- Education:\n  • Stanford CS PhD\n- Experiences:\n  • Google Research Intern\n- Skills: (not specified)\n- Projects: (not specified)\nSender background (free text):\n\n\nReceiver profile:\n- Name: Andrew Ng\n- Context: AI/ML expert\n- Education:\n  • Stanford Professor\n- Experiences:\n  • DeepLearning.AI Founder\n  • Former Baidu Chief Scientist\n- Skills: (not specified)\n- Projects: (not specified)\nReceiver background (free text):\n\n\nGoal: Request a 15-minute coffee chat about AI research directions\n\nPlease return:\n1) A concise, specific subject line\n2) A short email body (max ~200 words) that feels human, references shared interests or context, and ends with a clear but polite call to action.",
+  "output_generate_email": "Subject: Stanford CS PhD Student Interested in Your AI Research Insights\n\nDear Professor Ng,\n\nI'm Test User, a Stanford CS PhD student interested in exploring AI research directions.\n\nHaving followed your work at DeepLearning.AI and your contributions to the field, I am impressed by your insights. As a former Google Research Intern, I am keen to learn from your experience.\n\nWould you be open to a brief 15-minute chat about your perspective on promising areas in AI research? I'm particularly interested in [add specific research interest if known; otherwise omit].\n\nIf you're unavailable, I understand completely.\n\nThank you for your time and consideration.\n\nSincerely,\n\nTest User",
+  "timestamp": "2025-12-22T02:09:41.474343Z",
+  "metadata": {
+    "generate_email": {
+      "model": "gemini-2.0-flash",
+      "goal": "Request a 15-minute coffee chat about AI research directions"
+    }
+  }
+}

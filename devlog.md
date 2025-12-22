@@ -1,5 +1,16 @@
 # Development Log
 
+## 2025-12-21: Prompt Data Collection Feature
+
+- 新增 Prompt 数据收集功能，用于收集 `find_target` 和 `generate_email` 两个步骤的 prompt 与输出。
+- 数据格式：ID、用户信息、prompt_find_target、output_find_target、prompt_generate_email、output_generate_email、时间戳。
+- 新增 `src/services/prompt_collector.py` 服务模块，使用单例模式管理会话。
+- 数据存储位置：`data/prompt_logs/{日期}/{时间戳}_{id}.json`。
+- 环境变量 `COLLECT_PROMPTS` 控制是否启用（默认启用）。
+- 支持导出为 JSONL/CSV 格式供后续分析。
+
+Files: `src/services/prompt_collector.py`, `src/email_agent.py`, `app.py`
+
 ## 2025-12-21: Finance Benchmark v0.1 - Richer Context Fields
 
 - Expanded the finance benchmark schema/cases to include more structured context for realistic evaluation (especially for banker workflows): role titles, seniority, bank tier, coverage/product group, sector/stage, recruiting context, contact channels, plus an optional `email_spec` for explicit ask/value/hard rules/compliance.

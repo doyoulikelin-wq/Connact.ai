@@ -1,0 +1,19 @@
+{
+  "id": "282c2a55-06a5-4499-a546-50d640d4882c",
+  "user_info": {
+    "purpose": "Coffee Chat",
+    "field": "AI/ML",
+    "sender_name": "Test User"
+  },
+  "prompt_find_target": "",
+  "output_find_target": "",
+  "prompt_generate_email": "System instruction: You craft sincere, concise first-contact cold emails that help two people build a genuine connection. Use only facts present in the sender/receiver details or explicitly provided evidence; do not invent relationships, meetings, achievements, or affiliations. If information is missing, keep it generic rather than guessing. Follow this structure: Subject -> opening reason based on receiver evidence -> brief common ground -> value the sender can offer -> one clear ask (with time or a lightweight option) -> polite opt-out -> sign-off. Output a complete email with a Subject line and body that is ready to paste into an email client.\n\nUser request:\nSender profile:\n- Name: Test User\n- Motivation: 想了解 AI 研究方向\n- Ask: 希望能聊 15 分钟\n- Education:\n  • Stanford CS PhD\n- Experiences:\n  • Google Research Intern\n- Skills: (not specified)\n- Projects: (not specified)\nSender background (free text):\n\n\nReceiver profile:\n- Name: Andrew Ng\n- Context: AI/ML expert\n- Education:\n  • Stanford Professor\n- Experiences:\n  • DeepLearning.AI Founder\n- Skills: (not specified)\n- Projects: (not specified)\nReceiver background (free text):\n\n\nGoal: Request a 15-minute coffee chat about AI research\n\nPlease return:\n1) A concise, specific subject line\n2) A short email body (max ~200 words) that feels human, references shared interests or context, and ends with a clear but polite call to action.",
+  "output_generate_email": "Subject: Stanford CS PhD student interested in your AI insights\n\nDear Professor Ng,\n\nAs a Stanford CS PhD student with an interest in AI, I've been following your work at DeepLearning.AI for some time.\n\nLike you, I also studied at Stanford. I am currently exploring different research directions within AI.\n\nGiven your expertise, I was hoping you might be open to a brief chat. I'd be grateful for the chance to get your perspective.\n\nWould you be available for a 15-minute call sometime in the next few weeks? Alternatively, I'd be happy to send over a few specific questions via email if that's easier.\n\nOf course, I understand if you're too busy.\n\nThank you for your time and consideration.\n\nSincerely,\n\nTest User",
+  "timestamp": "2025-12-22T02:12:02.847509Z",
+  "metadata": {
+    "generate_email": {
+      "model": "gemini-2.0-flash",
+      "goal": "Request a 15-minute coffee chat about AI research"
+    }
+  }
+}

@@ -21,6 +21,18 @@ from src.email_agent import (
 )
 from src.web_scraper import extract_person_profile_from_web
 
+# Prompt 数据收集
+try:
+    from src.services.prompt_collector import (
+        prompt_collector,
+        start_prompt_session,
+        end_prompt_session,
+    )
+    PROMPT_COLLECTOR_ENABLED = True
+except ImportError:
+    PROMPT_COLLECTOR_ENABLED = False
+    prompt_collector = None
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'coldemail-secret-key-2024')
@@ -177,6 +189,9 @@ def api_generate_email():
     data = request.get_json()
     template = data.get('template') or None
     
+    # 获取数据收集 session_id（优先从请求获取，其次从 session）
+    session_id = data.get('session_id') or session.get('prompt_session_id')
+    
     try:
         # Get sender profile
         sender_data = data.get('sender', {})
@@ -210,11 +225,18 @@ def api_generate_email():
             return jsonify({'error': 'Goal is required'}), 400
         
         # Generate email (optionally template-guided)
-        email_text = generate_email(sender, receiver, goal, template=template)
+        email_text = generate_email(sender, receiver, goal, template=template, session_id=session_id)
+        
+        # 结束数据收集会话并保存
+        saved_path = None
+        if PROMPT_COLLECTOR_ENABLED and session_id:
+            saved_path = end_prompt_session(session_id)
+            session.pop('prompt_session_id', None)  # 清理 session
         
         return jsonify({
             'success': True,
-            'email': email_text
+            'email': email_text,
+            'data_saved': saved_path is not None,
         })
     
     except Exception as e:
@@ -341,16 +363,29 @@ def api_find_recommendations():
     if not purpose or not field:
         return jsonify({'error': 'Purpose and field are required'}), 400
     
+    # 开始数据收集会话
+    session_id = None
+    if PROMPT_COLLECTOR_ENABLED:
+        session_id = start_prompt_session(user_info={
+            "purpose": purpose,
+            "field": field,
+            "sender_name": sender_profile.get("name", ""),
+        })
+        # 存储 session_id 供后续 generate_email 使用
+        session['prompt_session_id'] = session_id
+    
     try:
         recommendations = find_target_recommendations(
             purpose,
             field,
             sender_profile,
-            preferences=preferences
+            preferences=preferences,
+            session_id=session_id,
         )
         return jsonify({
             'success': True,
-            'recommendations': recommendations
+            'recommendations': recommendations,
+            'session_id': session_id,  # 返回给前端，供后续调用
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
