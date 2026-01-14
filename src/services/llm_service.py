@@ -20,7 +20,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Literal
 
-import google.generativeai as genai
+# Optional Gemini dependency (keep import-time light for tests/CI)
+try:
+    import google.generativeai as genai  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    genai = None  # type: ignore
 from openai import OpenAI
 
 from config import DEFAULT_MODEL, GEMINI_SEARCH_MODEL
@@ -88,6 +92,10 @@ class GeminiService(BaseLLMService):
         """Configure Gemini API (lazy initialization)."""
         if self._configured:
             return
+        if genai is None:
+            raise LLMServiceError(
+                "google-generativeai is not installed. Install dependencies with `python -m pip install -r requirements.txt`."
+            )
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if not api_key:
             raise LLMServiceError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable not set")

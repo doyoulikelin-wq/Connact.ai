@@ -2300,6 +2300,7 @@ I&apos;m {{sender_name}}, currently ...
             proTrack: null,  // 'finance' or 'academic' (for professional mode)
             proTargetChoice: null,  // 'have' or 'need' (for professional mode)
             proPreferenceHistory: [],  // Professional mode preference Q&A
+            financePreferences: null,  // Structured finance preferences (Professional/Finance track)
             step: 1,
             purpose: null,
             purposeCustom: '',
@@ -2373,6 +2374,7 @@ I&apos;m {{sender_name}}, currently ...
                 proTrack: null,
                 proTargetChoice: null,
                 proPreferenceHistory: [],
+                financePreferences: null,
                 step: 1,
                 purpose: null,
                 purposeCustom: '',
@@ -2916,89 +2918,392 @@ I&apos;m {{sender_name}}, currently ...
             }
         }
 
-        // Fixed Finance questions based on IBD structure, bank types, and career ladder
+        // Finance decision-tree preferences (Professional / Finance track only)
+        // G — Goal / Career Direction (multi) → Primary direction (single, auto-skip if only one)
+        // S — Sector / Group → O — Firm type → M — Location → Seniority → Optional preferences
+        const FINANCE_MAX_QUESTIONS = 16;
         const FINANCE_FIXED_QUESTIONS = [
             {
-                id: 'bank_type',
-                question: 'What type of investment bank interests you most?',
+                id: 'career_directions',
+                question: 'G: Which finance career directions are you exploring? (Select all that apply)',
                 type: 'multi',
                 options: [
-                    { value: 'bulge_bracket', label: 'Bulge Bracket (Goldman Sachs, Morgan Stanley, J.P. Morgan, Citi, BofA, UBS, Barclays, Deutsche Bank)' },
-                    { value: 'commercial_ib', label: 'Commercial Banks with IB (RBC, HSBC, Wells Fargo, Mizuho, BNP Paribas, BMO, TD Securities)' },
-                    { value: 'middle_market', label: 'Middle Market Banks (Jefferies, William Blair, Piper Sandler, Raymond James, Cowen)' },
-                    { value: 'boutique', label: 'Boutiques (Lazard, Evercore, Moelis, PJT, Greenhill, Rothschild, Perella Weinberg)' }
+                    { value: 'ib', label: 'Investment Banking (IB)' },
+                    { value: 'st', label: 'Sales & Trading (S&T)' },
+                    { value: 'pe', label: 'Private Equity / Growth Equity' },
+                    { value: 'hf', label: 'Hedge Fund' },
+                    { value: 'am', label: 'Asset / Wealth Management' },
+                    { value: 'er', label: 'Equity Research' },
+                    { value: 'corp_fin', label: 'Corporate Finance / Strategy' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'e.g., Consulting, Risk, Fintech, ...' }
+            },
+            {
+                id: 'primary_direction',
+                question: 'G: Which is your PRIMARY direction right now? (We will go deeper only on this one)',
+                type: 'single',
+                optionsFrom: 'career_directions',
+                includeNotSure: true,
+                notSureValue: 'unsure',
+                notSureLabel: 'Not sure yet — keep it broad',
+                skipIfSingleSelectionFrom: 'career_directions'
+            },
+
+            // Investment Banking (IB)
+            {
+                id: 'ib_firm_type',
+                question: 'O: IB — What type of firm are you targeting?',
+                type: 'single',
+                dependsOn: 'primary_direction',
+                showIf: ['ib'],
+                options: [
+                    { value: 'bb', label: 'Bulge Bracket' },
+                    { value: 'eb', label: 'Elite Boutique' },
+                    { value: 'mm', label: 'Middle Market' },
+                    { value: 'industry_boutique', label: 'Industry Boutique' },
+                    { value: 'regional', label: 'Regional Investment Bank' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Firm type / examples...' }
+            },
+            {
+                id: 'ib_group_type',
+                question: 'S: IB — Which group type are you most interested in?',
+                type: 'single',
+                dependsOn: 'primary_direction',
+                showIf: ['ib'],
+                options: [
+                    { value: 'coverage', label: 'Industry Coverage' },
+                    { value: 'product', label: 'Product Group' },
+                    { value: 'both', label: 'Both / flexible' },
+                    { value: 'unsure', label: 'Not sure yet' }
                 ]
             },
             {
-                id: 'product_vs_sector',
-                question: 'Are you more interested in Product Groups or Sector/Industry Groups?',
+                id: 'ib_coverage_industries',
+                question: 'S: IB Coverage — Which industries interest you? (Select all that apply)',
                 type: 'multi',
+                dependsOn: 'ib_group_type',
+                showIf: ['coverage', 'both'],
                 options: [
-                    { value: 'product', label: 'Product Groups — specialist in specific transaction types across industries' },
-                    { value: 'sector', label: 'Sector Groups — industry coverage, client relationships, deal origination' },
-                    { value: 'both', label: 'Both — I want exposure to both product and sector work' }
-                ]
-            },
-            {
-                id: 'product_group',
-                question: 'Which Product Group(s) interest you? (Select all that apply)',
-                type: 'multi',
-                showIf: ['product', 'both'],
-                dependsOn: 'product_vs_sector',
-                options: [
-                    { value: 'ma', label: 'M&A Advisory — buy-side, sell-side, mergers, strategic reviews, restructuring' },
-                    { value: 'dcm', label: 'DCM (Debt Capital Markets) — debt issuance, bond structuring, syndication' },
-                    { value: 'lev_fin', label: 'Leveraged Finance — LBO financing, high-yield bonds, leveraged loans' },
-                    { value: 'ecm', label: 'ECM (Equity Capital Markets) — IPOs, follow-ons, equity issuance strategy' }
-                ]
-            },
-            {
-                id: 'sector_group',
-                question: 'Which Sector/Industry Group(s) interest you? (Select all that apply)',
-                type: 'multi',
-                showIf: ['sector', 'both'],
-                dependsOn: 'product_vs_sector',
-                options: [
-                    { value: 'tmt', label: 'TMT (Technology, Media & Telecom)' },
+                    { value: 'tmt', label: 'Technology / TMT' },
                     { value: 'healthcare', label: 'Healthcare' },
-                    { value: 'fig', label: 'FIG (Financial Institutions Group)' },
-                    { value: 'energy', label: 'Energy / Power & Utilities' },
                     { value: 'industrials', label: 'Industrials' },
-                    { value: 'consumer', label: 'Consumer Products & Retail' },
-                    { value: 'real_estate', label: 'Real Estate, Lodging & Leisure' },
-                    { value: 'sponsors', label: 'Financial Sponsors (PE/Sponsor coverage)' },
-                    { value: 'other_sector', label: 'Other / No specific preference' }
+                    { value: 'consumer', label: 'Consumer & Retail' },
+                    { value: 'fig', label: 'Financial Institutions Group (FIG)' },
+                    { value: 'energy', label: 'Energy / Power / Infrastructure' },
+                    { value: 'real_estate', label: 'Real Estate' },
+                    { value: 'media', label: 'Media & Entertainment' },
+                    { value: 'telecom', label: 'Telecom' },
+                    { value: 'gaming_sports', label: 'Gaming / Sports' },
+                    { value: 'chemicals', label: 'Chemicals' },
+                    { value: 'transportation', label: 'Transportation / Aviation' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other industries...' }
+            },
+            {
+                id: 'ib_product_groups',
+                question: 'S: IB Product — Which product groups interest you? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'ib_group_type',
+                showIf: ['product', 'both'],
+                options: [
+                    { value: 'ma', label: 'Mergers & Acquisitions (M&A)' },
+                    { value: 'ecm', label: 'Equity Capital Markets (ECM)' },
+                    { value: 'dcm', label: 'Debt Capital Markets (DCM)' },
+                    { value: 'lev_fin', label: 'Leveraged Finance' },
+                    { value: 'restructuring', label: 'Distressed / Restructuring' },
+                    { value: 'cross_border', label: 'Cross-border Transactions' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other product groups...' }
+            },
+
+            // Sales & Trading (S&T)
+            {
+                id: 'st_function',
+                question: 'S: S&T — Which area are you most interested in?',
+                type: 'single',
+                dependsOn: 'primary_direction',
+                showIf: ['st'],
+                options: [
+                    { value: 'sales', label: 'Sales' },
+                    { value: 'trading', label: 'Trading' },
+                    { value: 'structuring', label: 'Structuring' },
+                    { value: 'unsure', label: 'Not sure yet' }
                 ]
             },
+            {
+                id: 'st_sales_area',
+                question: 'S: S&T Sales — Which area? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'st_function',
+                showIf: ['sales'],
+                options: [
+                    { value: 'equities_sales', label: 'Equities Sales' },
+                    { value: 'fixed_income_sales', label: 'Fixed Income Sales' },
+                    { value: 'prime_brokerage_sales', label: 'Prime Brokerage Sales' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other sales area...' }
+            },
+            {
+                id: 'st_trading_area',
+                question: 'S: S&T Trading — Which desk/asset class? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'st_function',
+                showIf: ['trading'],
+                options: [
+                    { value: 'equities_trading', label: 'Equities Trading' },
+                    { value: 'fixed_income_trading', label: 'Fixed Income Trading' },
+                    { value: 'rates_trading', label: 'Rates Trading' },
+                    { value: 'credit_trading', label: 'Credit Trading' },
+                    { value: 'fx_trading', label: 'FX Trading' },
+                    { value: 'commodities_trading', label: 'Commodities Trading' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other trading area...' }
+            },
+            {
+                id: 'st_structuring_area',
+                question: 'S: S&T Structuring — Which area? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'st_function',
+                showIf: ['structuring'],
+                options: [
+                    { value: 'equity_derivatives_structuring', label: 'Equity Derivatives Structuring' },
+                    { value: 'credit_structuring', label: 'Credit Structuring' },
+                    { value: 'rates_structuring', label: 'Rates Structuring' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other structuring area...' }
+            },
+
+            // Private Equity / Growth Equity
+            {
+                id: 'pe_fund_type',
+                question: 'O: PE/GE — What type of fund are you targeting?',
+                type: 'single',
+                dependsOn: 'primary_direction',
+                showIf: ['pe'],
+                options: [
+                    { value: 'large_cap_pe', label: 'Large-cap PE' },
+                    { value: 'mid_market_pe', label: 'Mid-market PE' },
+                    { value: 'growth_equity', label: 'Growth Equity' },
+                    { value: 'venture_capital', label: 'Venture Capital' },
+                    { value: 'sector_focused_pe', label: 'Sector-focused PE' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other fund type...' }
+            },
+            {
+                id: 'pe_industry_focus',
+                question: 'S: PE/GE — Any preferred industry focus? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'primary_direction',
+                showIf: ['pe'],
+                options: [
+                    { value: 'technology', label: 'Technology' },
+                    { value: 'healthcare', label: 'Healthcare' },
+                    { value: 'consumer', label: 'Consumer' },
+                    { value: 'industrials', label: 'Industrials' },
+                    { value: 'financials', label: 'Financial Services' },
+                    { value: 'energy', label: 'Energy' },
+                    { value: 'real_estate', label: 'Real Estate' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other industries...' }
+            },
+
+            // Hedge Fund
+            {
+                id: 'hf_strategy',
+                question: 'S: HF — What strategy are you most interested in? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'primary_direction',
+                showIf: ['hf'],
+                options: [
+                    { value: 'l_s_equity', label: 'Long/Short Equity' },
+                    { value: 'global_macro', label: 'Global Macro' },
+                    { value: 'event_driven', label: 'Event-driven' },
+                    { value: 'quant', label: 'Quant / Systematic' },
+                    { value: 'multi_strat', label: 'Multi-strategy' },
+                    { value: 'credit_distressed', label: 'Credit / Distressed' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other strategies...' }
+            },
+            {
+                id: 'hf_role',
+                question: 'S: HF — Which role(s) are you targeting? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'primary_direction',
+                showIf: ['hf'],
+                options: [
+                    { value: 'analyst', label: 'Analyst' },
+                    { value: 'trader', label: 'Trader' },
+                    { value: 'quant_research', label: 'Quant Research' },
+                    { value: 'portfolio_analyst', label: 'Portfolio Analyst' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other roles...' }
+            },
+
+            // Asset / Wealth Management
+            {
+                id: 'am_track',
+                question: 'O: AM/WM — Which area are you targeting?',
+                type: 'single',
+                dependsOn: 'primary_direction',
+                showIf: ['am'],
+                options: [
+                    { value: 'asset_management', label: 'Asset Management' },
+                    { value: 'wealth_management', label: 'Wealth Management / Private Banking' },
+                    { value: 'unsure', label: 'Not sure yet' }
+                ]
+            },
+            {
+                id: 'am_asset_class',
+                question: 'S: Asset Management — Which asset class(es)? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'am_track',
+                showIf: ['asset_management'],
+                options: [
+                    { value: 'equities', label: 'Equities' },
+                    { value: 'fixed_income', label: 'Fixed Income' },
+                    { value: 'multi_asset', label: 'Multi-Asset' },
+                    { value: 'alternatives', label: 'Alternatives' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other asset classes...' }
+            },
+
+            // Equity Research
+            {
+                id: 'er_industry',
+                question: 'S: Equity Research — Which coverage sector(s)? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'primary_direction',
+                showIf: ['er'],
+                options: [
+                    { value: 'technology', label: 'Technology' },
+                    { value: 'healthcare', label: 'Healthcare' },
+                    { value: 'consumer', label: 'Consumer' },
+                    { value: 'industrials', label: 'Industrials' },
+                    { value: 'energy', label: 'Energy' },
+                    { value: 'financials', label: 'Financials' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other sectors...' }
+            },
+            {
+                id: 'er_role',
+                question: 'O: Equity Research — Which role are you targeting?',
+                type: 'single',
+                dependsOn: 'primary_direction',
+                showIf: ['er'],
+                options: [
+                    { value: 'research_analyst', label: 'Research Analyst' },
+                    { value: 'associate', label: 'Associate' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other role...' }
+            },
+
+            // Corporate Finance / Strategy
+            {
+                id: 'corp_role',
+                question: 'S: Corporate Finance / Strategy — Which area? (Select all that apply)',
+                type: 'multi',
+                dependsOn: 'primary_direction',
+                showIf: ['corp_fin'],
+                options: [
+                    { value: 'corp_dev', label: 'Corporate Development' },
+                    { value: 'fpa', label: 'FP&A' },
+                    { value: 'strategy_bizops', label: 'Strategy / BizOps' },
+                    { value: 'treasury', label: 'Treasury' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other areas...' }
+            },
+
+            // Market / Location
+            {
+                id: 'market_location',
+                question: 'M: Which market/location are you targeting? (Select all that apply)',
+                type: 'multi',
+                options: [
+                    { value: 'new_york', label: 'New York' },
+                    { value: 'london', label: 'London' },
+                    { value: 'hong_kong', label: 'Hong Kong' },
+                    { value: 'singapore', label: 'Singapore' },
+                    { value: 'san_francisco', label: 'San Francisco / Bay Area' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'e.g., Toronto, Dubai, Frankfurt, Sydney...' }
+            },
+
+            // Seniority (who to talk to)
             {
                 id: 'target_seniority',
-                question: 'What seniority level of professionals do you want to connect with?',
+                question: 'Seniority: Who do you want to talk to? (Select all that apply)',
                 type: 'multi',
                 options: [
-                    { value: 'analyst', label: 'Analyst (Year 1-3) — financial modeling, research, deal support' },
-                    { value: 'associate', label: 'Associate (Year 4-6) — transaction support, manage analysts, model development' },
-                    { value: 'vp_director', label: 'VP / Director (Year 7-9) — run transactions, develop relationships, manage teams' },
-                    { value: 'ed_svp', label: 'Executive Director / SVP (Year 10-12) — own client base, generate revenue' },
-                    { value: 'md', label: 'Managing Director (Year 12+) — client ownership, franchise building, team leadership' }
+                    { value: 'analyst', label: 'Analyst (Year 1-3)' },
+                    { value: 'associate', label: 'Associate (Year 4-6)' },
+                    { value: 'vp_director', label: 'VP / Director (Year 7-9)' },
+                    { value: 'ed_svp', label: 'Executive Director / SVP (Year 10-12)' },
+                    { value: 'md', label: 'Managing Director (Year 12+)' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other seniority/role...' }
+            },
+
+            // Optional Preferences
+            {
+                id: 'outreach_goal',
+                question: 'Optional: What is your primary goal for connecting?',
+                type: 'single',
+                options: [
+                    { value: 'learn_role', label: 'Learn about their day-to-day role and responsibilities' },
+                    { value: 'career_advice', label: 'Get career advice and guidance on breaking in' },
+                    { value: 'referral', label: 'Explore referral opportunities for open positions' },
+                    { value: 'industry_insight', label: 'Gain industry insights and market knowledge' },
+                    { value: 'mentorship', label: 'Seek mentorship or long-term guidance' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Your goal...' }
+            },
+            {
+                id: 'contactability',
+                question: 'Optional: Reply likelihood vs prestige?',
+                type: 'single',
+                options: [
+                    { value: 'balanced', label: '⚖️ Balanced (relevance + reply likelihood)' },
+                    { value: 'reply', label: '📩 Prioritize likely-to-reply (more accessible)' },
+                    { value: 'prestige', label: '🏆 Prioritize most senior/famous (prestige)' }
                 ]
             },
             {
-                id: 'connection_goal',
-                question: 'What is your primary goal for connecting with these professionals?',
+                id: 'contact_channels',
+                question: 'Optional: Preferred contact channels? (Select all that apply)',
                 type: 'multi',
                 options: [
-                    { value: 'learn_role', label: 'Learn about their day-to-day role and responsibilities' },
-                    { value: 'career_advice', label: 'Get career advice and guidance on breaking into IB' },
-                    { value: 'referral', label: 'Explore referral opportunities for open positions' },
-                    { value: 'industry_insight', label: 'Gain industry insights and market knowledge' },
-                    { value: 'mentorship', label: 'Seek mentorship or long-term guidance' }
-                ]
+                    { value: 'linkedin', label: 'LinkedIn' },
+                    { value: 'email', label: 'Email' },
+                    { value: 'phone', label: 'Phone' },
+                    { value: 'other', label: 'Other (please specify)' }
+                ],
+                custom: { optionValue: 'other', placeholder: 'Other channels...' }
             }
         ];
 
         // State for finance fixed questions
         let financeQuestionIndex = 0;
         let financeAnswers = {};
+        let financeCustomAnswers = {};
 
         // Load preference questions for Professional mode
         async function loadProPreferenceQuestions() {
@@ -3013,6 +3318,7 @@ I&apos;m {{sender_name}}, currently ...
                 loading.classList.add('hidden');
                 financeQuestionIndex = 0;
                 financeAnswers = {};
+                financeCustomAnswers = {};
                 renderFinanceFixedQuestion();
                 return;
             }
@@ -3204,82 +3510,170 @@ I&apos;m {{sender_name}}, currently ...
             });
         }
 
-        // Render fixed Finance questions with multi-select support
+        // Render fixed Finance questions (decision tree) with single/multi-select + optional "Other" input
         function renderFinanceFixedQuestion() {
             const container = document.getElementById('pro-preference-questions');
             container.innerHTML = '';
 
-            // Find the next applicable question (skip questions that don't apply based on conditions)
+            function getQuestionById(id) {
+                return FINANCE_FIXED_QUESTIONS.find(q => q.id === id) || null;
+            }
+
+            function getOptionLabelFromQuestion(question, value) {
+                if (!question) return value;
+                if (question.includeNotSure && value === (question.notSureValue || 'unsure')) {
+                    return question.notSureLabel || 'Not sure';
+                }
+                const opts = Array.isArray(question.options) ? question.options : [];
+                const found = opts.find(o => o.value === value);
+                if (found && found.label) return found.label;
+                return value;
+            }
+
+            function resolveQuestionOptions(question) {
+                if (!question) return [];
+                if (question.optionsFrom) {
+                    const sourceId = question.optionsFrom;
+                    const selected = Array.isArray(financeAnswers[sourceId]) ? financeAnswers[sourceId] : [];
+                    const sourceQuestion = getQuestionById(sourceId);
+                    const options = selected.map(v => ({
+                        value: v,
+                        label: getOptionLabelFromQuestion(sourceQuestion, v)
+                    }));
+                    if (selected.includes('other')) {
+                        const customText = String(financeCustomAnswers[sourceId] || '').trim();
+                        if (customText) {
+                            options.forEach(o => {
+                                if (o.value === 'other') o.label = `Other: ${customText}`;
+                            });
+                        }
+                    }
+                    if (question.includeNotSure) {
+                        options.push({
+                            value: question.notSureValue || 'unsure',
+                            label: question.notSureLabel || 'Not sure'
+                        });
+                    }
+                    return options;
+                }
+                return Array.isArray(question.options) ? question.options : [];
+            }
+
+            function getAnswerLabels(question) {
+                const values = Array.isArray(financeAnswers[question.id]) ? financeAnswers[question.id] : [];
+                const opts = resolveQuestionOptions(question);
+                const optMap = new Map(opts.map(o => [o.value, o.label]));
+                return values.map(v => {
+                    if (question.custom && v === question.custom.optionValue) {
+                        const customText = String(financeCustomAnswers[question.id] || '').trim();
+                        return customText ? `Other: ${customText}` : 'Other';
+                    }
+                    return optMap.get(v) || getOptionLabelFromQuestion(question, v);
+                });
+            }
+
+            function renderFinanceSummary({ capped = false } = {}) {
+                buildFinancePreferenceSummary();
+
+                const info = document.createElement('div');
+                info.className = 'notice';
+                info.style.cssText = 'background: rgba(34, 211, 238, 0.15); border-color: rgba(34, 211, 238, 0.5); color: #22d3ee;';
+                info.innerHTML = capped
+                    ? `<span class="icon">✅</span> Reached the question limit (${FINANCE_MAX_QUESTIONS}). Click <strong>"Find My Targets"</strong> to discover matches based on what you answered.`
+                    : `<span class="icon">✅</span> Great! We have your preferences. Click <strong>"Find My Targets"</strong> to discover professionals matching your criteria.`;
+                container.appendChild(info);
+
+                const summary = document.createElement('div');
+                summary.className = 'finance-summary';
+                summary.style.cssText = 'margin-top: 20px; padding: 15px; background: rgba(139, 92, 246, 0.1); border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2);';
+
+                let summaryHtml = '<h4 style="color: #c4b5fd; margin-bottom: 12px;">📋 Your Preferences Summary</h4><ul style="list-style: none; padding: 0; margin: 0;">';
+
+                FINANCE_FIXED_QUESTIONS.forEach(q => {
+                    const values = Array.isArray(financeAnswers[q.id]) ? financeAnswers[q.id] : [];
+                    if (!values.length) return;
+                    const labels = getAnswerLabels(q).map(label => String(label || '').split(' — ')[0].split(' (')[0]);
+                    if (!labels.length) return;
+                    summaryHtml += `<li style="padding: 8px 0; border-bottom: 1px solid rgba(139, 92, 246, 0.2); color: #e0e0e8;">
+                        <strong style="color: #c4b5fd;">${q.question.split('?')[0]}:</strong><br>
+                        <span style="color: #a0a0b0; font-size: 13px;">${labels.join(', ')}</span>
+                    </li>`;
+                });
+
+                summaryHtml += '</ul>';
+                summary.innerHTML = summaryHtml;
+                container.appendChild(summary);
+            }
+
+            // Hard cap to avoid an overly long tree if user selects many paths
+            const answeredCount = Object.keys(financeAnswers).length;
+            if (answeredCount >= FINANCE_MAX_QUESTIONS) {
+                renderFinanceSummary({ capped: true });
+                return;
+            }
+
+            // Find the next applicable question (skip questions that don't apply)
             let currentQuestion = null;
             while (financeQuestionIndex < FINANCE_FIXED_QUESTIONS.length) {
                 const q = FINANCE_FIXED_QUESTIONS[financeQuestionIndex];
-                
-                // Check if this question should be shown based on dependencies
-                if (q.dependsOn && q.showIf) {
-                    const dependsAnswer = financeAnswers[q.dependsOn];
-                    if (!dependsAnswer || !q.showIf.some(v => dependsAnswer.includes(v))) {
-                        // Skip this question
+
+                // Auto-skip primary direction if only one direction selected
+                if (q.skipIfSingleSelectionFrom) {
+                    const sourceValues = Array.isArray(financeAnswers[q.skipIfSingleSelectionFrom])
+                        ? financeAnswers[q.skipIfSingleSelectionFrom]
+                        : [];
+                    if (sourceValues.length === 1) {
+                        financeAnswers[q.id] = [sourceValues[0]];
                         financeQuestionIndex++;
                         continue;
                     }
                 }
-                
-                currentQuestion = q;
+
+                // Dependency gating
+                if (q.dependsOn && q.showIf) {
+                    const dependsAnswer = Array.isArray(financeAnswers[q.dependsOn]) ? financeAnswers[q.dependsOn] : [];
+                    if (!dependsAnswer.length || !q.showIf.some(v => dependsAnswer.includes(v))) {
+                        financeQuestionIndex++;
+                        continue;
+                    }
+                }
+
+                // Dynamic options (e.g., primary direction) may be empty
+                const resolvedOptions = resolveQuestionOptions(q);
+                if (!resolvedOptions.length) {
+                    financeQuestionIndex++;
+                    continue;
+                }
+
+                currentQuestion = { ...q, resolvedOptions };
                 break;
             }
 
-            // All questions answered
             if (!currentQuestion) {
-                // Build preference summary for state
-                buildFinancePreferenceSummary();
-                
-                const info = document.createElement('div');
-                info.className = 'notice';
-                info.style.cssText = 'background: rgba(34, 211, 238, 0.15); border-color: rgba(34, 211, 238, 0.5); color: #22d3ee;';
-                info.innerHTML = `<span class="icon">✅</span> Great! We have your preferences. Click <strong>"Find My Targets"</strong> to discover professionals matching your criteria.`;
-                container.appendChild(info);
-
-                // Show summary of selections
-                const summary = document.createElement('div');
-                summary.className = 'finance-summary';
-                summary.style.cssText = 'margin-top: 20px; padding: 15px; background: rgba(139, 92, 246, 0.1); border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2);';
-                
-                let summaryHtml = '<h4 style="color: #c4b5fd; margin-bottom: 12px;">📋 Your Preferences Summary</h4><ul style="list-style: none; padding: 0; margin: 0;">';
-                
-                for (const [key, values] of Object.entries(financeAnswers)) {
-                    const q = FINANCE_FIXED_QUESTIONS.find(q => q.id === key);
-                    if (q && values.length > 0) {
-                        const labels = values.map(v => {
-                            const opt = q.options.find(o => o.value === v);
-                            return opt ? opt.label.split(' — ')[0].split(' (')[0] : v;
-                        });
-                        summaryHtml += `<li style="padding: 8px 0; border-bottom: 1px solid rgba(139, 92, 246, 0.2); color: #e0e0e8;">
-                            <strong style="color: #c4b5fd;">${q.question.split('?')[0]}:</strong><br>
-                            <span style="color: #a0a0b0; font-size: 13px;">${labels.join(', ')}</span>
-                        </li>`;
-                    }
-                }
-                summaryHtml += '</ul>';
-                summary.innerHTML = summaryHtml;
-                container.appendChild(summary);
+                renderFinanceSummary({ capped: false });
                 return;
             }
 
             // Create question card
             const card = document.createElement('div');
             card.className = 'question-card';
-            
+
             const questionNum = Object.keys(financeAnswers).length + 1;
+            const type = currentQuestion.type === 'single' ? 'single' : 'multi';
+            const helperText = type === 'single'
+                ? 'Select one option:'
+                : 'Select one or more options that apply to you:';
+
             let innerHtml = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h4 style="margin: 0; color: #f0f0f5;">Q${questionNum}: ${currentQuestion.question}</h4>
-                    <span style="color: #a0a0b0; font-size: 12px;">${financeQuestionIndex + 1}/${FINANCE_FIXED_QUESTIONS.length}</span>
+                    <span style="color: #a0a0b0; font-size: 12px;">${questionNum}/${FINANCE_MAX_QUESTIONS}</span>
                 </div>
-                <p style="font-size: 13px; color: #a0a0b0; margin-bottom: 15px;">Select one or more options that apply to you:</p>
+                <p style="font-size: 13px; color: #a0a0b0; margin-bottom: 15px;">${helperText}</p>
                 <div class="finance-options" id="finance-question-options">
             `;
 
-            currentQuestion.options.forEach((opt, idx) => {
+            currentQuestion.resolvedOptions.forEach((opt, idx) => {
                 innerHtml += `
                     <div class="finance-option" data-value="${opt.value}" data-index="${idx}">
                         <div class="finance-option-checkbox">
@@ -3294,6 +3688,18 @@ I&apos;m {{sender_name}}, currently ...
 
             innerHtml += `
                 </div>
+            `;
+
+            if (currentQuestion.custom) {
+                const placeholder = String(currentQuestion.custom.placeholder || 'Please specify...').replace(/"/g, '&quot;');
+                innerHtml += `
+                    <div class="question-custom-input" id="finance-question-custom-wrapper">
+                        <textarea id="finance-question-custom-input" rows="2" placeholder="${placeholder}"></textarea>
+                    </div>
+                `;
+            }
+
+            innerHtml += `
                 <div class="btn-group" style="margin-top: 20px; justify-content: flex-end;">
                     <button class="btn btn-secondary" id="btn-finance-skip">Skip</button>
                     <button class="btn btn-primary" id="btn-finance-next" disabled>Next Question →</button>
@@ -3371,35 +3777,82 @@ I&apos;m {{sender_name}}, currently ...
                 document.head.appendChild(style);
             }
 
-            // Event listeners for multi-select
             const selectedValues = new Set();
-            const optionEls = container.querySelectorAll('.finance-option');
+            const optionEls = Array.from(container.querySelectorAll('#finance-question-options .finance-option'));
             const nextBtn = document.getElementById('btn-finance-next');
             const skipBtn = document.getElementById('btn-finance-skip');
+
+            const customOptionValue = currentQuestion.custom ? currentQuestion.custom.optionValue : null;
+            const customWrapper = document.getElementById('finance-question-custom-wrapper');
+            const customInput = document.getElementById('finance-question-custom-input');
+
+            function updateCustomVisibility() {
+                if (!customWrapper || !customOptionValue) return;
+                if (selectedValues.has(customOptionValue)) {
+                    customWrapper.classList.add('visible');
+                } else {
+                    customWrapper.classList.remove('visible');
+                }
+            }
+
+            function updateNextEnabled() {
+                if (selectedValues.size === 0) {
+                    nextBtn.disabled = true;
+                    return;
+                }
+                if (customOptionValue && selectedValues.has(customOptionValue)) {
+                    nextBtn.disabled = !customInput || !customInput.value.trim();
+                    return;
+                }
+                nextBtn.disabled = false;
+            }
 
             optionEls.forEach(el => {
                 el.addEventListener('click', function() {
                     const value = this.dataset.value;
-                    if (selectedValues.has(value)) {
-                        selectedValues.delete(value);
-                        this.classList.remove('selected');
+                    if (type === 'single') {
+                        if (selectedValues.has(value)) {
+                            selectedValues.delete(value);
+                            this.classList.remove('selected');
+                        } else {
+                            selectedValues.clear();
+                            optionEls.forEach(o => o.classList.remove('selected'));
+                            selectedValues.add(value);
+                            this.classList.add('selected');
+                        }
                     } else {
-                        selectedValues.add(value);
-                        this.classList.add('selected');
+                        if (selectedValues.has(value)) {
+                            selectedValues.delete(value);
+                            this.classList.remove('selected');
+                        } else {
+                            selectedValues.add(value);
+                            this.classList.add('selected');
+                        }
                     }
-                    nextBtn.disabled = selectedValues.size === 0;
+                    updateCustomVisibility();
+                    updateNextEnabled();
                 });
             });
+
+            if (customInput) {
+                customInput.addEventListener('input', updateNextEnabled);
+            }
 
             nextBtn.addEventListener('click', function() {
                 if (selectedValues.size === 0) return;
                 financeAnswers[currentQuestion.id] = Array.from(selectedValues);
+                if (customOptionValue && selectedValues.has(customOptionValue) && customInput && customInput.value.trim()) {
+                    financeCustomAnswers[currentQuestion.id] = customInput.value.trim();
+                } else {
+                    delete financeCustomAnswers[currentQuestion.id];
+                }
                 financeQuestionIndex++;
                 renderFinanceFixedQuestion();
             });
 
             skipBtn.addEventListener('click', function() {
                 financeAnswers[currentQuestion.id] = [];
+                delete financeCustomAnswers[currentQuestion.id];
                 financeQuestionIndex++;
                 renderFinanceFixedQuestion();
             });
@@ -3408,87 +3861,462 @@ I&apos;m {{sender_name}}, currently ...
         // Build preference summary for API call
         function buildFinancePreferenceSummary() {
             const parts = [];
-            
-            // Bank type preference
-            if (financeAnswers.bank_type?.length > 0) {
-                const bankLabels = {
-                    'bulge_bracket': 'Bulge Bracket banks (Goldman Sachs, Morgan Stanley, J.P. Morgan, etc.)',
-                    'commercial_ib': 'Commercial Banks with IB capabilities (RBC, HSBC, Wells Fargo, etc.)',
-                    'middle_market': 'Middle Market banks (Jefferies, William Blair, Piper Sandler, etc.)',
-                    'boutique': 'Boutique advisory firms (Lazard, Evercore, Moelis, PJT, etc.)'
-                };
-                parts.push('Preferred bank types: ' + financeAnswers.bank_type.map(v => bankLabels[v] || v).join('; '));
+
+            const list = (id) => Array.isArray(financeAnswers[id]) ? financeAnswers[id] : [];
+            const first = (id) => {
+                const values = list(id);
+                return values.length ? values[0] : '';
+            };
+            const custom = (id) => String(financeCustomAnswers[id] || '').trim();
+
+            const prefs = { track: 'finance' };
+
+            const directionLabels = {
+                ib: 'Investment Banking (IB)',
+                st: 'Sales & Trading (S&T)',
+                pe: 'Private Equity / Growth Equity',
+                hf: 'Hedge Fund',
+                am: 'Asset / Wealth Management',
+                er: 'Equity Research',
+                corp_fin: 'Corporate Finance / Strategy',
+                other: 'Other'
+            };
+            const directionKeywords = {
+                ib: 'Investment Banking',
+                st: 'Sales & Trading',
+                pe: 'Private Equity / Growth Equity',
+                hf: 'Hedge Fund',
+                am: 'Asset / Wealth Management',
+                er: 'Equity Research',
+                corp_fin: 'Corporate Finance / Strategy'
+            };
+
+            function joinMapped(values, mapping, otherText) {
+                const labels = [];
+                values.forEach(v => {
+                    if (v === 'other') return;
+                    labels.push(mapping[v] || v);
+                });
+                if (values.includes('other')) {
+                    labels.push(otherText || 'Other');
+                }
+                return labels.filter(Boolean);
             }
 
-            // Product vs Sector preference
-            if (financeAnswers.product_vs_sector?.length > 0) {
-                const prefLabels = {
-                    'product': 'Product Groups (transaction specialists)',
-                    'sector': 'Sector/Industry Groups (client coverage)',
-                    'both': 'Both Product and Sector Groups'
-                };
-                parts.push('Group preference: ' + financeAnswers.product_vs_sector.map(v => prefLabels[v] || v).join('; '));
+            const directions = list('career_directions');
+            const directionsText = directions.map(v => {
+                if (v === 'other') return custom('career_directions') ? `Other: ${custom('career_directions')}` : 'Other';
+                return directionLabels[v] || v;
+            }).filter(Boolean);
+            if (directionsText.length) parts.push('Career directions: ' + directionsText.join('; '));
+
+            const primary = first('primary_direction') || (directions.length === 1 ? directions[0] : '');
+            if (primary) {
+                const primaryText = primary === 'other'
+                    ? (custom('career_directions') ? `Other: ${custom('career_directions')}` : 'Other')
+                    : (directionLabels[primary] || primary);
+                parts.push('Primary direction: ' + primaryText);
             }
 
-            // Product groups
-            if (financeAnswers.product_group?.length > 0) {
-                const productLabels = {
-                    'ma': 'M&A Advisory',
-                    'dcm': 'Debt Capital Markets (DCM)',
-                    'lev_fin': 'Leveraged Finance',
-                    'ecm': 'Equity Capital Markets (ECM)'
+            // Branch-specific mapping (S / O)
+            const ibFirmLabels = {
+                bb: 'Bulge Bracket',
+                eb: 'Elite Boutique',
+                mm: 'Middle Market',
+                industry_boutique: 'Industry Boutique',
+                regional: 'Regional Investment Bank',
+                other: 'Other'
+            };
+            const ibFirmToTier = { bb: 'BB', eb: 'EB', mm: 'MM', industry_boutique: 'Boutique', regional: 'Regional', other: 'Unknown' };
+            const ibIndustryLabels = {
+                tmt: 'TMT',
+                healthcare: 'Healthcare',
+                industrials: 'Industrials',
+                consumer: 'Consumer & Retail',
+                fig: 'FIG',
+                energy: 'Energy/Power/Infrastructure',
+                real_estate: 'Real Estate',
+                media: 'Media & Entertainment',
+                telecom: 'Telecom',
+                gaming_sports: 'Gaming/Sports',
+                chemicals: 'Chemicals',
+                transportation: 'Transportation/Aviation'
+            };
+            const ibProductLabels = {
+                ma: 'M&A',
+                ecm: 'ECM',
+                dcm: 'DCM',
+                lev_fin: 'Leveraged Finance',
+                restructuring: 'Distressed/Restructuring',
+                cross_border: 'Cross-border'
+            };
+
+            if (primary === 'ib') {
+                const firmVal = first('ib_firm_type');
+                const firmText = firmVal
+                    ? (firmVal === 'other' ? (custom('ib_firm_type') || 'Other') : (ibFirmLabels[firmVal] || firmVal))
+                    : '';
+                prefs.org_type = firmText ? `${firmText} Investment Bank` : 'Investment Bank';
+                if (firmVal) prefs.bank_tier = ibFirmToTier[firmVal] || 'Unknown';
+                if (firmText) parts.push('IB firm type: ' + firmText);
+
+                const gt = first('ib_group_type');
+                if (gt) {
+                    const gtLabels = { coverage: 'Coverage', product: 'Product', both: 'Both', unsure: 'Not sure' };
+                    parts.push('IB group type: ' + (gtLabels[gt] || gt));
+                }
+                if (gt === 'coverage') prefs.group_type = 'coverage';
+                else if (gt === 'product') prefs.group_type = 'product';
+                else prefs.group_type = 'unknown';
+
+                const industries = list('ib_coverage_industries');
+                const industriesText = joinMapped(industries, ibIndustryLabels, custom('ib_coverage_industries'));
+                if (industriesText.length) {
+                    prefs.sector = industriesText.join('; ');
+                    parts.push('IB coverage industries: ' + prefs.sector);
+                }
+
+                const products = list('ib_product_groups');
+                const productsText = joinMapped(products, ibProductLabels, custom('ib_product_groups'));
+                if (productsText.length) {
+                    prefs.group = productsText.join('; ');
+                    parts.push('IB product groups: ' + prefs.group);
+                }
+            } else if (primary === 'st') {
+                prefs.org_type = 'Sales & Trading';
+                const stFunc = first('st_function');
+                const stFuncLabels = { sales: 'Sales', trading: 'Trading', structuring: 'Structuring', unsure: 'Not sure' };
+                if (stFunc) {
+                    prefs.group = stFuncLabels[stFunc] || stFunc;
+                    parts.push('S&T focus: ' + prefs.group);
+                }
+
+                const stSalesLabels = {
+                    equities_sales: 'Equities Sales',
+                    fixed_income_sales: 'Fixed Income Sales',
+                    prime_brokerage_sales: 'Prime Brokerage Sales'
                 };
-                parts.push('Product groups of interest: ' + financeAnswers.product_group.map(v => productLabels[v] || v).join(', '));
+                const stTradingLabels = {
+                    equities_trading: 'Equities Trading',
+                    fixed_income_trading: 'Fixed Income Trading',
+                    rates_trading: 'Rates Trading',
+                    credit_trading: 'Credit Trading',
+                    fx_trading: 'FX Trading',
+                    commodities_trading: 'Commodities Trading'
+                };
+                const stStructuringLabels = {
+                    equity_derivatives_structuring: 'Equity Derivatives Structuring',
+                    credit_structuring: 'Credit Structuring',
+                    rates_structuring: 'Rates Structuring'
+                };
+
+                if (stFunc === 'sales') {
+                    const areas = list('st_sales_area');
+                    const areasText = joinMapped(areas, stSalesLabels, custom('st_sales_area'));
+                    if (areasText.length) {
+                        prefs.sector = areasText.join('; ');
+                        parts.push('S&T sales area: ' + prefs.sector);
+                    }
+                } else if (stFunc === 'trading') {
+                    const areas = list('st_trading_area');
+                    const areasText = joinMapped(areas, stTradingLabels, custom('st_trading_area'));
+                    if (areasText.length) {
+                        prefs.sector = areasText.join('; ');
+                        parts.push('S&T trading area: ' + prefs.sector);
+                    }
+                } else if (stFunc === 'structuring') {
+                    const areas = list('st_structuring_area');
+                    const areasText = joinMapped(areas, stStructuringLabels, custom('st_structuring_area'));
+                    if (areasText.length) {
+                        prefs.sector = areasText.join('; ');
+                        parts.push('S&T structuring area: ' + prefs.sector);
+                    }
+                }
+            } else if (primary === 'pe') {
+                prefs.org_type = 'Private Equity / Growth Equity';
+                const fundVal = first('pe_fund_type');
+                const fundLabels = {
+                    large_cap_pe: 'Large-cap PE',
+                    mid_market_pe: 'Mid-market PE',
+                    growth_equity: 'Growth Equity',
+                    venture_capital: 'Venture Capital',
+                    sector_focused_pe: 'Sector-focused PE'
+                };
+                const fundText = fundVal
+                    ? (fundVal === 'other' ? (custom('pe_fund_type') || 'Other') : (fundLabels[fundVal] || fundVal))
+                    : '';
+                if (fundText) {
+                    prefs.group = fundText;
+                    parts.push('Fund type: ' + fundText);
+                }
+
+                const peIndustryLabels = {
+                    technology: 'Technology',
+                    healthcare: 'Healthcare',
+                    consumer: 'Consumer',
+                    industrials: 'Industrials',
+                    financials: 'Financial Services',
+                    energy: 'Energy',
+                    real_estate: 'Real Estate'
+                };
+                const industries = list('pe_industry_focus');
+                const industriesText = joinMapped(industries, peIndustryLabels, custom('pe_industry_focus'));
+                if (industriesText.length) {
+                    prefs.sector = industriesText.join('; ');
+                    parts.push('Industry focus: ' + prefs.sector);
+                }
+            } else if (primary === 'hf') {
+                prefs.org_type = 'Hedge Fund';
+                const hfStrategyLabels = {
+                    l_s_equity: 'Long/Short Equity',
+                    global_macro: 'Global Macro',
+                    event_driven: 'Event-driven',
+                    quant: 'Quant/Systematic',
+                    multi_strat: 'Multi-strategy',
+                    credit_distressed: 'Credit/Distressed'
+                };
+                const strategies = list('hf_strategy');
+                const strategiesText = joinMapped(strategies, hfStrategyLabels, custom('hf_strategy'));
+                if (strategiesText.length) {
+                    prefs.group = strategiesText.join('; ');
+                    parts.push('HF strategy: ' + prefs.group);
+                }
+
+                const hfRoleLabels = {
+                    analyst: 'Analyst',
+                    trader: 'Trader',
+                    quant_research: 'Quant Research',
+                    portfolio_analyst: 'Portfolio Analyst'
+                };
+                const roles = list('hf_role');
+                const rolesText = joinMapped(roles, hfRoleLabels, custom('hf_role'));
+                if (rolesText.length) parts.push('HF roles: ' + rolesText.join('; '));
+            } else if (primary === 'am') {
+                const amTrack = first('am_track');
+                const amTrackLabels = {
+                    asset_management: 'Asset Management',
+                    wealth_management: 'Wealth Management / Private Banking',
+                    unsure: 'Not sure'
+                };
+                prefs.org_type = amTrackLabels[amTrack] || 'Asset / Wealth Management';
+                if (amTrack) parts.push('AM/WM track: ' + (amTrackLabels[amTrack] || amTrack));
+
+                if (amTrack === 'asset_management') {
+                    const amAssetLabels = {
+                        equities: 'Equities',
+                        fixed_income: 'Fixed Income',
+                        multi_asset: 'Multi-Asset',
+                        alternatives: 'Alternatives'
+                    };
+                    const assets = list('am_asset_class');
+                    const assetsText = joinMapped(assets, amAssetLabels, custom('am_asset_class'));
+                    if (assetsText.length) {
+                        prefs.sector = assetsText.join('; ');
+                        parts.push('Asset class: ' + prefs.sector);
+                    }
+                }
+            } else if (primary === 'er') {
+                prefs.org_type = 'Equity Research';
+                const erIndustryLabels = {
+                    technology: 'Technology',
+                    healthcare: 'Healthcare',
+                    consumer: 'Consumer',
+                    industrials: 'Industrials',
+                    energy: 'Energy',
+                    financials: 'Financials'
+                };
+                const erSectors = list('er_industry');
+                const erSectorsText = joinMapped(erSectors, erIndustryLabels, custom('er_industry'));
+                if (erSectorsText.length) {
+                    prefs.sector = erSectorsText.join('; ');
+                    parts.push('ER coverage: ' + prefs.sector);
+                }
+                const erRoleVal = first('er_role');
+                const erRoleLabels = { research_analyst: 'Research Analyst', associate: 'Associate' };
+                const erRoleText = erRoleVal
+                    ? (erRoleVal === 'other' ? (custom('er_role') || 'Other') : (erRoleLabels[erRoleVal] || erRoleVal))
+                    : '';
+                if (erRoleText) {
+                    prefs.group = erRoleText;
+                    parts.push('ER role: ' + erRoleText);
+                }
+            } else if (primary === 'corp_fin') {
+                prefs.org_type = 'Corporate Finance / Strategy';
+                const corpRoleLabels = {
+                    corp_dev: 'Corporate Development',
+                    fpa: 'FP&A',
+                    strategy_bizops: 'Strategy / BizOps',
+                    treasury: 'Treasury'
+                };
+                const roles = list('corp_role');
+                const rolesText = joinMapped(roles, corpRoleLabels, custom('corp_role'));
+                if (rolesText.length) {
+                    prefs.group = rolesText.join('; ');
+                    parts.push('CorpFin/Strategy focus: ' + prefs.group);
+                }
+            } else if (primary === 'other') {
+                const otherText = custom('career_directions') || 'Other';
+                prefs.org_type = `Finance (${otherText})`;
+            } else {
+                prefs.org_type = 'Finance';
             }
 
-            // Sector groups
-            if (financeAnswers.sector_group?.length > 0) {
-                const sectorLabels = {
-                    'tmt': 'TMT (Technology, Media & Telecom)',
-                    'healthcare': 'Healthcare',
-                    'fig': 'FIG (Financial Institutions)',
-                    'energy': 'Energy / Power & Utilities',
-                    'industrials': 'Industrials',
-                    'consumer': 'Consumer Products & Retail',
-                    'real_estate': 'Real Estate, Lodging & Leisure',
-                    'sponsors': 'Financial Sponsors',
-                    'other_sector': 'Other sectors'
-                };
-                parts.push('Sector groups of interest: ' + financeAnswers.sector_group.map(v => sectorLabels[v] || v).join(', '));
+            // Market / Location (M)
+            const locationLabels = {
+                new_york: 'New York',
+                london: 'London',
+                hong_kong: 'Hong Kong',
+                singapore: 'Singapore',
+                san_francisco: 'San Francisco / Bay Area'
+            };
+            const locations = list('market_location');
+            const locationsText = joinMapped(locations, locationLabels, custom('market_location'));
+            if (locationsText.length) {
+                prefs.location = locationsText.join('; ');
+                parts.push('Location: ' + prefs.location);
             }
 
-            // Target seniority
-            if (financeAnswers.target_seniority?.length > 0) {
-                const seniorityLabels = {
-                    'analyst': 'Analyst (Year 1-3)',
-                    'associate': 'Associate (Year 4-6)',
-                    'vp_director': 'VP/Director (Year 7-9)',
-                    'ed_svp': 'Executive Director/SVP (Year 10-12)',
-                    'md': 'Managing Director (Year 12+)'
-                };
-                parts.push('Target seniority levels: ' + financeAnswers.target_seniority.map(v => seniorityLabels[v] || v).join(', '));
+            // Seniority (who to talk to)
+            const seniorityLabels = {
+                analyst: 'Analyst',
+                associate: 'Associate',
+                vp_director: 'VP/Director',
+                ed_svp: 'ED/SVP',
+                md: 'MD'
+            };
+            const seniorities = list('target_seniority');
+            const senioritiesText = joinMapped(seniorities, seniorityLabels, custom('target_seniority'));
+            if (senioritiesText.length) {
+                prefs.seniority = senioritiesText.join('; ');
+                parts.push('Target seniority: ' + prefs.seniority);
             }
 
-            // Connection goal
-            if (financeAnswers.connection_goal?.length > 0) {
-                const goalLabels = {
-                    'learn_role': 'Learn about day-to-day role',
-                    'career_advice': 'Career advice on breaking into IB',
-                    'referral': 'Referral opportunities',
-                    'industry_insight': 'Industry insights',
-                    'mentorship': 'Mentorship'
-                };
-                parts.push('Connection goals: ' + financeAnswers.connection_goal.map(v => goalLabels[v] || v).join(', '));
+            // Optional preferences
+            const outreachVal = first('outreach_goal');
+            const outreachLabels = {
+                learn_role: 'Learn about day-to-day role and responsibilities',
+                career_advice: 'Career advice and guidance on breaking in',
+                referral: 'Referral opportunities for open positions',
+                industry_insight: 'Industry insights and market knowledge',
+                mentorship: 'Mentorship / long-term guidance'
+            };
+            if (outreachVal) {
+                const outreachText = outreachVal === 'other' ? (custom('outreach_goal') || 'Other') : (outreachLabels[outreachVal] || outreachVal);
+                prefs.outreach_goal = outreachText;
+                parts.push('Outreach goal: ' + outreachText);
             }
+
+            const contactabilityVal = first('contactability');
+            if (contactabilityVal) {
+                prefs.contactability = String(contactabilityVal).trim();
+                const contactabilityText = contactabilityVal === 'reply'
+                    ? 'Prioritize likely-to-reply (more accessible)'
+                    : contactabilityVal === 'prestige'
+                        ? 'Prioritize most senior/famous (prestige)'
+                        : 'Balanced';
+                parts.push('Reply vs prestige: ' + contactabilityText);
+            }
+
+            const channels = list('contact_channels');
+            if (channels.length) {
+                prefs.contact_channels = channels.slice(0);
+                const channelLabels = { linkedin: 'LinkedIn', email: 'Email', phone: 'Phone', other: 'Other' };
+                const channelsText = joinMapped(channels, channelLabels, custom('contact_channels'));
+                parts.push('Preferred channels: ' + channelsText.join('; '));
+            }
+
+            // Target role titles (for SerpAPI query building)
+            const titles = new Set();
+            const seniorityVals = list('target_seniority');
+            function addTitle(title) {
+                const t = String(title || '').trim();
+                if (t) titles.add(t);
+            }
+            function includeGenericSeniorityTitles() {
+                seniorityVals.forEach(v => {
+                    if (v === 'analyst') addTitle('Analyst');
+                    else if (v === 'associate') addTitle('Associate');
+                    else if (v === 'vp_director') { addTitle('Vice President'); addTitle('VP'); addTitle('Director'); }
+                    else if (v === 'ed_svp') { addTitle('Executive Director'); addTitle('SVP'); }
+                    else if (v === 'md') { addTitle('Managing Director'); addTitle('MD'); }
+                });
+            }
+            includeGenericSeniorityTitles();
+
+            if (primary === 'ib') {
+                addTitle('Investment Banking');
+                if (seniorityVals.includes('analyst')) { addTitle('Investment Banking Analyst'); addTitle('IB Analyst'); }
+                if (seniorityVals.includes('associate')) { addTitle('Investment Banking Associate'); addTitle('IB Associate'); }
+                if (seniorityVals.includes('vp_director')) { addTitle('Investment Banking Vice President'); addTitle('Investment Banking VP'); }
+            } else if (primary === 'er') {
+                addTitle('Equity Research');
+                addTitle('Equity Research Analyst');
+                addTitle('Equity Research Associate');
+            } else if (primary === 'pe') {
+                addTitle('Private Equity');
+                if (seniorityVals.includes('analyst')) addTitle('Private Equity Analyst');
+                if (seniorityVals.includes('associate')) addTitle('Private Equity Associate');
+                addTitle('Growth Equity Associate');
+            } else if (primary === 'hf') {
+                addTitle('Hedge Fund');
+                const hfRoles = list('hf_role');
+                hfRoles.forEach(v => {
+                    if (v === 'trader') addTitle('Trader');
+                    else if (v === 'analyst') addTitle('Investment Analyst');
+                    else if (v === 'quant_research') addTitle('Quant Research');
+                    else if (v === 'portfolio_analyst') addTitle('Portfolio Analyst');
+                });
+            } else if (primary === 'st') {
+                addTitle('Sales and Trading');
+                const stFunc = first('st_function');
+                if (stFunc === 'sales') addTitle('Sales');
+                if (stFunc === 'trading') addTitle('Trader');
+                if (stFunc === 'structuring') { addTitle('Structuring'); addTitle('Structurer'); }
+            } else if (primary === 'am') {
+                addTitle('Asset Management');
+                const amTrack = first('am_track');
+                if (amTrack === 'wealth_management') { addTitle('Wealth Manager'); addTitle('Private Banker'); }
+                else { addTitle('Portfolio Manager'); addTitle('Investment Analyst'); }
+            } else if (primary === 'corp_fin') {
+                addTitle('Corporate Development');
+                addTitle('FP&A');
+                addTitle('Strategy');
+            }
+
+            prefs.target_role_titles = Array.from(titles).slice(0, 8);
+
+            const dirKeywords = directions.map(v => {
+                if (v === 'other') return custom('career_directions') || 'Other';
+                return directionKeywords[v] || v;
+            }).filter(Boolean);
+
+            const primaryKeyword = primary === 'other'
+                ? (custom('career_directions') || 'Other')
+                : (directionKeywords[primary] || primary);
+
+            const intentLines = [];
+            if (dirKeywords.length) intentLines.push(`Finance career interests: ${dirKeywords.join(', ')}`);
+            if (primaryKeyword) intentLines.push(`Primary direction: ${primaryKeyword}`);
+            const detailParts = [];
+            if (prefs.org_type) detailParts.push(`Org: ${prefs.org_type}`);
+            if (prefs.bank_tier) detailParts.push(`Bank tier: ${prefs.bank_tier}`);
+            if (prefs.group_type && prefs.group_type !== 'unknown') detailParts.push(`Group type: ${prefs.group_type}`);
+            if (prefs.group) detailParts.push(`Group: ${prefs.group}`);
+            if (prefs.sector) detailParts.push(`Sector: ${prefs.sector}`);
+            if (prefs.location) detailParts.push(`Location: ${prefs.location}`);
+            if (prefs.seniority) detailParts.push(`Seniority: ${prefs.seniority}`);
+            if (prefs.outreach_goal) detailParts.push(`Outreach goal: ${prefs.outreach_goal}`);
+            if (detailParts.length) intentLines.push(detailParts.join(' | '));
+            prefs.search_intent = intentLines.join('\n');
 
             // Store in proPreferenceHistory for API consumption
             state.proPreferenceHistory = [{
-                question: 'Finance Targeting Preferences (Fixed Questions)',
+                question: 'Finance Targeting Preferences (Decision Tree)',
                 answer: parts.join('\n')
             }];
 
-            // Also store structured data for potential future use
-            state.financePreferences = { ...financeAnswers };
+            // Store structured prefs for /api/find-recommendations
+            state.financePreferences = prefs;
         }
 
         // Find targets for Professional mode
@@ -3512,13 +4340,25 @@ I&apos;m {{sender_name}}, currently ...
                         field: state.proTrack === 'academic' ? 'Academic Research' : 'Finance',
                         sender_profile: state.senderProfile,
                         preferences: {
+                            ...(state.proTrack === 'finance' && state.financePreferences ? state.financePreferences : {}),
                             track: state.proTrack,
                             extra: prefExtra,
-                            search_intent: (state.targetSearchIntent || '').trim(),
+                            search_intent: [
+                                String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.search_intent : '') || '').trim(),
+                                String((state.targetSearchIntent || '') || '').trim()
+                            ].filter(Boolean).join('\n\n'),
                             must_have: (state.targetMustHave || '').trim(),
                             must_not: (state.targetMustNot || '').trim(),
-                            location: (state.targetLocation || '').trim(),
-                            contactability: (state.targetContactability || 'balanced').trim(),
+                            location: [
+                                String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.location : '') || '').trim(),
+                                String((state.targetLocation || '') || '').trim()
+                            ].filter(Boolean).join('; '),
+                            contactability: (() => {
+                                const override = String((state.targetContactability || '') || '').trim();
+                                const tree = String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.contactability : '') || '').trim();
+                                if (override && override !== 'balanced') return override;
+                                return tree || override || 'balanced';
+                            })(),
                             examples: (state.targetExamples || '').trim(),
                             evidence: (state.targetEvidence || '').trim(),
                         }

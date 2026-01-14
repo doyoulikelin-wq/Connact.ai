@@ -6,9 +6,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import google.generativeai as genai
-from google import genai as genai_new  # New google-genai package for search
-from google.genai import types as genai_types
+# Optional Google/Gemini dependencies (keep import-time light for tests/CI)
+try:
+    import google.generativeai as genai  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    genai = None  # type: ignore
+
+try:
+    from google import genai as genai_new  # type: ignore[attr-defined]
+    from google.genai import types as genai_types  # type: ignore[attr-defined]
+except ModuleNotFoundError:  # pragma: no cover
+    genai_new = None  # type: ignore
+    genai_types = None  # type: ignore
 from openai import OpenAI
 from PyPDF2 import PdfReader
 
@@ -281,6 +290,10 @@ def _profile_from_dict(profile_data: dict[str, Any], *, raw_text: str) -> Profil
 
 def _configure_gemini() -> None:
     """Configure Gemini API with the API key from environment."""
+    if genai is None:
+        raise ModuleNotFoundError(
+            "google-generativeai is not installed. Install dependencies with `python -m pip install -r requirements.txt`."
+        )
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError(
@@ -362,6 +375,10 @@ def _call_gemini_with_search(prompt: str, *, model: str = GEMINI_SEARCH_MODEL, j
         If return_grounding_urls is False: response text
         If return_grounding_urls is True: tuple of (response text, list of grounding URLs)
     """
+    if genai_new is None or genai_types is None:
+        raise ModuleNotFoundError(
+            "google-genai is not installed. Install dependencies with `python -m pip install -r requirements.txt`."
+        )
     # Use new google-genai package for search capability
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
@@ -1029,8 +1046,29 @@ def _build_preference_context(preferences: dict | None) -> str:
     if not preferences:
         return ""
 
-    def _format_block(label: str, value: str) -> str:
-        cleaned = value.strip()
+    def _format_block(label: str, value: Any) -> str:
+        if value is None:
+            return ""
+
+        if isinstance(value, list):
+            cleaned_items = [
+                str(item).strip()
+                for item in value
+                if isinstance(item, (str, int, float)) and str(item).strip()
+            ]
+            if not cleaned_items:
+                return ""
+            return f"- {label}: {', '.join(cleaned_items)}"
+
+        if isinstance(value, dict):
+            try:
+                compact = json.dumps(value, ensure_ascii=False)
+            except TypeError:
+                compact = str(value)
+            compact = compact.strip()
+            return f"- {label}: {compact}" if compact else ""
+
+        cleaned = str(value).strip()
         if not cleaned:
             return ""
         if "\n" not in cleaned:
@@ -1081,15 +1119,23 @@ def _build_preference_context(preferences: dict | None) -> str:
 
     pref_map = {
         "seniority": "Seniority target",
-        "org_type": "Organization type",
+        "target_role_titles": "Target role titles",
+        "org_type": "Organization / firm type",
+        "bank_tier": "Bank tier",
+        "group_type": "Group type",
+        "group": "Group / desk / function",
+        "sector": "Sector / coverage / asset class",
+        "contact_channels": "Preferred contact channels",
+        "stage": "Stage",
+        "recruiting_context": "Recruiting context",
         "outreach_goal": "Outreach goal",
         "prominence": "Desired prominence",
         "extra": "Additional targeting notes",
     }
     for key, label in pref_map.items():
-        value = preferences.get(key)
-        if isinstance(value, str) and value.strip():
-            pref_blocks.append(_format_block(label, value))
+        block = _format_block(label, preferences.get(key))
+        if block:
+            pref_blocks.append(block)
 
     pref_blocks = [block for block in pref_blocks if block]
     if not pref_blocks:
@@ -1289,26 +1335,60 @@ def _build_serpapi_search_query(
     Returns:
         构建好的搜索词
     """
-    parts = ['site:linkedin.com/in/']
+    parts = ["site:linkedin.com/in/"]
     prefs = preferences or {}
+
+    def _split_terms(text: str, *, max_terms: int = 3) -> list[str]:
+        normalized = (
+            text.replace("\n", ",")
+            .replace(";", ",")
+            .replace("|", ",")
+        )
+        raw = [p.strip() for p in normalized.split(",") if p.strip()]
+        seen: set[str] = set()
+        out: list[str] = []
+        for item in raw:
+            if item in seen:
+                continue
+            seen.add(item)
+            out.append(item)
+            if len(out) >= max_terms:
+                break
+        return out
+
+    def _add_or_terms(terms: list[str]) -> None:
+        cleaned = [t.strip() for t in terms if isinstance(t, str) and t.strip()]
+        if not cleaned:
+            return
+        if len(cleaned) == 1:
+            parts.append(f'"{cleaned[0]}"')
+            return
+        parts.append("(" + " OR ".join(f'"{t}"' for t in cleaned[:3]) + ")")
     
     # 1. 职位/级别关键词
-    seniority = str(prefs.get("seniority", "") or "").strip()
-    target_titles = prefs.get("target_role_titles", [])
-    
-    if target_titles and isinstance(target_titles, list):
-        # ["Analyst", "Associate"] → ("Analyst" OR "Associate")
-        titles = [t.strip() for t in target_titles if t.strip()]
-        if len(titles) > 1:
-            parts.append("(" + " OR ".join(f'"{t}"' for t in titles[:3]) + ")")
-        elif titles:
-            parts.append(f'"{titles[0]}"')
-    elif seniority:
-        parts.append(f'"{seniority}"')
+    target_titles_raw = prefs.get("target_role_titles")
+    titles: list[str] = []
+    if isinstance(target_titles_raw, list):
+        titles = [
+            str(t).strip()
+            for t in target_titles_raw
+            if isinstance(t, (str, int, float)) and str(t).strip()
+        ]
+    elif isinstance(target_titles_raw, str) and target_titles_raw.strip():
+        titles = _split_terms(target_titles_raw.strip(), max_terms=3)
+
+    if titles:
+        _add_or_terms(titles)
+    else:
+        seniority = str(prefs.get("seniority", "") or "").strip()
+        if seniority:
+            seniority_terms = _split_terms(seniority, max_terms=2)
+            _add_or_terms(seniority_terms)
     
     # 2. 公司/机构关键词
     must_have = str(prefs.get("must_have", "") or "").strip()
     org_type = str(prefs.get("org_type", "") or "").strip()
+    bank_tier = str(prefs.get("bank_tier", "") or "").strip()
     
     if must_have:
         # "Goldman Sachs, Morgan Stanley, M&A" → 提取公司名
@@ -1320,20 +1400,47 @@ def _build_serpapi_search_query(
                 parts.append("(" + " OR ".join(f'"{c}"' for c in companies[:3]) + ")")
             else:
                 parts.append(f'"{companies[0]}"')
-    elif org_type:
-        # "Investment Bank" → 搜索投行相关
-        parts.append(f'"{org_type}"')
+    else:
+        # 优先用结构化 bank_tier（来自 finance 决策树），再回退到 org_type
+        if bank_tier:
+            tier_map: dict[str, list[str]] = {
+                "bb": ["Goldman Sachs", "Morgan Stanley", "J.P. Morgan", "Citigroup", "Bank of America"],
+                "eb": ["Evercore", "Lazard", "Moelis", "PJT", "Centerview"],
+                "mm": ["Jefferies", "William Blair", "Piper Sandler", "Raymond James", "Houlihan Lokey"],
+                "regional": ["RBC", "HSBC", "Wells Fargo", "BMO", "TD Securities"],
+                "boutique": ["Lazard", "Evercore", "Moelis", "PJT", "Rothschild"],
+            }
+            firms = tier_map.get(bank_tier.strip().lower(), [])
+            if firms:
+                _add_or_terms(firms[:3])
+
+        if org_type:
+            org_lower = org_type.lower()
+            if "investment bank" in org_lower or "investment banking" in org_lower:
+                parts.append('"Investment Banking"')
+            elif "sales & trading" in org_lower or "sales and trading" in org_lower:
+                parts.append('"Sales Trading"')
+            elif "private equity" in org_lower or "growth equity" in org_lower:
+                parts.append('"Private Equity"')
+            elif "hedge fund" in org_lower:
+                parts.append('"Hedge Fund"')
+            elif "equity research" in org_lower:
+                parts.append('"Equity Research"')
+            else:
+                parts.append(f'"{org_type}"')
     
     # 3. 领域/方向关键词
     search_intent = str(prefs.get("search_intent", "") or "").strip()
     group = str(prefs.get("group", "") or "").strip()  # e.g., "M&A", "TMT"
     sector = str(prefs.get("sector", "") or "").strip()
-    
+
     if group:
-        parts.append(f'"{group}"')
-    elif sector:
-        parts.append(f'"{sector}"')
-    elif search_intent:
+        group_terms = _split_terms(group, max_terms=3)
+        _add_or_terms(group_terms)
+    if sector:
+        sector_terms = _split_terms(sector, max_terms=3)
+        _add_or_terms(sector_terms)
+    if not group and not sector and search_intent:
         # 从 search_intent 提取关键词（简单实现）
         # 例如 "找投行 M&A 方向的 Associate" → 提取 M&A
         for keyword in ["M&A", "PE", "VC", "IB", "AM", "HF", "TMT", "Healthcare", "FIG", "Tech"]:
@@ -1349,9 +1456,9 @@ def _build_serpapi_search_query(
     location = str(prefs.get("location", "") or "").strip()
     if location:
         # 只取主要城市/地区
-        loc_parts = location.split(",")
-        if loc_parts:
-            parts.append(f'"{loc_parts[0].strip()}"')
+        primary_loc = location.split(";")[0].split(",")[0].strip()
+        if primary_loc:
+            parts.append(f'"{primary_loc}"')
     
     # 5. 排除词
     must_not = str(prefs.get("must_not", "") or "").strip()
@@ -1562,19 +1669,50 @@ def _ai_score_and_analyze_candidates(
     # 构建偏好信息
     pref_info = ""
     if preferences:
+        def _format_pref_value(value: Any) -> str:
+            if value is None:
+                return ""
+            if isinstance(value, list):
+                items = [str(v).strip() for v in value if isinstance(v, (str, int, float)) and str(v).strip()]
+                return ", ".join(items)
+            if isinstance(value, dict):
+                try:
+                    return json.dumps(value, ensure_ascii=False)
+                except TypeError:
+                    return str(value)
+            return str(value).strip()
+
         pref_parts = []
         if preferences.get("search_intent"):
-            pref_parts.append(f"Looking for: {preferences['search_intent']}")
-        if preferences.get("seniority"):
-            pref_parts.append(f"Seniority: {preferences['seniority']}")
+            pref_parts.append(f"Looking for: {_format_pref_value(preferences.get('search_intent'))}")
         if preferences.get("org_type"):
-            pref_parts.append(f"Organization type: {preferences['org_type']}")
-        if preferences.get("must_have"):
-            pref_parts.append(f"Must have: {preferences['must_have']}")
-        if preferences.get("must_not"):
-            pref_parts.append(f"Must not: {preferences['must_not']}")
+            pref_parts.append(f"Org type: {_format_pref_value(preferences.get('org_type'))}")
+        if preferences.get("bank_tier"):
+            pref_parts.append(f"Bank tier: {_format_pref_value(preferences.get('bank_tier'))}")
+        if preferences.get("group_type"):
+            pref_parts.append(f"Group type: {_format_pref_value(preferences.get('group_type'))}")
+        if preferences.get("group"):
+            pref_parts.append(f"Group/desk: {_format_pref_value(preferences.get('group'))}")
+        if preferences.get("sector"):
+            pref_parts.append(f"Sector: {_format_pref_value(preferences.get('sector'))}")
+        if preferences.get("target_role_titles"):
+            pref_parts.append(f"Role titles: {_format_pref_value(preferences.get('target_role_titles'))}")
+        if preferences.get("seniority"):
+            pref_parts.append(f"Seniority: {_format_pref_value(preferences.get('seniority'))}")
         if preferences.get("location"):
-            pref_parts.append(f"Location: {preferences['location']}")
+            pref_parts.append(f"Location: {_format_pref_value(preferences.get('location'))}")
+        if preferences.get("outreach_goal"):
+            pref_parts.append(f"Outreach goal: {_format_pref_value(preferences.get('outreach_goal'))}")
+        if preferences.get("contactability"):
+            pref_parts.append(f"Reply vs prestige: {_format_pref_value(preferences.get('contactability'))}")
+        if preferences.get("contact_channels"):
+            pref_parts.append(f"Contact channels: {_format_pref_value(preferences.get('contact_channels'))}")
+        if preferences.get("must_have"):
+            pref_parts.append(f"Must have: {_format_pref_value(preferences.get('must_have'))}")
+        if preferences.get("must_not"):
+            pref_parts.append(f"Must not: {_format_pref_value(preferences.get('must_not'))}")
+        if preferences.get("extra"):
+            pref_parts.append(f"Extra: {_format_pref_value(preferences.get('extra'))}")
         
         if pref_parts:
             pref_info = "\n".join(pref_parts)

@@ -1,5 +1,35 @@
 # Development Log
 
+## 2026-01-14: Finance Professional 决策树偏好问卷 + 结构化找人输入
+
+### 背景问题
+- Professional / Finance track 原有固定问卷偏 IB，且多数信息只落在 `preferences.extra`，SerpAPI 搜索词难以真正利用这些偏好。
+- 需要把 “G/S/O/M/Seniority/Optional” 结构化收集并直连到找人阶段的检索与排序。
+
+### 改动
+1. **`templates/index_v2.html`** - Finance track 决策树问卷
+   - G（Career Direction）支持多选；新增 Primary direction（单选），只对 Primary 深挖，避免问卷爆长
+   - 支持 single/multi + `Other (please specify)` 自定义输入
+   - 生成结构化 `state.financePreferences`（如 `bank_tier/group_type/group/sector/location/seniority/outreach_goal/contactability/contact_channels/target_role_titles/search_intent`）
+   - `findProTargets()` 合并结构化 prefs + 可选 advanced targeting 字段传给 `/api/find-recommendations`
+
+2. **`src/email_agent.py`** - 结构化偏好消费增强
+   - `_build_preference_context()` 支持 list/dict 字段（finance 结构化字段能进入 prompt）
+   - `_build_serpapi_search_query()` 消费 `bank_tier/group/sector/target_role_titles` 等字段，并支持 `;` 分隔的多值
+   - `_ai_score_and_analyze_candidates()` 纳入更多偏好字段用于匹配分析
+
+3. **`src/services/llm_service.py`** - 可选依赖
+   - `google-generativeai` 改为可选导入：未安装时不会在 import 阶段炸掉（运行到 Gemini 调用才报错）
+
+4. **`tests/test_serpapi_query.py`** - 新增测试
+   - 覆盖 SerpAPI 搜索词构建与偏好 context 格式化
+
+### 注意事项
+- Finance 决策树仅在 Professional/Finance track 启用；Quick Start 与 Academic track 不受影响。
+- 若需要 Gemini，请确保安装依赖：`python -m pip install -r requirements.txt`。
+
+Files: `templates/index_v2.html`, `src/email_agent.py`, `src/services/llm_service.py`, `tests/test_serpapi_query.py`, `README.md`, `devlog.md`, `note.md`
+
 ## 2026-01-10: 支持 Render Disk 持久化存储
 
 ### 背景
