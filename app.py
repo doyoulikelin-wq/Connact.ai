@@ -27,6 +27,7 @@ try:
         prompt_collector,
         start_prompt_session,
         end_prompt_session,
+        save_find_target_results,
     )
     PROMPT_COLLECTOR_ENABLED = True
 except ImportError:
@@ -408,6 +409,8 @@ def api_find_recommendations():
             "purpose": purpose,
             "field": field,
             "sender_name": sender_profile.get("name", ""),
+            "sender_profile": sender_profile,  # 完整的 sender 信息
+            "preferences": preferences,  # 用户偏好
         })
         # 存储 session_id 供后续 generate_email 使用
         session['prompt_session_id'] = session_id
@@ -420,10 +423,17 @@ def api_find_recommendations():
             preferences=preferences,
             session_id=session_id,
         )
+        
+        # ===== 找人成功后立即保存 =====
+        saved_path = None
+        if PROMPT_COLLECTOR_ENABLED and session_id and recommendations:
+            saved_path = save_find_target_results(session_id, recommendations)
+        
         return jsonify({
             'success': True,
             'recommendations': recommendations,
             'session_id': session_id,  # 返回给前端，供后续调用
+            'data_saved': saved_path is not None,  # 告知前端数据已保存
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

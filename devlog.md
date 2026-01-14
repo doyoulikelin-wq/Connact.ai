@@ -1,5 +1,33 @@
 # Development Log
 
+## 2026-01-15: 找人后立即保存数据
+
+### 背景
+- 原来只有完成"生成邮件"才会保存数据
+- 需要在"找人"阶段就保存，以便收集推荐算法训练数据
+
+### 改动
+1. **`src/services/prompt_collector.py`**
+   - `PromptRecord` 新增 `recommendations` 字段，存储找到的人物信息
+   - 新增 `save_find_target_partial()` 方法，找人后立即保存
+   - 新增 `_save_find_target_record()` 方法，保存到单独目录
+   - 新增便捷函数 `save_find_target_results()`
+
+2. **`app.py`**
+   - 导入 `save_find_target_results`
+   - `/api/find-recommendations` 成功后立即调用保存
+   - `user_info` 中增加完整的 `sender_profile` 和 `preferences`
+
+### 存储路径
+- 找人日志：`{DATA_DIR}/find_target_logs/{日期}/{时间}_{session_id}.json`
+
+### 保存的数据
+- `user_info`: purpose, field, sender_profile, preferences
+- `prompt_find_target`: 搜索 prompt
+- `recommendations`: 人物信息（姓名、职位、公司、LinkedIn URL、评分等）
+
+---
+
 ## 2026-01-14: Finance Professional 决策树偏好问卷 + 结构化找人输入
 
 ### 背景问题

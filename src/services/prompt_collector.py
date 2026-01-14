@@ -55,6 +55,9 @@ class PromptRecord:
     output_generate_email: str = ""
     timestamp: str = ""
     
+    # 找到的推荐人物（结构化数据，包含职位、网址等）
+    recommendations: list[dict[str, Any]] = field(default_factory=list)
+    
     # 额外元数据
     metadata: dict[str, Any] = field(default_factory=dict)
     
@@ -176,6 +179,67 @@ class PromptDataCollector:
             if metadata:
                 record.metadata.update({"generate_email": metadata})
     
+    def save_find_target_partial(
+        self,
+        session_id: str,
+        recommendations: list[dict[str, Any]],
+    ) -> Path | None:
+        """找人后立即保存部分数据（不结束会话）
+        
+        保存内容：
+        - user_info（用户画像、purpose、field 等）
+        - prompt_find_target（搜索 prompt）
+        - output_find_target（原始输出）
+        - recommendations（结构化的人物信息：姓名、职位、公司、网址等）
+        """
+        if not self._enabled or not session_id:
+            return None
+        
+        with self._session_lock:
+            if session_id not in self._current_sessions:
+                return None
+            record = self._current_sessions[session_id]
+            record.recommendations = recommendations
+        
+        # 保存到单独的 find_target 目录
+        return self._save_find_target_record(record)
+    
+    def _save_find_target_record(self, record: PromptRecord) -> Path:
+        """保存找人阶段的记录到单独目录"""
+        # 解析时间
+        try:
+            ts_dt = datetime.fromisoformat(record.timestamp)
+        except (ValueError, TypeError):
+            ts_dt = get_local_now()
+        
+        # 保存到 find_target_logs 目录
+        find_target_dir = DATA_DIR_PROMPTS.parent / "find_target_logs"
+        date_str = ts_dt.strftime("%Y-%m-%d")
+        day_dir = find_target_dir / date_str
+        day_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 文件名
+        ts = ts_dt.strftime("%H%M%S")
+        filename = f"{ts}_{record.id[:8]}.json"
+        filepath = day_dir / filename
+        
+        # 构建保存内容（只保存找人相关的字段）
+        save_data = {
+            "id": record.id,
+            "timestamp": record.timestamp,
+            "user_info": record.user_info,
+            "prompt_find_target": record.prompt_find_target,
+            "output_find_target": record.output_find_target,
+            "recommendations": record.recommendations,
+            "metadata": record.metadata.get("find_target", {}),
+        }
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(save_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"[PromptCollector] Saved find_target: {filepath}")
+        return filepath
+
     def end_session(self, session_id: str, save: bool = True) -> PromptRecord | None:
         """结束会话，可选保存到文件"""
         if not self._enabled or not session_id:
@@ -327,6 +391,17 @@ def record_find_target_prompt(session_id: str, prompt: str, output: str) -> None
 def record_generate_email_prompt(session_id: str, prompt: str, output: str) -> None:
     """记录 generate_email 的 prompt/output"""
     prompt_collector.record_generate_email(session_id, prompt, output)
+
+
+def save_find_target_results(session_id: str, recommendations: list[dict]) -> Path | None:
+    """找人后立即保存结果（不结束会话）
+    
+    保存内容包括：
+    - 用户信息（purpose, field, sender_name 等）
+    - 搜索 prompt
+    - 找到的人物信息（姓名、职位、公司、LinkedIn URL 等）
+    """
+    return prompt_collector.save_find_target_partial(session_id, recommendations)
 
 
 def end_prompt_session(session_id: str) -> PromptRecord | None:
