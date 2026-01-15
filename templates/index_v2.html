@@ -145,6 +145,22 @@
             text-shadow: 0 0 40px var(--accent-glow);
         }
 
+        .app-logo {
+            color: inherit;
+            text-decoration: none;
+            text-shadow: inherit;
+        }
+
+        .app-logo:hover {
+            opacity: 0.92;
+        }
+
+        .app-logo:focus-visible {
+            outline: none;
+            box-shadow: var(--focus-ring);
+            border-radius: 12px;
+        }
+
         /* Floating LCD Panel - Mode Switcher */
         .mode-switcher {
             position: fixed;
@@ -1418,7 +1434,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>📧 Cold Email Generator <span class="version-badge">v3.0</span></h1>
+            <h1><a class="app-logo" href="/" title="Back to home">📧 Cold Email Generator <span class="version-badge">v3.0</span></a></h1>
             <a href="/logout" class="btn-logout">Logout</a>
         </div>
 

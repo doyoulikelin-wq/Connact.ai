@@ -12,6 +12,7 @@
   - 删除 `primary_direction` 节点；所有分支依赖改为 `career_directions`
   - 将 “Not sure yet — keep it broad” 作为 Q1 选项保留
   - 新增 “Back” 按钮，支持逐题回退并修改答案
+  - 点击左上角 Logo 返回主页面（`/`）
 
 Files: `templates/index_v2.html`, `README.md`, `note.md`, `devlog.md`
 
