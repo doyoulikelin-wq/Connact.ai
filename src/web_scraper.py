@@ -304,8 +304,8 @@ Return JSON only."""
         field=field,
         raw_text=f"Basic profile for {name} in {field}. Unable to fetch detailed information automatically.",
         education=[],
-        experiences=[f"Works in {field}"],
-        skills=[field],
+        experiences=[],
+        skills=[field] if field else [],
         projects=[],
         sources=["Manual entry"],
     )

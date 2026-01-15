@@ -247,6 +247,39 @@ def api_generate_email():
         
         # Get receiver profile
         receiver_data = data.get('receiver', {})
+        receiver_context = (receiver_data.get('context') or '').strip()
+
+        extra_context_lines = []
+        receiver_position = (receiver_data.get('position') or '').strip()
+        if receiver_position:
+            extra_context_lines.append(f"Current role: {receiver_position}")
+        receiver_linkedin = (receiver_data.get('linkedin_url') or '').strip()
+        if receiver_linkedin:
+            extra_context_lines.append(f"LinkedIn: {receiver_linkedin}")
+
+        evidence = receiver_data.get('evidence')
+        if isinstance(evidence, list):
+            evidence_lines = [str(e).strip() for e in evidence if isinstance(e, (str, int, float)) and str(e).strip()]
+            if evidence_lines:
+                extra_context_lines.append("Evidence snippets:")
+                extra_context_lines.extend([f"- {e}" for e in evidence_lines[:2]])
+
+        if extra_context_lines:
+            extra_context = "\n".join(extra_context_lines)
+            receiver_context = f"{receiver_context}\n\n{extra_context}".strip() if receiver_context else extra_context
+
+        sources_value = receiver_data.get('sources', None)
+        receiver_sources = None
+        if isinstance(sources_value, list):
+            receiver_sources = [str(s).strip() for s in sources_value if isinstance(s, str) and s.strip()]
+        elif isinstance(sources_value, str) and sources_value.strip():
+            receiver_sources = [sources_value.strip()]
+
+        if receiver_linkedin:
+            receiver_sources = receiver_sources or []
+            if receiver_linkedin not in receiver_sources:
+                receiver_sources.append(receiver_linkedin)
+
         receiver = ReceiverProfile(
             name=receiver_data.get('name', ''),
             raw_text=receiver_data.get('raw_text', ''),
@@ -254,8 +287,8 @@ def api_generate_email():
             experiences=receiver_data.get('experiences', []),
             skills=receiver_data.get('skills', []),
             projects=receiver_data.get('projects', []),
-            context=receiver_data.get('context', ''),
-            sources=receiver_data.get('sources', None),
+            context=receiver_context or None,
+            sources=receiver_sources,
         )
         
         # Get goal

@@ -5830,8 +5830,8 @@ I&apos;m {{sender_name}}, currently ...
             });
         }
 
-        async function ensureQuickStartSenderProfile() {
-            if (state.mode !== 'quick') return;
+	        async function ensureQuickStartSenderProfile() {
+	            if (state.mode !== 'quick') return;
 
             if (state.senderProfile) return;
 
@@ -5854,13 +5854,97 @@ I&apos;m {{sender_name}}, currently ...
 
             const hasAnyAnswer = Array.isArray(state.questionnaireHistory)
                 && state.questionnaireHistory.some(qa => (qa.answer || '').trim().length > 0);
-            if (hasAnyAnswer) {
-                await buildProfileFromQuestionnaire();
-            }
-        }
+	            if (hasAnyAnswer) {
+	                await buildProfileFromQuestionnaire();
+	            }
+	        }
 
-        // Generate all emails for selected targets
-        async function generateAllEmails() {
+	        function normalizeText(value) {
+	            if (value === null || value === undefined) return '';
+	            return String(value).trim();
+	        }
+
+	        function normalizeTextList(value) {
+	            if (!Array.isArray(value)) return [];
+	            return value.map(v => normalizeText(v)).filter(Boolean);
+	        }
+
+	        function uniqueTextList(values) {
+	            const out = [];
+	            const seen = new Set();
+	            (values || []).forEach(v => {
+	                const s = normalizeText(v);
+	                if (!s || seen.has(s)) return;
+	                seen.add(s);
+	                out.push(s);
+	            });
+	            return out;
+	        }
+
+	        function mergeTextLists(...lists) {
+	            const merged = [];
+	            lists.forEach(list => {
+	                if (Array.isArray(list)) {
+	                    merged.push(...list);
+	                    return;
+	                }
+	                if (typeof list === 'string' && list.trim()) {
+	                    merged.push(list);
+	                }
+	            });
+	            return uniqueTextList(merged);
+	        }
+
+	        function mergeReceiverProfiles(base, fetched) {
+	            const b = (base && typeof base === 'object') ? base : {};
+	            const f = (fetched && typeof fetched === 'object') ? fetched : {};
+	            const merged = { ...b, ...f };
+
+	            merged.name = normalizeText(f.name) || normalizeText(b.name);
+	            merged.field = normalizeText(f.field) || normalizeText(b.field);
+	            merged.position = normalizeText(b.position) || normalizeText(f.position) || normalizeText(b.field) || normalizeText(f.field);
+	            merged.linkedin_url = normalizeText(b.linkedin_url) || normalizeText(f.linkedin_url);
+	            merged.raw_text = normalizeText(f.raw_text) || normalizeText(b.raw_text);
+
+	            merged.education = mergeTextLists(b.education, f.education);
+	            merged.experiences = mergeTextLists(b.experiences, f.experiences);
+	            merged.skills = mergeTextLists(b.skills, f.skills);
+	            merged.projects = mergeTextLists(b.projects, f.projects);
+
+	            merged.evidence = mergeTextLists(b.evidence, f.evidence);
+	            merged.sources = mergeTextLists(b.sources, f.sources, merged.linkedin_url ? [merged.linkedin_url] : []);
+
+	            const positionLine = normalizeText(merged.position);
+	            if (positionLine) {
+	                const posLower = positionLine.toLowerCase();
+	                const experiences = Array.isArray(merged.experiences) ? merged.experiences.slice() : [];
+	                const hasPosition = experiences.some(e => normalizeText(e).toLowerCase().includes(posLower));
+	                if (!hasPosition) {
+	                    merged.experiences = [positionLine, ...experiences];
+	                }
+	            }
+
+	            return merged;
+	        }
+
+	        function buildReceiverEmailContext(profile) {
+	            if (!profile || typeof profile !== 'object') return '';
+	            const lines = [];
+	            const position = normalizeText(profile.position);
+	            if (position) lines.push(`Current role: ${position}`);
+	            const linkedinUrl = normalizeText(profile.linkedin_url);
+	            if (linkedinUrl) lines.push(`LinkedIn: ${linkedinUrl}`);
+
+	            const evidence = normalizeTextList(profile.evidence);
+	            if (evidence.length) {
+	                lines.push('Evidence snippets:');
+	                evidence.slice(0, 2).forEach(e => lines.push(`- ${e}`));
+	            }
+	            return lines.join('\n');
+	        }
+
+	        // Generate all emails for selected targets
+	        async function generateAllEmails() {
             const loading = document.getElementById('email-loading');
             const result = document.getElementById('email-result');
             const nav = document.getElementById('email-nav');
@@ -5906,20 +5990,20 @@ I&apos;m {{sender_name}}, currently ...
                                           target.experiences && target.experiences.length > 0 ||
                                           target.raw_text;
                     
-                    if (!hasProfileData) {
-                        const searchResponse = await fetch('/api/search-receiver', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                name: target.name,
-                                field: target.field || target.position || getFieldText()
-                            })
-                        });
-                        const searchData = await searchResponse.json();
-                        if (searchData.success) {
-                            receiverProfile = searchData.profile;
-                        }
-                    }
+	                    if (!hasProfileData) {
+	                        const searchResponse = await fetch('/api/search-receiver', {
+	                            method: 'POST',
+	                            headers: { 'Content-Type': 'application/json' },
+	                            body: JSON.stringify({
+	                                name: target.name,
+	                                field: target.field || target.position || getFieldText()
+	                            })
+	                        });
+	                        const searchData = await searchResponse.json();
+	                        if (searchData.success) {
+	                            receiverProfile = mergeReceiverProfiles(receiverProfile, searchData.profile);
+	                        }
+	                    }
                     
                     // Enrich sender and receiver context with optional profile links/notes
                     let senderRawText = (state.senderProfile && state.senderProfile.raw_text) || '';
@@ -5955,13 +6039,19 @@ I&apos;m {{sender_name}}, currently ...
                     if (targetLink) {
                         receiverRawText += `\n\nProfile link: ${targetLink}`;
                     }
-                    if (targetExtra) {
-                        receiverRawText += `\n\nAdditional profile notes:\n${targetExtra}`;
-                    }
-                    receiverProfile.raw_text = receiverRawText;
+	                    if (targetExtra) {
+	                        receiverRawText += `\n\nAdditional profile notes:\n${targetExtra}`;
+	                    }
+	                    receiverProfile.raw_text = receiverRawText;
+	                    const receiverContext = buildReceiverEmailContext(receiverProfile);
+	                    if (receiverContext) {
+	                        receiverProfile.context = receiverProfile.context
+	                            ? `${receiverProfile.context}\n\n${receiverContext}`
+	                            : receiverContext;
+	                    }
 
-                    // Generate email
-                    const goalText = (state.emailGoal || '').trim() || getPurposeText();
+	                    // Generate email
+	                    const goalText = (state.emailGoal || '').trim() || getPurposeText();
                     const askText = (state.emailAsk || '').trim()
                         || `I am looking to ${getPurposeText().toLowerCase()} in ${getFieldText()}`;
                     const bodyPayload = {

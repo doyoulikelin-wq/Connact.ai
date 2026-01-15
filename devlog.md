@@ -19,6 +19,25 @@ Files: `templates/index_v2.html`, `README.md`, `note.md`, `devlog.md`
 
 ---
 
+## 2026-01-15: Email 生成时保留 receiver 具体信息
+
+### 背景
+- 找人阶段（`/api/find-recommendations`）已返回候选的 `position/linkedin_url/evidence/sources` 等可核验信息
+- 生成邮件阶段会调用 `/api/search-receiver` 做补全，但原逻辑会直接覆盖 receiver 对象，导致 email prompt 丢失这些关键信息，模型只能写泛化开场（例如 “you work in Finance”）
+
+### 改动
+- `templates/index_v2.html`
+  - Step 5 生成邮件前：将推荐 target 与 `/api/search-receiver` 返回的 profile 做 merge（不再覆盖）
+  - 将 `position/linkedin_url/evidence` 写入 `receiver.context`，并确保 `sources` 合并包含 LinkedIn URL
+- `app.py`
+  - `/api/generate-email` 将 `receiver.position/linkedin_url/evidence` 合并进 `ReceiverProfile.context`，并将 LinkedIn URL 补进 `sources`
+- `src/web_scraper.py`
+  - `extract_person_profile_from_web()` 最终兜底不再注入 `experiences=["Works in {field}"]`，避免模型引用尴尬泛化句
+
+Files: `templates/index_v2.html`, `app.py`, `src/web_scraper.py`, `README.md`, `note.md`, `devlog.md`
+
+---
+
 ## 2026-01-15: 找人后立即保存数据
 
 ### 背景

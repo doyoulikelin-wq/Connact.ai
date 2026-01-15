@@ -112,6 +112,7 @@
 - 推荐候选输出补齐可核验字段：每个候选可包含 `evidence` / `sources` / `uncertainty`，并在 Target Profile 弹窗中展示，方便用户快速核验而不是盲选。
 - Step 4（生成邮件）：新增可选「Email instructions」输入（goal、单一 ask、可提供的 value、语气长度语言 constraints、hard rules 禁区、可引用 evidence），用于约束生成并减少虚构细节。
 - Web enrichment：`/api/search-receiver` 返回 `raw_text` + `sources`，生成邮件时会把这些来源带入 prompt，提升引用的可追溯性。
+- Email 生成：保留找人阶段的候选信息（如 `position/linkedin_url/evidence/sources`），并与 web profile 做 merge（不再覆盖），同时写入 `receiver.context`，避免开场出现 “you work in Finance” 这类泛化句。
 
 ---
 

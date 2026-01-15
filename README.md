@@ -82,7 +82,7 @@ flowchart TD
 
 Quick reading:
 - Search people (`POST /api/find-recommendations`): uses boxes `purpose and field`, optional `professional track`, sender info (`sender profile from resume` or `sender profile from answers` or `sender profile link and notes`), plus targeting inputs (`target preferences from questions` and optional `ideal target description keywords location reply vs prestige examples evidence`).
-- Generate email (`POST /api/generate-email`): uses boxes `purpose and field`, sender info, receiver profile (`receiver profile from document` or `receiver profile from web with sources`), plus optional `target profile link and notes`, `email goal ask value constraints hard rules evidence`, and `template text`.
+- Generate email (`POST /api/generate-email`): uses boxes `purpose and field`, sender info, receiver profile (`receiver profile from document` or `receiver profile from web with sources`), plus recommendation-stage receiver facts when available (e.g. `position/linkedin_url/evidence/sources`, merged into receiver context), and optional `target profile link and notes`, `email goal ask value constraints hard rules evidence`, and `template text`.
 
 🌐 **Live Demo**: [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
 
