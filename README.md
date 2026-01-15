@@ -107,7 +107,7 @@ Quick reading:
   - Confirms data security and no permanent storage
 
 - **Track-Specific Preferences**
-  - Finance (Professional): decision-tree preferences (G/S/O/M/Seniority/Optional), multi-select directions + primary focus, mapped to structured `preferences` for better search
+  - Finance (Professional): decision-tree preferences (G/S/O/M/Seniority/Optional), single-select primary direction (with Back navigation), mapped to structured `preferences` for better search
   - Academic: Research collaboration, PhD applications, Postdoc positions, Academic networking
 
 ### v2.2 - Gemini Google Search Integration 🔍

@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-01-15: Finance 决策树简化（方向单选）
+
+### 背景
+- 原流程是 Q1（方向多选）→ Q2（Primary 单选）→ 只对 Primary 深挖
+- 方向选择只需要一个明确主方向即可，减少一轮确认与问卷长度
+
+### 改动
+- `templates/index_v2.html`
+  - Finance 决策树 Q1 `career_directions` 改为单选（主方向）
+  - 删除 `primary_direction` 节点；所有分支依赖改为 `career_directions`
+  - 将 “Not sure yet — keep it broad” 作为 Q1 选项保留
+  - 新增 “Back” 按钮，支持逐题回退并修改答案
+
+Files: `templates/index_v2.html`, `README.md`, `note.md`, `devlog.md`
+
+---
+
 ## 2026-01-15: 找人后立即保存数据
 
 ### 背景

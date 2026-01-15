@@ -2919,14 +2919,14 @@ I&apos;m {{sender_name}}, currently ...
         }
 
         // Finance decision-tree preferences (Professional / Finance track only)
-        // G — Goal / Career Direction (multi) → Primary direction (single, auto-skip if only one)
+        // G — Primary direction (single)
         // S — Sector / Group → O — Firm type → M — Location → Seniority → Optional preferences
         const FINANCE_MAX_QUESTIONS = 16;
         const FINANCE_FIXED_QUESTIONS = [
             {
                 id: 'career_directions',
-                question: 'G: Which finance career directions are you exploring? (Select all that apply)',
-                type: 'multi',
+                question: 'G: What is your PRIMARY finance direction right now? (Select one)',
+                type: 'single',
                 options: [
                     { value: 'ib', label: 'Investment Banking (IB)' },
                     { value: 'st', label: 'Sales & Trading (S&T)' },
@@ -2935,19 +2935,10 @@ I&apos;m {{sender_name}}, currently ...
                     { value: 'am', label: 'Asset / Wealth Management' },
                     { value: 'er', label: 'Equity Research' },
                     { value: 'corp_fin', label: 'Corporate Finance / Strategy' },
+                    { value: 'unsure', label: 'Not sure yet — keep it broad' },
                     { value: 'other', label: 'Other (please specify)' }
                 ],
                 custom: { optionValue: 'other', placeholder: 'e.g., Consulting, Risk, Fintech, ...' }
-            },
-            {
-                id: 'primary_direction',
-                question: 'G: Which is your PRIMARY direction right now? (We will go deeper only on this one)',
-                type: 'single',
-                optionsFrom: 'career_directions',
-                includeNotSure: true,
-                notSureValue: 'unsure',
-                notSureLabel: 'Not sure yet — keep it broad',
-                skipIfSingleSelectionFrom: 'career_directions'
             },
 
             // Investment Banking (IB)
@@ -2955,7 +2946,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'ib_firm_type',
                 question: 'O: IB — What type of firm are you targeting?',
                 type: 'single',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['ib'],
                 options: [
                     { value: 'bb', label: 'Bulge Bracket' },
@@ -2971,7 +2962,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'ib_group_type',
                 question: 'S: IB — Which group type are you most interested in?',
                 type: 'single',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['ib'],
                 options: [
                     { value: 'coverage', label: 'Industry Coverage' },
@@ -3026,7 +3017,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'st_function',
                 question: 'S: S&T — Which area are you most interested in?',
                 type: 'single',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['st'],
                 options: [
                     { value: 'sales', label: 'Sales' },
@@ -3086,7 +3077,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'pe_fund_type',
                 question: 'O: PE/GE — What type of fund are you targeting?',
                 type: 'single',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['pe'],
                 options: [
                     { value: 'large_cap_pe', label: 'Large-cap PE' },
@@ -3102,7 +3093,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'pe_industry_focus',
                 question: 'S: PE/GE — Any preferred industry focus? (Select all that apply)',
                 type: 'multi',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['pe'],
                 options: [
                     { value: 'technology', label: 'Technology' },
@@ -3122,7 +3113,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'hf_strategy',
                 question: 'S: HF — What strategy are you most interested in? (Select all that apply)',
                 type: 'multi',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['hf'],
                 options: [
                     { value: 'l_s_equity', label: 'Long/Short Equity' },
@@ -3139,7 +3130,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'hf_role',
                 question: 'S: HF — Which role(s) are you targeting? (Select all that apply)',
                 type: 'multi',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['hf'],
                 options: [
                     { value: 'analyst', label: 'Analyst' },
@@ -3156,7 +3147,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'am_track',
                 question: 'O: AM/WM — Which area are you targeting?',
                 type: 'single',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['am'],
                 options: [
                     { value: 'asset_management', label: 'Asset Management' },
@@ -3185,7 +3176,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'er_industry',
                 question: 'S: Equity Research — Which coverage sector(s)? (Select all that apply)',
                 type: 'multi',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['er'],
                 options: [
                     { value: 'technology', label: 'Technology' },
@@ -3202,7 +3193,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'er_role',
                 question: 'O: Equity Research — Which role are you targeting?',
                 type: 'single',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['er'],
                 options: [
                     { value: 'research_analyst', label: 'Research Analyst' },
@@ -3217,7 +3208,7 @@ I&apos;m {{sender_name}}, currently ...
                 id: 'corp_role',
                 question: 'S: Corporate Finance / Strategy — Which area? (Select all that apply)',
                 type: 'multi',
-                dependsOn: 'primary_direction',
+                dependsOn: 'career_directions',
                 showIf: ['corp_fin'],
                 options: [
                     { value: 'corp_dev', label: 'Corporate Development' },
@@ -3304,6 +3295,8 @@ I&apos;m {{sender_name}}, currently ...
         let financeQuestionIndex = 0;
         let financeAnswers = {};
         let financeCustomAnswers = {};
+        let financeQuestionHistory = []; // [{ questionIndex, questionId }]
+        let financeDraftAnswers = {}; // { [questionId]: { values: string[], customText: string } }
 
         // Load preference questions for Professional mode
         async function loadProPreferenceQuestions() {
@@ -3319,6 +3312,8 @@ I&apos;m {{sender_name}}, currently ...
                 financeQuestionIndex = 0;
                 financeAnswers = {};
                 financeCustomAnswers = {};
+                financeQuestionHistory = [];
+                financeDraftAnswers = {};
                 renderFinanceFixedQuestion();
                 return;
             }
@@ -3375,6 +3370,7 @@ I&apos;m {{sender_name}}, currently ...
             let innerHtml = `<h4>Q${state.proPreferenceHistory.length + 1}: ${questionText}</h4>`;
 
             if (options && options.length > 0) {
+                innerHtml += `<div style="margin: 6px 0 8px; color: #a0a0b0; font-size: 12px;">Tip: You can select multiple options.</div>`;
                 innerHtml += `
                     <div class="question-options" id="pro-question-options">
                         ${options.map((opt, idx) => `
@@ -3404,20 +3400,20 @@ I&apos;m {{sender_name}}, currently ...
 
             const nextBtn = document.getElementById('btn-pro-next-question');
             const skipBtn = document.getElementById('btn-pro-skip-question');
-            let selectedIndex = null;
+            const selectedIndexes = new Set();
 
             if (options && options.length > 0) {
                 const optionEls = Array.from(document.querySelectorAll('#pro-question-options .question-option'));
                 const customWrapper = document.getElementById('pro-question-custom-wrapper');
                 const customInput = document.getElementById('pro-question-custom-input');
+                const lastIndex = options.length - 1;
 
                 function updateNextEnabled() {
-                    if (selectedIndex === null) {
+                    if (selectedIndexes.size === 0) {
                         nextBtn.disabled = true;
                         return;
                     }
-                    const isLast = selectedIndex === options.length - 1;
-                    if (isLast) {
+                    if (selectedIndexes.has(lastIndex)) {
                         nextBtn.disabled = !customInput.value.trim();
                     } else {
                         nextBtn.disabled = false;
@@ -3426,11 +3422,18 @@ I&apos;m {{sender_name}}, currently ...
 
                 optionEls.forEach(el => {
                     el.addEventListener('click', function() {
-                        optionEls.forEach(o => o.classList.remove('selected'));
-                        this.classList.add('selected');
-                        selectedIndex = parseInt(this.dataset.index, 10);
-                        const isLast = selectedIndex === options.length - 1;
-                        if (isLast) {
+                        const idx = parseInt(this.dataset.index, 10);
+                        if (Number.isNaN(idx)) return;
+
+                        if (selectedIndexes.has(idx)) {
+                            selectedIndexes.delete(idx);
+                            this.classList.remove('selected');
+                        } else {
+                            selectedIndexes.add(idx);
+                            this.classList.add('selected');
+                        }
+
+                        if (selectedIndexes.has(lastIndex)) {
                             customWrapper.classList.add('visible');
                         } else {
                             customWrapper.classList.remove('visible');
@@ -3488,15 +3491,27 @@ I&apos;m {{sender_name}}, currently ...
             nextBtn.addEventListener('click', function() {
                 let answer = '';
                 if (options && options.length > 0) {
-                    if (selectedIndex === null) return;
-                    const isLast = selectedIndex === options.length - 1;
-                    if (isLast) {
+                    if (selectedIndexes.size === 0) return;
+                    const lastIndex = options.length - 1;
+                    const parts = [];
+
+                    for (let i = 0; i < options.length; i++) {
+                        if (i === lastIndex) continue;
+                        if (selectedIndexes.has(i)) parts.push(options[i]);
+                    }
+
+                    if (selectedIndexes.has(lastIndex)) {
                         const customInput = document.getElementById('pro-question-custom-input');
                         if (!customInput.value.trim()) return;
-                        answer = customInput.value.trim();
-                    } else {
-                        answer = options[selectedIndex];
+                        const customText = customInput.value.trim();
+                        if (parts.length === 0) {
+                            answer = customText;
+                        } else {
+                            parts.push(`Other: ${customText}`);
+                        }
                     }
+                    if (!answer) answer = parts.join('; ');
+                    if (!answer) return;
                 } else {
                     const answerInput = document.getElementById('pro-question-answer-input');
                     answer = (answerInput.value || '').trim();
@@ -3514,6 +3529,29 @@ I&apos;m {{sender_name}}, currently ...
         function renderFinanceFixedQuestion() {
             const container = document.getElementById('pro-preference-questions');
             container.innerHTML = '';
+
+            function goBackOneFinanceQuestion() {
+                if (financeQuestionHistory.length === 0) return;
+                const last = financeQuestionHistory.pop();
+                if (!last || !last.questionId) return;
+
+                const prevValuesRaw = financeAnswers[last.questionId];
+                const prevValues = Array.isArray(prevValuesRaw)
+                    ? prevValuesRaw.map(v => String(v))
+                    : [];
+                const prevCustomText = String(financeCustomAnswers[last.questionId] || '').trim();
+
+                financeDraftAnswers[last.questionId] = {
+                    values: prevValues,
+                    customText: prevCustomText,
+                };
+
+                delete financeAnswers[last.questionId];
+                delete financeCustomAnswers[last.questionId];
+
+                financeQuestionIndex = last.questionIndex || 0;
+                renderFinanceFixedQuestion();
+            }
 
             function getQuestionById(id) {
                 return FINANCE_FIXED_QUESTIONS.find(q => q.id === id) || null;
@@ -3603,6 +3641,18 @@ I&apos;m {{sender_name}}, currently ...
                 summaryHtml += '</ul>';
                 summary.innerHTML = summaryHtml;
                 container.appendChild(summary);
+
+                if (financeQuestionHistory.length > 0) {
+                    const actions = document.createElement('div');
+                    actions.className = 'btn-group';
+                    actions.style.cssText = 'margin-top: 16px; justify-content: flex-end;';
+                    actions.innerHTML = `
+                        <button class="btn btn-secondary" id="btn-finance-summary-back">← Back</button>
+                    `;
+                    container.appendChild(actions);
+                    const backBtn = document.getElementById('btn-finance-summary-back');
+                    if (backBtn) backBtn.addEventListener('click', goBackOneFinanceQuestion);
+                }
             }
 
             // Hard cap to avoid an overly long tree if user selects many paths
@@ -3659,6 +3709,7 @@ I&apos;m {{sender_name}}, currently ...
             card.className = 'question-card';
 
             const questionNum = Object.keys(financeAnswers).length + 1;
+            const currentQuestionIndex = financeQuestionIndex;
             const type = currentQuestion.type === 'single' ? 'single' : 'multi';
             const helperText = type === 'single'
                 ? 'Select one option:'
@@ -3701,6 +3752,7 @@ I&apos;m {{sender_name}}, currently ...
 
             innerHtml += `
                 <div class="btn-group" style="margin-top: 20px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" id="btn-finance-back" ${financeQuestionHistory.length === 0 ? 'disabled' : ''}>← Back</button>
                     <button class="btn btn-secondary" id="btn-finance-skip">Skip</button>
                     <button class="btn btn-primary" id="btn-finance-next" disabled>Next Question →</button>
                 </div>
@@ -3781,6 +3833,7 @@ I&apos;m {{sender_name}}, currently ...
             const optionEls = Array.from(container.querySelectorAll('#finance-question-options .finance-option'));
             const nextBtn = document.getElementById('btn-finance-next');
             const skipBtn = document.getElementById('btn-finance-skip');
+            const backBtn = document.getElementById('btn-finance-back');
 
             const customOptionValue = currentQuestion.custom ? currentQuestion.custom.optionValue : null;
             const customWrapper = document.getElementById('finance-question-custom-wrapper');
@@ -3838,6 +3891,40 @@ I&apos;m {{sender_name}}, currently ...
                 customInput.addEventListener('input', updateNextEnabled);
             }
 
+            // Prefill draft answers when navigating back
+            const draft = financeDraftAnswers[currentQuestion.id];
+            const draftValues = draft && Array.isArray(draft.values) ? draft.values.map(v => String(v)) : [];
+            const draftCustomText = draft ? String(draft.customText || '') : '';
+            if (draftValues.length) {
+                const valueSet = new Set(draftValues);
+                optionEls.forEach(el => {
+                    const value = String(el.dataset.value || '');
+                    if (!value) return;
+                    if (type === 'single') {
+                        if (draftValues[0] === value) {
+                            selectedValues.add(value);
+                            el.classList.add('selected');
+                        }
+                        return;
+                    }
+                    if (valueSet.has(value)) {
+                        selectedValues.add(value);
+                        el.classList.add('selected');
+                    }
+                });
+                if (customOptionValue && selectedValues.has(customOptionValue) && customInput) {
+                    customInput.value = draftCustomText;
+                }
+                updateCustomVisibility();
+                updateNextEnabled();
+            }
+
+            if (backBtn) {
+                backBtn.addEventListener('click', function() {
+                    goBackOneFinanceQuestion();
+                });
+            }
+
             nextBtn.addEventListener('click', function() {
                 if (selectedValues.size === 0) return;
                 financeAnswers[currentQuestion.id] = Array.from(selectedValues);
@@ -3846,6 +3933,8 @@ I&apos;m {{sender_name}}, currently ...
                 } else {
                     delete financeCustomAnswers[currentQuestion.id];
                 }
+                delete financeDraftAnswers[currentQuestion.id];
+                financeQuestionHistory.push({ questionIndex: currentQuestionIndex, questionId: currentQuestion.id });
                 financeQuestionIndex++;
                 renderFinanceFixedQuestion();
             });
@@ -3853,6 +3942,8 @@ I&apos;m {{sender_name}}, currently ...
             skipBtn.addEventListener('click', function() {
                 financeAnswers[currentQuestion.id] = [];
                 delete financeCustomAnswers[currentQuestion.id];
+                delete financeDraftAnswers[currentQuestion.id];
+                financeQuestionHistory.push({ questionIndex: currentQuestionIndex, questionId: currentQuestion.id });
                 financeQuestionIndex++;
                 renderFinanceFixedQuestion();
             });
@@ -3879,6 +3970,7 @@ I&apos;m {{sender_name}}, currently ...
                 am: 'Asset / Wealth Management',
                 er: 'Equity Research',
                 corp_fin: 'Corporate Finance / Strategy',
+                unsure: 'Not sure yet — keep it broad',
                 other: 'Other'
             };
             const directionKeywords = {
@@ -3888,7 +3980,8 @@ I&apos;m {{sender_name}}, currently ...
                 hf: 'Hedge Fund',
                 am: 'Asset / Wealth Management',
                 er: 'Equity Research',
-                corp_fin: 'Corporate Finance / Strategy'
+                corp_fin: 'Corporate Finance / Strategy',
+                unsure: 'Finance'
             };
 
             function joinMapped(values, mapping, otherText) {
@@ -3904,13 +3997,7 @@ I&apos;m {{sender_name}}, currently ...
             }
 
             const directions = list('career_directions');
-            const directionsText = directions.map(v => {
-                if (v === 'other') return custom('career_directions') ? `Other: ${custom('career_directions')}` : 'Other';
-                return directionLabels[v] || v;
-            }).filter(Boolean);
-            if (directionsText.length) parts.push('Career directions: ' + directionsText.join('; '));
-
-            const primary = first('primary_direction') || (directions.length === 1 ? directions[0] : '');
+            const primary = first('career_directions');
             if (primary) {
                 const primaryText = primary === 'other'
                     ? (custom('career_directions') ? `Other: ${custom('career_directions')}` : 'Other')
@@ -4295,7 +4382,6 @@ I&apos;m {{sender_name}}, currently ...
                 : (directionKeywords[primary] || primary);
 
             const intentLines = [];
-            if (dirKeywords.length) intentLines.push(`Finance career interests: ${dirKeywords.join(', ')}`);
             if (primaryKeyword) intentLines.push(`Primary direction: ${primaryKeyword}`);
             const detailParts = [];
             if (prefs.org_type) detailParts.push(`Org: ${prefs.org_type}`);
@@ -5218,6 +5304,7 @@ I&apos;m {{sender_name}}, currently ...
             let innerHtml = `<h4>Preference Q${state.targetPreferenceHistory.length + 1}: ${questionText}</h4>`;
 
             if (options && options.length > 0) {
+                innerHtml += `<div style="margin: 6px 0 8px; color: #a0a0b0; font-size: 12px;">Tip: You can select multiple options.</div>`;
                 innerHtml += `
                     <div class="question-options" id="target-question-options">
                         ${options.map((opt, idx) => `
@@ -5248,20 +5335,20 @@ I&apos;m {{sender_name}}, currently ...
 
             const nextBtn = document.getElementById('btn-target-next-question');
             const skipBtn = document.getElementById('btn-target-skip-question');
-            let selectedIndex = null;
+            const selectedIndexes = new Set();
 
             if (options && options.length > 0) {
                 const optionEls = Array.from(document.querySelectorAll('#target-question-options .question-option'));
                 const customWrapper = document.getElementById('target-question-custom-wrapper');
                 const customInput = document.getElementById('target-question-custom-input');
+                const lastIndex = options.length - 1;
 
                 function updateNextEnabled() {
-                    if (selectedIndex === null) {
+                    if (selectedIndexes.size === 0) {
                         nextBtn.disabled = true;
                         return;
                     }
-                    const isLast = selectedIndex === options.length - 1;
-                    if (isLast) {
+                    if (selectedIndexes.has(lastIndex)) {
                         nextBtn.disabled = !customInput.value.trim();
                     } else {
                         nextBtn.disabled = false;
@@ -5270,11 +5357,18 @@ I&apos;m {{sender_name}}, currently ...
 
                 optionEls.forEach(el => {
                     el.addEventListener('click', function() {
-                        optionEls.forEach(o => o.classList.remove('selected'));
-                        this.classList.add('selected');
-                        selectedIndex = parseInt(this.dataset.index, 10);
-                        const isLast = selectedIndex === options.length - 1;
-                        if (isLast) {
+                        const idx = parseInt(this.dataset.index, 10);
+                        if (Number.isNaN(idx)) return;
+
+                        if (selectedIndexes.has(idx)) {
+                            selectedIndexes.delete(idx);
+                            this.classList.remove('selected');
+                        } else {
+                            selectedIndexes.add(idx);
+                            this.classList.add('selected');
+                        }
+
+                        if (selectedIndexes.has(lastIndex)) {
                             customWrapper.classList.add('visible');
                         } else {
                             customWrapper.classList.remove('visible');
@@ -5329,15 +5423,27 @@ I&apos;m {{sender_name}}, currently ...
             nextBtn.addEventListener('click', function() {
                 let answer = '';
                 if (options && options.length > 0) {
-                    if (selectedIndex === null) return;
-                    const isLast = selectedIndex === options.length - 1;
-                    if (isLast) {
+                    if (selectedIndexes.size === 0) return;
+                    const lastIndex = options.length - 1;
+                    const parts = [];
+
+                    for (let i = 0; i < options.length; i++) {
+                        if (i === lastIndex) continue;
+                        if (selectedIndexes.has(i)) parts.push(options[i]);
+                    }
+
+                    if (selectedIndexes.has(lastIndex)) {
                         const customInput = document.getElementById('target-question-custom-input');
                         if (!customInput.value.trim()) return;
-                        answer = customInput.value.trim();
-                    } else {
-                        answer = options[selectedIndex];
+                        const customText = customInput.value.trim();
+                        if (parts.length === 0) {
+                            answer = customText;
+                        } else {
+                            parts.push(`Other: ${customText}`);
+                        }
                     }
+                    if (!answer) answer = parts.join('; ');
+                    if (!answer) return;
                 } else {
                     const answerInput = document.getElementById('target-question-answer-input');
                     answer = (answerInput.value || '').trim();
