@@ -11,6 +11,7 @@
   - Finance 决策树 Q1 `career_directions` 改为单选（主方向）
   - 删除 `primary_direction` 节点；所有分支依赖改为 `career_directions`
   - 将 “Not sure yet — keep it broad” 作为 Q1 选项保留
+  - 移除 Optional：`contactability`（reply vs prestige）与 `contact_channels`（联系方式偏好）
   - 新增 “Back” 按钮，支持逐题回退并修改答案
   - 点击左上角 Logo 返回主页面（`/`）
 
@@ -56,7 +57,7 @@ Files: `templates/index_v2.html`, `README.md`, `note.md`, `devlog.md`
 1. **`templates/index_v2.html`** - Finance track 决策树问卷
    - G（Career Direction）支持多选；新增 Primary direction（单选），只对 Primary 深挖，避免问卷爆长
    - 支持 single/multi + `Other (please specify)` 自定义输入
-   - 生成结构化 `state.financePreferences`（如 `bank_tier/group_type/group/sector/location/seniority/outreach_goal/contactability/contact_channels/target_role_titles/search_intent`）
+   - 生成结构化 `state.financePreferences`（如 `bank_tier/group_type/group/sector/location/seniority/outreach_goal/target_role_titles/search_intent`）
    - `findProTargets()` 合并结构化 prefs + 可选 advanced targeting 字段传给 `/api/find-recommendations`
 
 2. **`src/email_agent.py`** - 结构化偏好消费增强

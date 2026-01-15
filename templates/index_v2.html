@@ -3269,43 +3269,21 @@ I&apos;m {{sender_name}}, currently ...
             },
 
             // Optional Preferences
-            {
-                id: 'outreach_goal',
-                question: 'Optional: What is your primary goal for connecting?',
-                type: 'single',
-                options: [
-                    { value: 'learn_role', label: 'Learn about their day-to-day role and responsibilities' },
-                    { value: 'career_advice', label: 'Get career advice and guidance on breaking in' },
-                    { value: 'referral', label: 'Explore referral opportunities for open positions' },
-                    { value: 'industry_insight', label: 'Gain industry insights and market knowledge' },
-                    { value: 'mentorship', label: 'Seek mentorship or long-term guidance' },
-                    { value: 'other', label: 'Other (please specify)' }
-                ],
-                custom: { optionValue: 'other', placeholder: 'Your goal...' }
-            },
-            {
-                id: 'contactability',
-                question: 'Optional: Reply likelihood vs prestige?',
-                type: 'single',
-                options: [
-                    { value: 'balanced', label: '⚖️ Balanced (relevance + reply likelihood)' },
-                    { value: 'reply', label: '📩 Prioritize likely-to-reply (more accessible)' },
-                    { value: 'prestige', label: '🏆 Prioritize most senior/famous (prestige)' }
-                ]
-            },
-            {
-                id: 'contact_channels',
-                question: 'Optional: Preferred contact channels? (Select all that apply)',
-                type: 'multi',
-                options: [
-                    { value: 'linkedin', label: 'LinkedIn' },
-                    { value: 'email', label: 'Email' },
-                    { value: 'phone', label: 'Phone' },
-                    { value: 'other', label: 'Other (please specify)' }
-                ],
-                custom: { optionValue: 'other', placeholder: 'Other channels...' }
-            }
-        ];
+	            {
+	                id: 'outreach_goal',
+	                question: 'Optional: What is your primary goal for connecting?',
+	                type: 'single',
+	                options: [
+	                    { value: 'learn_role', label: 'Learn about their day-to-day role and responsibilities' },
+	                    { value: 'career_advice', label: 'Get career advice and guidance on breaking in' },
+	                    { value: 'referral', label: 'Explore referral opportunities for open positions' },
+	                    { value: 'industry_insight', label: 'Gain industry insights and market knowledge' },
+	                    { value: 'mentorship', label: 'Seek mentorship or long-term guidance' },
+	                    { value: 'other', label: 'Other (please specify)' }
+	                ],
+	                custom: { optionValue: 'other', placeholder: 'Your goal...' }
+	            }
+	        ];
 
         // State for finance fixed questions
         let financeQuestionIndex = 0;
@@ -4303,33 +4281,14 @@ I&apos;m {{sender_name}}, currently ...
                 industry_insight: 'Industry insights and market knowledge',
                 mentorship: 'Mentorship / long-term guidance'
             };
-            if (outreachVal) {
-                const outreachText = outreachVal === 'other' ? (custom('outreach_goal') || 'Other') : (outreachLabels[outreachVal] || outreachVal);
-                prefs.outreach_goal = outreachText;
-                parts.push('Outreach goal: ' + outreachText);
-            }
+	            if (outreachVal) {
+	                const outreachText = outreachVal === 'other' ? (custom('outreach_goal') || 'Other') : (outreachLabels[outreachVal] || outreachVal);
+	                prefs.outreach_goal = outreachText;
+	                parts.push('Outreach goal: ' + outreachText);
+	            }
 
-            const contactabilityVal = first('contactability');
-            if (contactabilityVal) {
-                prefs.contactability = String(contactabilityVal).trim();
-                const contactabilityText = contactabilityVal === 'reply'
-                    ? 'Prioritize likely-to-reply (more accessible)'
-                    : contactabilityVal === 'prestige'
-                        ? 'Prioritize most senior/famous (prestige)'
-                        : 'Balanced';
-                parts.push('Reply vs prestige: ' + contactabilityText);
-            }
-
-            const channels = list('contact_channels');
-            if (channels.length) {
-                prefs.contact_channels = channels.slice(0);
-                const channelLabels = { linkedin: 'LinkedIn', email: 'Email', phone: 'Phone', other: 'Other' };
-                const channelsText = joinMapped(channels, channelLabels, custom('contact_channels'));
-                parts.push('Preferred channels: ' + channelsText.join('; '));
-            }
-
-            // Target role titles (for SerpAPI query building)
-            const titles = new Set();
+	            // Target role titles (for SerpAPI query building)
+	            const titles = new Set();
             const seniorityVals = list('target_seniority');
             function addTitle(title) {
                 const t = String(title || '').trim();
