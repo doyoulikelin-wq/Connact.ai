@@ -1,5 +1,225 @@
 # Development Log
 
+## 2026-01-18: Academic 模式锁定（Building）
+
+### 背景
+- Academic 模式尚未开发完全，需要暂时锁定
+- 保留 UI 界面但禁止用户进入，提示 "Building"
+
+### 实现方案
+
+**CSS 样式**（~70 行新增）：
+- `.mode-card.locked`：锁定卡片样式（半透明、灰度滤镜、禁用指针）
+- `.lock-overlay`：遮罩层（居中显示锁图标和文字）
+- `.lock-chains`：对角锁链效果（伪元素 `::before`/`::after` 实现）
+- `.toast` / `.toast-container`：Toast 通知组件样式
+
+**HTML 改动**：
+- Academic 卡片添加 `locked` class
+- 添加锁定覆盖层结构（锁图标 🔒 + "Building" 文字 + 锁链效果）
+- 添加 Toast 容器 `#toast-container`
+
+**JavaScript 功能**：
+- `showToast(message, type, duration)` - 通用 Toast 提示函数
+- Track 选择事件处理增加 `.locked` 检查，阻止选中并显示提示
+
+### 效果
+- Academic 卡片显示为半透明灰色，带有对角锁链装饰
+- 中央显示 🔒 图标和 "BUILDING" 文字
+- 点击时显示顶部 Toast：「🔒 Academic mode is currently under development. Coming soon!」
+- Finance 卡片不受影响，可正常选择
+
+Files: `templates/index_v2.html`, `devlog.md`
+
+---
+
+## 2026-01-18: 邮件版本对比放大编辑功能 & Bug 修复
+
+### 背景
+- Regenerate 后显示原始版本和重新生成版本的对比视图
+- 用户需要能够放大查看并编辑每个版本
+- 修复多个 UI 交互和 prompt 相关的 bug
+
+### 新增功能：版本对比放大编辑
+
+**CSS 样式**（~80 行新增）：
+- `.email-expand-modal`：全屏模态框，深色背景遮罩
+- `.email-expand-content`：编辑内容容器（最大 700px 宽度）
+- `.email-expand-input` / `.email-expand-textarea`：表单输入样式
+- `.email-version .expand-hint`：悬停显示 "Double-click to edit" 提示
+
+**HTML 结构**：
+- 每个版本卡片添加 `🔍 Double-click to edit` 提示
+- 新增编辑模态框：标题区、Subject 输入框、Body 文本域、Cancel/Save 按钮
+
+**JavaScript 功能**：
+- `setupCompareView()` - 更新为支持单击选择、双击放大
+- `openExpandModal(version)` - 打开指定版本的编辑模态框
+- `closeExpandModal()` - 关闭模态框（支持 ESC 键、点击背景）
+- `saveExpandModalChanges()` - 保存编辑内容并同步更新对比视图
+- `setupExpandModal()` - 设置模态框事件监听器
+
+### Bug 修复汇总
+
+1. **OpenAI 函数参数错误** (`src/email_agent.py`)
+   - `_call_openai_chat()` 调用时参数名错误：`system_prompt` → `system_content`，`user_prompt` → `user_content`
+
+2. **Step 3 Back 按钮导航错误** (`templates/index_v2.html`)
+   - Professional mode 下点击 Back 应返回 Step 2b（targets list），而非 Step 2（sender info）
+   - 添加 `state.mode` 检查以区分模式
+
+3. **Regenerate 使用错误模型** (`src/email_agent.py`)
+   - `regenerate_email_with_style()` 原来固定使用 Gemini
+   - 修复为根据 `USE_OPENAI_FOR_EMAIL` 配置选择 OpenAI 或 Gemini
+
+4. **Regenerate 改变邮件内容** (`src/email_agent.py`)
+   - 更新 `regenerate_email_with_style()` 的 prompt，添加 5 条严格规则：
+     - 只改变语气/风格，不改变实质内容
+     - 保留所有姓名、数字、事实、经历
+     - 不添加新信息，不删除原有内容
+
+5. **Subject 解析失败** (`templates/index_v2.html`)
+   - `parseEmailText()` 无法解析 Markdown 格式的 Subject（如 `**Subject:**`）
+   - 更新正则表达式支持多种格式
+
+6. **输出格式问题** (`src/email_agent.py`)
+   - `build_prompt()` 和 `regenerate_email_with_style()` 添加纯文本输出规则
+   - 明确要求：无 Markdown（no **, ##, *）
+
+### 按钮行为验证
+
+| 按钮 | 行为 |
+|------|------|
+| **← Use Original** | 选择原始版本，关闭对比视图，更新邮件显示 |
+| **Use Regenerated ✓** | 选择重新生成版本，关闭对比视图，更新邮件显示 |
+| **Close Compare** | 仅关闭对比视图，保持当前选择 |
+| **Style Options** | professional/friendly/concise/detailed/custom 各有明确指令 |
+| **Regenerate This Email** | 发送正确的 style_instruction 到后端 |
+| **Save Changes（模态框）** | 保存编辑到对应版本，同步更新视图 |
+
+### Regenerate Style Instructions
+
+```javascript
+professional: 'Make the email more professional and formal'
+friendly: 'Make the email more friendly and warm'
+concise: 'Make the email shorter and more concise'
+detailed: 'Add more details and elaborate on key points'
+custom: [用户自定义输入]
+```
+
+Files: `src/email_agent.py`, `templates/index_v2.html`, `devlog.md`
+
+---
+
+## 2026-01-18: 搜索动态加载动画
+
+### 背景
+- 搜索目标人物时加载时间较长，需要给用户更好的等待体验
+- 同时适用于 Quick Start 和 Professional 模式
+
+### 实现方案
+
+**CSS 样式**：
+- `.loading-dots::after` 添加省略号动画（`...` 循环）
+
+**JavaScript 功能**：
+- `loadingMessages` 数组：包含多条动态提示信息
+  - "Searching for the best matches..."
+  - "Analyzing profiles and backgrounds..."
+  - "Finding people who match your criteria..."
+  - "Almost there, reviewing top candidates..."
+  - "Preparing personalized recommendations..."
+- `startLoadingAnimation()` / `stopLoadingAnimation()`：管理定时器
+- 每 3 秒切换一条提示信息
+
+**应用位置**：
+- Quick Start 模式：`fetchRecommendations()` 中调用
+- Professional 模式：`findProTargets()` 中调用
+
+Files: `templates/index_v2.html`
+
+---
+
+## 2026-01-18: Email 模板风格指南集成
+
+### 背景
+- 新增 `template/template.txt` 文件，包含 4 个经过验证的冷邮件模板
+- 需要提取这些模板的共同结构、语气和用词习惯，集成到邮件生成 prompt 中
+
+### 模板分析总结
+
+**结构（8 个部分）**：
+1. 问候：Hi/Good morning + 名字（只用 first name）
+2. 自我介绍：姓名 + 学校 + 专业 + 年级
+3. 相关经历：实习/项目经验（用 **粗体** 强调公司名）
+4. 联系原因：对对方职位/公司的兴趣
+5. 明确请求：15-20 分钟通话 + 灵活时间
+6. 附件说明：简历
+7. 期待回复
+8. 落款：Best regards / Many thanks / Warm regards + 名字
+
+**语气**：
+- 谦逊但自信（humble but confident）
+- 尊重对方时间（"I understand your schedule must be quite full"）
+- 具体且真诚（reference specific aspects）
+- 温暖专业（warm professional）
+
+**常用短语**：
+- "Would love to hear more about your experience"
+- "Would greatly appreciate the opportunity"
+- "I'd be incredibly grateful for the chance"
+- "Looking forward to hearing from you"
+
+### 改动 (`src/email_agent.py`)
+- `build_prompt()` 函数新增 `style_guide` 变量
+- Style Guide 包含结构、语气、常用短语、避免事项
+- 集成到 system_content 中
+
+Files: `template/template.txt`（新增）, `src/email_agent.py`, `devlog.md`
+
+---
+
+## 2026-01-18: Receiver 深度搜索功能 - 丰富邮件生成 Context
+
+### 背景
+- 用户选中目标后点击 generate email，原来只用找人阶段获取的基础信息
+- 需要对选中的目标再进行一次更细致的搜索，获取近期项目和主要经历
+- **关键要求**：杜绝 LLM 杜撰，所有信息必须有明确来源
+
+### 技术方案
+1. **SerpAPI 搜索**：构建多个查询（近期项目/成就、职业经历/背景、新闻/报道）
+2. **LLM 信息提取与验证**：
+   - 严格的 prompt 约束：只提取搜索结果中明确提到的信息
+   - 每条信息必须标注来源（如 `[from Result 1]`）
+   - 如果搜索结果不是关于目标人物，返回空结果
+3. **增强 ReceiverProfile**：将验证过的信息合并到 context 中
+
+### 新增功能 (`src/email_agent.py`)
+- `ReceiverDeepSearchResult` dataclass：存储深度搜索结果（recent_projects, key_experiences, recent_news, verified_facts, sources）
+- `search_receiver_deep_context()`: 执行 SerpAPI 搜索并调用 LLM 提取信息
+- `_build_deep_search_queries()`: 构建多个搜索查询
+- `_format_search_results_for_llm()`: 格式化搜索结果
+- `_extract_verified_info_from_search()`: 用 LLM 提取验证过的信息
+- `enrich_receiver_with_deep_search()`: 增强 ReceiverProfile
+
+### API 改动 (`app.py`)
+- `/api/generate-email` 新增参数 `enable_deep_search`（默认 `true`）
+- 在生成邮件前自动调用深度搜索
+- 返回结果新增 `deep_search` 字段（success/failed）
+
+### 前端改动 (`templates/index_v2.html`)
+- Loading 提示更新为 "Researching {name}..."
+
+### 防止 LLM 杜撰的措施
+1. Prompt 中明确要求 `person_confirmed` 字段
+2. 每条信息必须引用搜索结果编号
+3. 如果搜索结果与目标人物不匹配，返回空列表
+4. 不确定的信息不包含
+
+Files: `src/email_agent.py`, `app.py`, `templates/index_v2.html`, `devlog.md`
+
+---
+
 ## 2026-01-15: Finance 决策树简化（方向单选）
 
 ### 背景

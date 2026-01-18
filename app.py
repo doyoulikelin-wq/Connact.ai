@@ -18,6 +18,7 @@ from src.email_agent import (
     build_profile_from_answers,
     find_target_recommendations,
     regenerate_email_with_style,
+    enrich_receiver_with_deep_search,
 )
 from src.web_scraper import extract_person_profile_from_web
 
@@ -228,6 +229,9 @@ def api_generate_email():
     data = request.get_json()
     template = data.get('template') or None
     
+    # 是否启用深度搜索（默认启用）
+    enable_deep_search = data.get('enable_deep_search', True)
+    
     # 获取数据收集 session_id（优先从请求获取，其次从 session）
     session_id = data.get('session_id') or session.get('prompt_session_id')
     
@@ -291,6 +295,21 @@ def api_generate_email():
             sources=receiver_sources,
         )
         
+        # 深度搜索：在生成邮件前搜索目标人物的更多信息
+        deep_search_result = None
+        if enable_deep_search and receiver.name:
+            try:
+                print(f"[API] Starting deep search for: {receiver.name}")
+                receiver = enrich_receiver_with_deep_search(
+                    receiver=receiver,
+                    position=receiver_position,
+                    linkedin_url=receiver_linkedin,
+                )
+                deep_search_result = "success"
+            except Exception as e:
+                print(f"[API] Deep search failed (continuing without): {e}")
+                deep_search_result = f"failed: {str(e)}"
+        
         # Get goal
         goal = data.get('goal', '')
         if not goal:
@@ -309,6 +328,7 @@ def api_generate_email():
             'success': True,
             'email': email_text,
             'data_saved': saved_path is not None,
+            'deep_search': deep_search_result,
         })
     
     except Exception as e:

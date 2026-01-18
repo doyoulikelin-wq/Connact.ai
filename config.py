@@ -12,6 +12,13 @@ except PermissionError:
     # 本地测试时可能没有权限创建 /var/data，跳过
     pass
 
+# ============== 邮件生成模型配置 ==============
+# 使用 OpenAI 还是 Gemini 生成邮件（默认使用 OpenAI GPT-4o）
+USE_OPENAI_FOR_EMAIL = os.environ.get("USE_OPENAI_FOR_EMAIL", "true").lower() in ("1", "true", "yes")
+
+# OpenAI 邮件生成模型
+OPENAI_EMAIL_MODEL = os.environ.get("OPENAI_EMAIL_MODEL", "gpt-4o")
+
 # Default Gemini model (can be overridden via env)
 DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 

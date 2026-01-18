@@ -995,6 +995,267 @@
             background: rgba(52, 211, 153, 0.1);
         }
 
+        /* Email Compare View */
+        .email-compare-container {
+            display: none;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .email-compare-container.visible {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .email-version {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .email-version:hover {
+            border-color: var(--accent);
+            background: rgba(139, 92, 246, 0.05);
+        }
+
+        .email-version.selected {
+            border-color: var(--accent);
+            background: rgba(139, 92, 246, 0.1);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .email-version-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .email-version-title {
+            font-weight: 600;
+            color: var(--text-bright);
+            font-size: 14px;
+        }
+
+        .email-version-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--accent);
+        }
+
+        .email-version-badge.original {
+            background: rgba(99, 102, 241, 0.2);
+            color: #818cf8;
+        }
+
+        .email-version-badge.regenerated {
+            background: rgba(52, 211, 153, 0.2);
+            color: #34d399;
+        }
+
+        .email-version-subject {
+            font-size: 13px;
+            color: var(--text-bright);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .email-version-preview {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.5;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .compare-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
+        .compare-actions .btn {
+            min-width: 140px;
+        }
+
+        @media (max-width: 768px) {
+            .email-compare-container.visible {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Email Version Expand Modal */
+        .email-expand-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .email-expand-modal.visible {
+            display: flex;
+        }
+
+        .email-expand-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .email-expand-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .email-expand-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .email-expand-close {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .email-expand-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-bright);
+        }
+
+        .email-expand-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .email-expand-field {
+            margin-bottom: 16px;
+        }
+
+        .email-expand-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .email-expand-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            color: var(--text-bright);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .email-expand-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .email-expand-textarea {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            color: var(--text-bright);
+            font-size: 13px;
+            line-height: 1.6;
+            resize: vertical;
+            min-height: 300px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .email-expand-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .email-expand-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .email-expand-hint {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 6px;
+        }
+
+        .email-version .expand-hint {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            font-size: 11px;
+            color: var(--muted);
+            opacity: 0;
+            transition: opacity 0.2s;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .email-version:hover .expand-hint {
+            opacity: 1;
+        }
+
+        .email-version {
+            position: relative;
+        }
+
         /* Regenerate Options - Control Panel */
         .regenerate-options {
             display: none;
@@ -1077,6 +1338,25 @@
         .loading-text {
             color: var(--muted);
             font-size: 15px;
+            min-height: 24px;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-text.fade {
+            opacity: 0;
+        }
+
+        /* Animated dots for loading */
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
         }
 
         /* Notice Box - Alert Panel */
@@ -1380,6 +1660,96 @@
             box-shadow: var(--shadow-sm);
         }
 
+        /* Locked card style (Building) */
+        .mode-card.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+            position: relative;
+            filter: grayscale(40%);
+        }
+
+        .mode-card.locked:hover {
+            transform: none;
+            box-shadow: var(--shadow-sm);
+            border-color: var(--border);
+        }
+
+        .mode-card.locked::before {
+            opacity: 0.3 !important;
+        }
+
+        .mode-card.locked .lock-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .mode-card.locked .lock-chains {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            border-radius: var(--radius-lg);
+        }
+
+        .mode-card.locked .lock-chains::before,
+        .mode-card.locked .lock-chains::after {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 3px;
+            background: repeating-linear-gradient(
+                90deg,
+                #6b7280 0px,
+                #6b7280 10px,
+                transparent 10px,
+                transparent 15px,
+                #9ca3af 15px,
+                #9ca3af 20px,
+                transparent 20px,
+                transparent 25px
+            );
+            opacity: 0.6;
+        }
+
+        .mode-card.locked .lock-chains::before {
+            top: 50%;
+            left: -50%;
+            transform: rotate(-45deg);
+        }
+
+        .mode-card.locked .lock-chains::after {
+            top: 50%;
+            left: -50%;
+            transform: rotate(45deg);
+        }
+
+        .mode-card.locked .lock-icon {
+            font-size: 36px;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        .mode-card.locked .lock-text {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .option-cards {
@@ -1423,9 +1793,81 @@
                 max-width: 340px;
             }
         }
+
+        /* Toast notification */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            color: var(--text-bright);
+            font-size: 14px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toastSlideIn 0.3s ease-out;
+            pointer-events: auto;
+        }
+
+        .toast.info {
+            border-color: rgba(99, 102, 241, 0.5);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+        }
+
+        .toast.success {
+            border-color: rgba(52, 211, 153, 0.5);
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.15), rgba(16, 185, 129, 0.1));
+        }
+
+        .toast.error {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+        }
+
+        .toast.fade-out {
+            animation: toastSlideOut 0.3s ease-in forwards;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
     <div class="mode-switcher" id="global-mode-switcher">
         <span class="mode-switcher-label">Mode</span>
         <button class="mode-pill" data-mode="quick">⚡ Quick</button>
@@ -1529,8 +1971,13 @@
                     </ul>
                 </div>
                 
-                <!-- Academic Track -->
-                <div class="mode-card" id="track-academic" data-track="academic">
+                <!-- Academic Track (Locked - Building) -->
+                <div class="mode-card locked" id="track-academic" data-track="academic">
+                    <div class="lock-overlay">
+                        <div class="lock-chains"></div>
+                        <span class="lock-icon">🔒</span>
+                        <span class="lock-text">Building</span>
+                    </div>
                     <div class="mode-icon">🎓</div>
                     <div class="mode-title">Academic</div>
                     <div class="mode-subtitle">Research positions, PhD programs, postdoc opportunities</div>
@@ -1975,7 +2422,7 @@
             <div class="hidden" id="recommendation-section">
                 <div class="loading" id="rec-loading">
                     <div class="spinner"></div>
-                    <div class="loading-text">Finding the best matches for you...</div>
+                    <div class="loading-text" id="rec-loading-text"><span class="loading-dots">Searching for the best matches based on your profile and preferences</span></div>
                 </div>
                 <div class="recommendation-list" id="recommendation-list">
                     <!-- Recommendations will be loaded here -->
@@ -2128,6 +2575,61 @@ I&apos;m {{sender_name}}, currently ...
                         <label class="email-editor-label" for="email-body">Email</label>
                         <button class="email-copy-inline" id="btn-copy-body" type="button">Copy</button>
                         <textarea class="email-editor-textarea" id="email-body" placeholder="Email body..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Email Compare View (shown after regenerate) -->
+                <div class="email-compare-container" id="email-compare">
+                    <div class="email-version" id="version-original" data-version="original">
+                        <span class="expand-hint">🔍 Double-click to edit</span>
+                        <div class="email-version-header">
+                            <span class="email-version-title">📄 Original Version</span>
+                            <span class="email-version-badge original">First Draft</span>
+                        </div>
+                        <div class="email-version-subject" id="compare-original-subject"></div>
+                        <div class="email-version-preview" id="compare-original-body"></div>
+                    </div>
+                    <div class="email-version selected" id="version-regenerated" data-version="regenerated">
+                        <span class="expand-hint">🔍 Double-click to edit</span>
+                        <div class="email-version-header">
+                            <span class="email-version-title">✨ Regenerated Version</span>
+                            <span class="email-version-badge regenerated">New Style</span>
+                        </div>
+                        <div class="email-version-subject" id="compare-regen-subject"></div>
+                        <div class="email-version-preview" id="compare-regen-body"></div>
+                    </div>
+                </div>
+                <div class="compare-actions hidden" id="compare-actions">
+                    <button class="btn btn-secondary" id="btn-use-original">← Use Original</button>
+                    <button class="btn btn-primary" id="btn-use-regenerated">Use Regenerated ✓</button>
+                    <button class="btn btn-secondary" id="btn-close-compare">Close Compare</button>
+                </div>
+
+                <!-- Email Expand/Edit Modal -->
+                <div class="email-expand-modal" id="email-expand-modal">
+                    <div class="email-expand-content">
+                        <div class="email-expand-header">
+                            <div class="email-expand-title">
+                                <span id="expand-modal-icon">📄</span>
+                                <span id="expand-modal-title">Edit Email</span>
+                            </div>
+                            <button class="email-expand-close" id="btn-expand-close">×</button>
+                        </div>
+                        <div class="email-expand-body">
+                            <div class="email-expand-field">
+                                <div class="email-expand-label">Subject</div>
+                                <input type="text" class="email-expand-input" id="expand-subject">
+                            </div>
+                            <div class="email-expand-field">
+                                <div class="email-expand-label">Body</div>
+                                <textarea class="email-expand-textarea" id="expand-body"></textarea>
+                                <div class="email-expand-hint">💡 Click Save to apply your changes</div>
+                            </div>
+                        </div>
+                        <div class="email-expand-footer">
+                            <button class="btn btn-secondary" id="btn-expand-cancel">Cancel</button>
+                            <button class="btn btn-primary" id="btn-expand-save">💾 Save Changes</button>
+                        </div>
                     </div>
                 </div>
 
@@ -2302,6 +2804,26 @@ I&apos;m {{sender_name}}, currently ...
     </div>
 
     <script>
+        // Toast notification function
+        function showToast(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            // Auto remove after duration
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, duration);
+        }
+
         // Generate unique session ID
         function generateSessionId() {
             const timestamp = Date.now().toString(36);
@@ -2690,6 +3212,7 @@ I&apos;m {{sender_name}}, currently ...
             setupQuickStartOnboarding();
             setupGenerationMode();
             setupRegenerate();
+            setupCompareView();
             setupTargetDocUpload();
             setupPreferenceForm();
         });
@@ -2740,6 +3263,11 @@ I&apos;m {{sender_name}}, currently ...
             
             trackCards.forEach(card => {
                 card.addEventListener('click', function() {
+                    // Check if card is locked
+                    if (this.classList.contains('locked')) {
+                        showToast('🔒 Academic mode is currently under development. Coming soon!', 'info');
+                        return;
+                    }
                     trackCards.forEach(c => c.classList.remove('selected'));
                     this.classList.add('selected');
                     state.proTrack = this.dataset.track;
@@ -4386,7 +4914,28 @@ I&apos;m {{sender_name}}, currently ...
             const loading = document.getElementById('pro-pref-loading');
             
             loading.classList.remove('hidden');
-            container.innerHTML = '<div class="notice"><span class="icon">🔍</span> Searching for the best matches based on your profile and preferences...</div>';
+            // Create dynamic loading container
+            container.innerHTML = `
+                <div class="loading visible" style="padding: 30px;">
+                    <div class="spinner"></div>
+                    <div class="loading-text" id="pro-loading-text"><span class="loading-dots">${searchLoadingMessages[0]}</span></div>
+                </div>
+            `;
+            
+            // Start dynamic loading animation for Pro mode
+            let proLoadingInterval = null;
+            let proMessageIndex = 0;
+            const proLoadingText = document.getElementById('pro-loading-text');
+            if (proLoadingText) {
+                proLoadingInterval = setInterval(() => {
+                    proLoadingText.classList.add('fade');
+                    setTimeout(() => {
+                        proMessageIndex = (proMessageIndex + 1) % searchLoadingMessages.length;
+                        proLoadingText.innerHTML = `<span class="loading-dots">${searchLoadingMessages[proMessageIndex]}</span>`;
+                        proLoadingText.classList.remove('fade');
+                    }, 300);
+                }, 3000);
+            }
             
             try {
                 const prefExtra = state.proPreferenceHistory.length > 0
@@ -4427,6 +4976,9 @@ I&apos;m {{sender_name}}, currently ...
                 });
                 
                 const data = await response.json();
+                
+                // Stop loading animation
+                if (proLoadingInterval) clearInterval(proLoadingInterval);
                 loading.classList.add('hidden');
                 
                 if (data.success && data.recommendations && data.recommendations.length > 0) {
@@ -4461,6 +5013,8 @@ I&apos;m {{sender_name}}, currently ...
                     throw new Error(data.error || 'No recommendations found');
                 }
             } catch (error) {
+                // Stop loading animation
+                if (proLoadingInterval) clearInterval(proLoadingInterval);
                 loading.classList.add('hidden');
                 container.innerHTML = `<div class="notice" style="background: rgba(244, 67, 54, 0.15); border-color: rgba(244, 67, 54, 0.5); color: #f87171;">
                     <span class="icon">❌</span> ${error.message}. Please try again or go back to adjust your preferences.
@@ -5432,6 +5986,42 @@ I&apos;m {{sender_name}}, currently ...
             });
         }
 
+        // Dynamic loading messages for search
+        const searchLoadingMessages = [
+            'Searching for the best matches based on your profile and preferences',
+            'Analyzing your background and interests',
+            'Scanning professional networks for relevant contacts',
+            'Evaluating match scores and compatibility',
+            'Preparing personalized recommendations for you'
+        ];
+        let searchLoadingInterval = null;
+
+        function startSearchLoadingAnimation() {
+            const loadingText = document.getElementById('rec-loading-text');
+            if (!loadingText) return;
+            
+            let messageIndex = 0;
+            const updateMessage = () => {
+                loadingText.classList.add('fade');
+                setTimeout(() => {
+                    messageIndex = (messageIndex + 1) % searchLoadingMessages.length;
+                    loadingText.innerHTML = `<span class="loading-dots">${searchLoadingMessages[messageIndex]}</span>`;
+                    loadingText.classList.remove('fade');
+                }, 300);
+            };
+            
+            // Reset to first message
+            loadingText.innerHTML = `<span class="loading-dots">${searchLoadingMessages[0]}</span>`;
+            searchLoadingInterval = setInterval(updateMessage, 3000);
+        }
+
+        function stopSearchLoadingAnimation() {
+            if (searchLoadingInterval) {
+                clearInterval(searchLoadingInterval);
+                searchLoadingInterval = null;
+            }
+        }
+
         // Load recommendations
         async function loadRecommendations() {
             const list = document.getElementById('recommendation-list');
@@ -5440,6 +6030,7 @@ I&apos;m {{sender_name}}, currently ...
             
             list.innerHTML = '';
             loading.classList.add('visible');
+            startSearchLoadingAnimation();
             actions.style.display = 'none';
             document.getElementById('recommendation-section').classList.remove('hidden');
             
@@ -5474,6 +6065,7 @@ I&apos;m {{sender_name}}, currently ...
                 const data = await response.json();
                 
                 if (data.success) {
+                    stopSearchLoadingAnimation();
                     loading.classList.remove('visible');
                     actions.style.display = 'flex';
                     state.recommendations = data.recommendations;
@@ -5482,6 +6074,7 @@ I&apos;m {{sender_name}}, currently ...
                     throw new Error(data.error || 'Failed to find recommendations');
                 }
             } catch (error) {
+                stopSearchLoadingAnimation();
                 loading.classList.remove('visible');
                 alert('Error finding recommendations: ' + error.message);
             }
@@ -5650,7 +6243,22 @@ I&apos;m {{sender_name}}, currently ...
 
             // Step 3 Back
             document.getElementById('btn-step3-back').addEventListener('click', function() {
-                goToStep(2);
+                if (state.mode === 'professional') {
+                    // Professional mode: go back to the appropriate pro screen
+                    document.getElementById('progress-container').classList.add('hidden');
+                    document.getElementById('step-3').classList.add('hidden');
+                    
+                    if (state.hasTarget) {
+                        // User had targets - go back to target choice
+                        document.getElementById('pro-target-choice').classList.remove('hidden');
+                    } else {
+                        // User was searching for targets - go back to preferences
+                        document.getElementById('pro-preferences').classList.remove('hidden');
+                    }
+                } else {
+                    // Quick Start mode: go to Step 2
+                    goToStep(2);
+                }
             });
 
             // Step 3 -> Step 4
@@ -5980,7 +6588,7 @@ I&apos;m {{sender_name}}, currently ...
                 
                 for (let i = 0; i < total; i++) {
                     const target = state.selectedTargets[i];
-                    progress.textContent = `(${i + 1}/${total}: ${target.name})`;
+                    progress.textContent = `(${i + 1}/${total}: Researching ${target.name}...)`;
                     
                     // Search for receiver info if needed (only if no uploaded profile data)
                     let receiverProfile = { ...target };
@@ -6344,6 +6952,9 @@ I&apos;m {{sender_name}}, currently ...
                 return;
             }
             
+            // Save original email before regenerating
+            const originalEmail = current.email;
+            
             loading.classList.add('visible');
             result.classList.add('hidden');
             
@@ -6352,7 +6963,7 @@ I&apos;m {{sender_name}}, currently ...
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        original_email: current.email,
+                        original_email: originalEmail,
                         style_instruction: styleInstruction,
                         sender: state.senderProfile,
                         receiver: current.target
@@ -6362,10 +6973,17 @@ I&apos;m {{sender_name}}, currently ...
                 const data = await response.json();
                 
                 if (data.success) {
+                    // Store both versions
+                    state.generatedEmails[state.currentEmailIndex].originalEmail = originalEmail;
+                    state.generatedEmails[state.currentEmailIndex].regeneratedEmail = data.email;
                     state.generatedEmails[state.currentEmailIndex].email = data.email;
+                    state.generatedEmails[state.currentEmailIndex].selectedVersion = 'regenerated';
+                    
                     loading.classList.remove('visible');
                     result.classList.remove('hidden');
-                    displayCurrentEmail();
+                    
+                    // Show compare view
+                    showCompareView(originalEmail, data.email);
                 } else {
                     throw new Error(data.error || 'Failed to regenerate email');
                 }
@@ -6374,6 +6992,230 @@ I&apos;m {{sender_name}}, currently ...
                 result.classList.remove('hidden');
                 alert('Error regenerating email: ' + error.message);
             }
+        }
+
+        // Show compare view with original and regenerated versions
+        function showCompareView(originalEmail, regeneratedEmail) {
+            const compareContainer = document.getElementById('email-compare');
+            const compareActions = document.getElementById('compare-actions');
+            const emailContent = document.getElementById('email-content');
+            
+            // Parse both emails
+            const originalParts = parseEmailText(originalEmail);
+            const regenParts = parseEmailText(regeneratedEmail);
+            
+            // Fill in original version
+            document.getElementById('compare-original-subject').textContent = originalParts.subject || '(No subject)';
+            document.getElementById('compare-original-body').textContent = originalParts.body;
+            
+            // Fill in regenerated version
+            document.getElementById('compare-regen-subject').textContent = regenParts.subject || '(No subject)';
+            document.getElementById('compare-regen-body').textContent = regenParts.body;
+            
+            // Show compare view, hide single editor
+            compareContainer.classList.add('visible');
+            compareActions.classList.remove('hidden');
+            emailContent.classList.add('hidden');
+            
+            // Set regenerated as selected by default
+            document.getElementById('version-original').classList.remove('selected');
+            document.getElementById('version-regenerated').classList.add('selected');
+            
+            // Update displayed email to regenerated version
+            displayCurrentEmail();
+        }
+
+        // Hide compare view and show single editor
+        function hideCompareView() {
+            const compareContainer = document.getElementById('email-compare');
+            const compareActions = document.getElementById('compare-actions');
+            const emailContent = document.getElementById('email-content');
+            
+            compareContainer.classList.remove('visible');
+            compareActions.classList.add('hidden');
+            emailContent.classList.remove('hidden');
+        }
+
+        // Setup compare view interactions
+        function setupCompareView() {
+            // Track for double click vs single click
+            let clickTimer = null;
+            let clickedVersion = null;
+            
+            // Click on version cards - single click to select, double click to expand
+            const versionCards = document.querySelectorAll('.email-version');
+            versionCards.forEach(card => {
+                card.addEventListener('click', function(e) {
+                    const version = this.dataset.version;
+                    
+                    if (clickTimer && clickedVersion === version) {
+                        // Double click - open expand modal
+                        clearTimeout(clickTimer);
+                        clickTimer = null;
+                        clickedVersion = null;
+                        openExpandModal(version);
+                    } else {
+                        // First click - wait to see if it's a double click
+                        clickedVersion = version;
+                        clickTimer = setTimeout(() => {
+                            // Single click - just select
+                            versionCards.forEach(c => c.classList.remove('selected'));
+                            this.classList.add('selected');
+                            
+                            const current = state.generatedEmails[state.currentEmailIndex];
+                            if (current) {
+                                current.selectedVersion = version;
+                                current.email = version === 'original' ? current.originalEmail : current.regeneratedEmail;
+                                displayCurrentEmail();
+                            }
+                            clickTimer = null;
+                            clickedVersion = null;
+                        }, 250);
+                    }
+                });
+            });
+            
+            // Use Original button
+            document.getElementById('btn-use-original').addEventListener('click', function() {
+                const current = state.generatedEmails[state.currentEmailIndex];
+                if (current && current.originalEmail) {
+                    current.email = current.originalEmail;
+                    current.selectedVersion = 'original';
+                    hideCompareView();
+                    displayCurrentEmail();
+                }
+            });
+            
+            // Use Regenerated button
+            document.getElementById('btn-use-regenerated').addEventListener('click', function() {
+                const current = state.generatedEmails[state.currentEmailIndex];
+                if (current && current.regeneratedEmail) {
+                    current.email = current.regeneratedEmail;
+                    current.selectedVersion = 'regenerated';
+                    hideCompareView();
+                    displayCurrentEmail();
+                }
+            });
+            
+            // Close Compare button
+            document.getElementById('btn-close-compare').addEventListener('click', function() {
+                hideCompareView();
+            });
+            
+            // Setup expand modal events
+            setupExpandModal();
+        }
+        
+        // Current editing version tracker
+        let currentEditingVersion = null;
+        
+        // Open expand/edit modal for a version
+        function openExpandModal(version) {
+            const modal = document.getElementById('email-expand-modal');
+            const current = state.generatedEmails[state.currentEmailIndex];
+            
+            if (!current) return;
+            
+            currentEditingVersion = version;
+            
+            // Get the email content for this version
+            let emailContent = '';
+            let title = '';
+            let icon = '';
+            
+            if (version === 'original') {
+                emailContent = current.originalEmail || current.email;
+                title = 'Edit Original Version';
+                icon = '📄';
+            } else {
+                emailContent = current.regeneratedEmail || current.email;
+                title = 'Edit Regenerated Version';
+                icon = '✨';
+            }
+            
+            // Parse and fill in the form
+            const parts = parseEmailText(emailContent);
+            document.getElementById('expand-subject').value = parts.subject || '';
+            document.getElementById('expand-body').value = parts.body || '';
+            document.getElementById('expand-modal-title').textContent = title;
+            document.getElementById('expand-modal-icon').textContent = icon;
+            
+            // Show modal
+            modal.classList.add('visible');
+            
+            // Focus on subject
+            setTimeout(() => {
+                document.getElementById('expand-subject').focus();
+            }, 100);
+        }
+        
+        // Close expand modal
+        function closeExpandModal() {
+            const modal = document.getElementById('email-expand-modal');
+            modal.classList.remove('visible');
+            currentEditingVersion = null;
+        }
+        
+        // Save changes from expand modal
+        function saveExpandModalChanges() {
+            const current = state.generatedEmails[state.currentEmailIndex];
+            if (!current || !currentEditingVersion) return;
+            
+            const subject = document.getElementById('expand-subject').value.trim();
+            const body = document.getElementById('expand-body').value.trim();
+            
+            // Build new email text
+            const newEmail = buildEmailText(subject, body);
+            
+            // Update the correct version
+            if (currentEditingVersion === 'original') {
+                current.originalEmail = newEmail;
+                // Update compare view
+                document.getElementById('compare-original-subject').textContent = subject || '(No subject)';
+                document.getElementById('compare-original-body').textContent = body;
+            } else {
+                current.regeneratedEmail = newEmail;
+                // Update compare view
+                document.getElementById('compare-regen-subject').textContent = subject || '(No subject)';
+                document.getElementById('compare-regen-body').textContent = body;
+            }
+            
+            // If the current selected version matches, update the main email too
+            if (current.selectedVersion === currentEditingVersion) {
+                current.email = newEmail;
+                displayCurrentEmail();
+            }
+            
+            closeExpandModal();
+        }
+        
+        // Setup expand modal event listeners
+        function setupExpandModal() {
+            // Close button
+            document.getElementById('btn-expand-close').addEventListener('click', closeExpandModal);
+            
+            // Cancel button
+            document.getElementById('btn-expand-cancel').addEventListener('click', closeExpandModal);
+            
+            // Save button
+            document.getElementById('btn-expand-save').addEventListener('click', saveExpandModalChanges);
+            
+            // Close on backdrop click
+            document.getElementById('email-expand-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeExpandModal();
+                }
+            });
+            
+            // Close on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const modal = document.getElementById('email-expand-modal');
+                    if (modal.classList.contains('visible')) {
+                        closeExpandModal();
+                    }
+                }
+            });
         }
 
         // Helper functions
@@ -6387,7 +7229,13 @@ I&apos;m {{sender_name}}, currently ...
             }
 
             if (firstNonEmptyIndex < lines.length) {
-                const match = lines[firstNonEmptyIndex].match(/^\s*subject\s*[:\-]\s*(.*)\s*$/i);
+                const firstLine = lines[firstNonEmptyIndex];
+                // Match various Subject formats:
+                // - "Subject: xxx"
+                // - "**Subject:** xxx" (Markdown bold)
+                // - "Subject Line: xxx"
+                // - "**Subject Line:** xxx"
+                const match = firstLine.match(/^\s*\*{0,2}\s*subject(?:\s+line)?\s*\*{0,2}\s*[:\-]\s*\*{0,2}\s*(.*?)\s*\*{0,2}\s*$/i);
                 if (match) {
                     const subject = (match[1] || '').trim();
                     let body = lines.slice(firstNonEmptyIndex + 1).join('\n');

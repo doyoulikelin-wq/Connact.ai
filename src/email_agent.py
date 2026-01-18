@@ -28,6 +28,8 @@ from config import (
     RECOMMENDATION_MODEL,
     USE_OPENAI_WEB_SEARCH,
     USE_OPENAI_RECOMMENDATIONS,
+    USE_OPENAI_FOR_EMAIL,
+    OPENAI_EMAIL_MODEL,
 )
 
 # Prompt 数据收集 (可选)
@@ -446,6 +448,40 @@ def _get_openai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
+def _call_openai_chat(
+    system_content: str,
+    user_content: str,
+    *,
+    model: str = OPENAI_EMAIL_MODEL,
+    temperature: float = 0.7,
+) -> str:
+    """
+    Call OpenAI chat completion for email generation.
+    
+    Args:
+        system_content: System message content
+        user_content: User message content  
+        model: OpenAI model to use (default: gpt-4o)
+        temperature: Sampling temperature
+        
+    Returns:
+        Generated text response
+    """
+    client = _get_openai_client()
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=temperature,
+    )
+    content = response.choices[0].message.content
+    if not content:
+        raise RuntimeError("OpenAI response did not contain any content")
+    return content
+
+
 def _call_openai_json(prompt: str, *, model: str) -> str:
     """Call OpenAI chat completion and return the response text."""
     client = _get_openai_client()
@@ -540,19 +576,64 @@ def build_prompt(
         bullet_points = "\n".join(f"  • {item}" for item in items)
         return f"- {title}:\n{bullet_points}\n"
 
+    # Style guide based on successful cold email templates
+    style_guide = """
+## Email Style Guide (based on proven templates)
+
+### Structure (follow this order):
+1. **Greeting**: "Hi [First Name]," or "Good morning [First Name]," (use first name only, never full name)
+2. **Self-introduction** (1 sentence): "My name is [Name], a [year] at [School] majoring in [Major]."
+3. **Relevant experience** (2-3 sentences): Highlight internships, projects, or achievements that establish credibility and relate to the receiver's field. Use specific company names with **bold** for emphasis.
+4. **Connection reason** (1-2 sentences): Express genuine interest in their role/company/experience. Use phrases like "I saw that you are currently..." or "I'm reaching out because I'm very interested in..."
+5. **Specific ask** (1-2 sentences): Request a brief call (15-20 minutes) with flexible timing. Acknowledge their busy schedule.
+6. **Resume mention**: "I've attached my resume for your reference" or "Please see the attached resume for more information."
+7. **Closing**: "Looking forward to hearing from you!" or "I look forward to connecting with you soon!"
+8. **Sign-off**: "Best regards," / "Many thanks," / "Warm regards," + First Name only
+
+### Tone & Language:
+- **Humble but confident**: Show genuine interest without being overly formal or sycophantic
+- **Respectful of time**: "I understand your schedule must be quite full, but if you have time..."
+- **Specific and genuine**: Reference specific aspects of their work or company
+- **Warm professional**: Not too stiff, not too casual
+
+### Key Phrases to Use:
+- "Would love to hear more about your experience"
+- "Would greatly appreciate the opportunity to connect"
+- "I'd be incredibly grateful for the chance"
+- "If you have some time in the coming weeks"
+- "Please feel free to find my resume attached"
+
+### Avoid:
+- Using full names in greetings (use first name only)
+- Generic flattery without specific details
+- Overly long paragraphs (keep each point concise)
+- Pushy or demanding language
+- Vague asks (always specify time: "15-20 minute call")
+"""
+
     # Base system instruction
     system_content = (
         "You craft sincere, concise first-contact cold emails that help two people build a genuine connection. "
         "Use only facts present in the sender/receiver details or explicitly provided evidence; do not invent relationships, meetings, achievements, or affiliations. "
         "If information is missing, keep it generic rather than guessing. "
-        "Follow this structure: Subject -> opening reason based on receiver evidence -> brief common ground -> value the sender can offer -> one clear ask (with time or a lightweight option) -> polite opt-out -> sign-off. "
-        "Output a complete email with a Subject line and body that is ready to paste into an email client."
+        "Output a complete email with a Subject line and body that is ready to paste into an email client.\n\n"
+        "IMPORTANT FORMAT RULES:\n"
+        "- Output PLAIN TEXT only, NO Markdown formatting (no **, no ##, no bullets with *)\n"
+        "- Start with 'Subject: ' followed by the subject text on one line\n"
+        "- Then a blank line, then the email body\n"
+        "- Example format:\n"
+        "Subject: Your Subject Here\n\n"
+        "Hi [Name],\n\n"
+        "[Email body...]\n\n"
+        "Best regards,\n"
+        "[Sender Name]\n\n"
+        + style_guide
     )
 
     # If a user template is provided, tell the model how to use it
     if template and template.strip():
         system_content += (
-            " When a user-provided email template is included, you must use it as the primary structure and tone: "
+            "\n\nWhen a user-provided email template is included, you must use it as the primary structure and tone: "
             "keep its overall flow and key phrases where reasonable, but adapt and fill in details using the sender "
             "and receiver information so the result is a polished, ready-to-send cold email."
         )
@@ -623,27 +704,41 @@ def generate_email(
     receiver: ReceiverProfile,
     goal: str,
     *,
-    model: str = DEFAULT_MODEL,
+    model: str | None = None,
     template: str | None = None,
     session_id: str | None = None,  # 用于数据收集
 ) -> str:
     messages = build_prompt(sender, receiver, goal, template=template)
-    
-    # Combine system and user messages into a single prompt for Gemini
     system_content = messages[0]["content"]
     user_content = messages[1]["content"]
-    prompt = f"System instruction: {system_content}\n\nUser request:\n{user_content}"
     
-    content = _call_gemini(prompt, model=model)
-    result = content.strip()
+    # 根据配置选择模型
+    use_openai = USE_OPENAI_FOR_EMAIL
+    
+    if use_openai:
+        # 使用 OpenAI GPT-4o
+        actual_model = model or OPENAI_EMAIL_MODEL
+        result = _call_openai_chat(
+            system_content=system_content,
+            user_content=user_content,
+            model=actual_model,
+            temperature=0.7
+        )
+    else:
+        # 使用 Gemini
+        actual_model = model or DEFAULT_MODEL
+        prompt = f"System instruction: {system_content}\n\nUser request:\n{user_content}"
+        result = _call_gemini(prompt, model=actual_model)
+    
+    result = result.strip()
     
     # 收集 prompt 数据
     if PROMPT_COLLECTOR_AVAILABLE and prompt_collector and session_id:
         prompt_collector.record_generate_email(
             session_id=session_id,
-            prompt=prompt,
+            prompt=f"[{actual_model}] System: {system_content}\n\nUser: {user_content}",
             output=result,
-            metadata={"model": model, "goal": goal}
+            metadata={"model": actual_model, "goal": goal, "use_openai": use_openai}
         )
     
     return result
@@ -1247,7 +1342,10 @@ def _lookup_linkedin_via_serpapi(name: str, company: str = "", additional_contex
     
     api_key = os.environ.get("SERPAPI_KEY") or os.environ.get("SERP_API_KEY")
     if not api_key:
+        print(f"[SerpAPI] No API key found, skipping LinkedIn lookup for: {name}")
         return None
+    
+    print(f"[SerpAPI] Looking up LinkedIn profile for: {name} (company: {company})")
     
     # Build search query
     query_parts = [f'site:linkedin.com/in/', f'"{name}"']
@@ -1317,6 +1415,392 @@ def _lookup_linkedin_via_serpapi(name: str, company: str = "", additional_contex
     except Exception as e:
         print(f"[SerpAPI] Unexpected error: {e}")
         return None
+
+
+# ============================================================================
+# Receiver Deep Search - 在生成邮件前对目标人物进行深度搜索
+# ============================================================================
+
+@dataclass
+class ReceiverDeepSearchResult:
+    """深度搜索结果，包含验证过的信息"""
+    recent_projects: list[str]  # 近期项目（带来源）
+    key_experiences: list[str]  # 主要经历（带来源）
+    recent_news: list[str]  # 近期新闻/动态（带来源）
+    verified_facts: list[str]  # 验证过的事实点
+    sources: list[str]  # 所有信息来源
+    raw_search_results: str  # 原始搜索结果（用于调试）
+
+
+def search_receiver_deep_context(
+    name: str,
+    position: str = "",
+    company: str = "",
+    linkedin_url: str = "",
+    existing_context: str = "",
+    *,
+    max_results: int = 5,
+) -> ReceiverDeepSearchResult | None:
+    """
+    对目标人物进行深度搜索，获取近期项目和主要经历。
+    
+    使用 SerpAPI 搜索，然后用 LLM 提取和验证信息。
+    关键原则：只返回有明确来源的信息，杜绝 LLM 杜撰。
+    
+    Args:
+        name: 目标人物姓名
+        position: 职位
+        company: 公司
+        linkedin_url: LinkedIn URL（如果有）
+        existing_context: 已有的上下文信息
+        max_results: 最大搜索结果数
+        
+    Returns:
+        ReceiverDeepSearchResult 或 None（如果搜索失败）
+    """
+    import urllib.request
+    import urllib.parse
+    
+    api_key = os.environ.get("SERPAPI_KEY") or os.environ.get("SERP_API_KEY")
+    if not api_key:
+        print("[DeepSearch] No SerpAPI key configured, skipping deep search")
+        return None
+    
+    # 构建搜索查询
+    search_queries = _build_deep_search_queries(name, position, company)
+    
+    all_results: list[dict] = []
+    all_sources: list[str] = []
+    
+    for query in search_queries[:2]:  # 最多执行2个查询以控制API调用
+        try:
+            params = urllib.parse.urlencode({
+                "engine": "google",
+                "q": query,
+                "api_key": api_key,
+                "num": max_results,
+                "hl": "en",
+            })
+            
+            url = f"https://serpapi.com/search.json?{params}"
+            print(f"[DeepSearch] Searching: {query}")
+            
+            with urllib.request.urlopen(url, timeout=15) as response:
+                data = json.loads(response.read().decode())
+            
+            if "organic_results" in data:
+                for result in data["organic_results"]:
+                    all_results.append({
+                        "title": result.get("title", ""),
+                        "snippet": result.get("snippet", ""),
+                        "link": result.get("link", ""),
+                        "date": result.get("date", ""),
+                    })
+                    if result.get("link"):
+                        all_sources.append(result["link"])
+            
+            # 也检查 news_results
+            if "news_results" in data:
+                for result in data["news_results"]:
+                    all_results.append({
+                        "title": result.get("title", ""),
+                        "snippet": result.get("snippet", ""),
+                        "link": result.get("link", ""),
+                        "date": result.get("date", ""),
+                        "is_news": True,
+                    })
+                    if result.get("link"):
+                        all_sources.append(result["link"])
+                        
+        except Exception as e:
+            print(f"[DeepSearch] Search error for '{query}': {e}")
+            continue
+    
+    if not all_results:
+        print("[DeepSearch] No search results found")
+        return None
+    
+    # 用 LLM 提取和验证信息
+    raw_results_text = _format_search_results_for_llm(all_results)
+    extracted = _extract_verified_info_from_search(
+        name=name,
+        position=position,
+        company=company,
+        search_results=raw_results_text,
+        existing_context=existing_context,
+    )
+    
+    if extracted:
+        extracted.sources = list(set(all_sources))[:10]  # 去重并限制数量
+        extracted.raw_search_results = raw_results_text[:5000]  # 保存原始结果用于调试
+        return extracted
+    
+    return None
+
+
+def _build_deep_search_queries(name: str, position: str = "", company: str = "") -> list[str]:
+    """
+    构建多个搜索查询以获取更全面的信息
+    """
+    queries = []
+    
+    # 基本查询：姓名 + 公司/职位
+    base_query = f'"{name}"'
+    if company:
+        base_query += f' "{company}"'
+    elif position:
+        base_query += f' {position}'
+    
+    # 查询1: 近期项目/成就
+    queries.append(f'{base_query} project OR achievement OR announcement OR launch 2024 OR 2025 OR 2026')
+    
+    # 查询2: 职业经历/背景
+    queries.append(f'{base_query} career OR experience OR background OR interview')
+    
+    # 查询3: 新闻/报道
+    if company:
+        queries.append(f'{base_query} news OR article OR press')
+    
+    return queries
+
+
+def _format_search_results_for_llm(results: list[dict]) -> str:
+    """
+    将搜索结果格式化为 LLM 可读的文本
+    """
+    formatted_parts = []
+    
+    for i, result in enumerate(results[:10], 1):  # 最多10条结果
+        parts = [f"[Result {i}]"]
+        if result.get("title"):
+            parts.append(f"Title: {result['title']}")
+        if result.get("snippet"):
+            parts.append(f"Content: {result['snippet']}")
+        if result.get("link"):
+            parts.append(f"Source: {result['link']}")
+        if result.get("date"):
+            parts.append(f"Date: {result['date']}")
+        if result.get("is_news"):
+            parts.append("Type: News Article")
+        
+        formatted_parts.append("\n".join(parts))
+    
+    return "\n\n".join(formatted_parts)
+
+
+def _extract_verified_info_from_search(
+    name: str,
+    position: str,
+    company: str,
+    search_results: str,
+    existing_context: str = "",
+) -> ReceiverDeepSearchResult | None:
+    """
+    使用 LLM 从搜索结果中提取验证过的信息。
+    
+    关键原则：
+    1. 只提取搜索结果中明确提到的信息
+    2. 每条信息必须标注来源
+    3. 不确定的信息不要包含
+    4. 绝对禁止杜撰任何内容
+    """
+    if not search_results.strip():
+        return None
+    
+    prompt = f"""You are a fact-checker assistant. Your task is to extract ONLY verified, factual information about a specific person from search results.
+
+## Target Person
+- Name: {name}
+- Position: {position or 'Unknown'}
+- Company: {company or 'Unknown'}
+
+## Existing Context (for reference, do not repeat)
+{existing_context or 'None'}
+
+## Search Results
+{search_results}
+
+## Your Task
+Extract ONLY information that is:
+1. Explicitly mentioned in the search results above
+2. Clearly about this specific person (not someone with a similar name)
+3. Factual and verifiable (has a source)
+
+## CRITICAL RULES - READ CAREFULLY
+- DO NOT invent or assume ANY information not explicitly stated in the search results
+- DO NOT include general industry information that isn't specifically about this person
+- If a fact is uncertain or might be about a different person, DO NOT include it
+- If search results are irrelevant or about a different person, return empty lists
+- Each item MUST reference which search result it came from (e.g., "[from Result 1]")
+
+## Output Format (JSON)
+Return a JSON object with these fields:
+{{
+    "person_confirmed": true/false,  // Are search results actually about this person?
+    "recent_projects": [
+        "Project/achievement description [from Result X]",
+        ...
+    ],
+    "key_experiences": [
+        "Experience/role description [from Result X]",
+        ...
+    ],
+    "recent_news": [
+        "News item description [from Result X]",
+        ...
+    ],
+    "verified_facts": [
+        "Specific verified fact [from Result X]",
+        ...
+    ]
+}}
+
+If the search results are not about this person or contain no useful information, return:
+{{
+    "person_confirmed": false,
+    "recent_projects": [],
+    "key_experiences": [],
+    "recent_news": [],
+    "verified_facts": []
+}}
+
+Return JSON only, no other text."""
+
+    try:
+        content = _call_gemini(prompt, model=DEFAULT_MODEL, json_mode=True)
+        
+        if not content:
+            return None
+        
+        data = json.loads(content)
+        
+        # 如果 LLM 确认搜索结果不是关于目标人物，返回 None
+        if not data.get("person_confirmed", False):
+            print(f"[DeepSearch] Search results not confirmed for {name}")
+            return None
+        
+        def get_list(key: str) -> list[str]:
+            value = data.get(key, [])
+            if not isinstance(value, list):
+                return []
+            return [str(item).strip() for item in value if item and str(item).strip()]
+        
+        result = ReceiverDeepSearchResult(
+            recent_projects=get_list("recent_projects"),
+            key_experiences=get_list("key_experiences"),
+            recent_news=get_list("recent_news"),
+            verified_facts=get_list("verified_facts"),
+            sources=[],
+            raw_search_results="",
+        )
+        
+        # 只有当至少有一些信息时才返回结果
+        if (result.recent_projects or result.key_experiences or 
+            result.recent_news or result.verified_facts):
+            return result
+        
+        return None
+        
+    except json.JSONDecodeError as e:
+        print(f"[DeepSearch] JSON parse error: {e}")
+        return None
+    except Exception as e:
+        print(f"[DeepSearch] Extraction error: {e}")
+        return None
+
+
+def enrich_receiver_with_deep_search(
+    receiver: ReceiverProfile,
+    position: str = "",
+    linkedin_url: str = "",
+) -> ReceiverProfile:
+    """
+    使用深度搜索增强 ReceiverProfile。
+    
+    Args:
+        receiver: 原始 ReceiverProfile
+        position: 职位信息
+        linkedin_url: LinkedIn URL
+        
+    Returns:
+        增强后的 ReceiverProfile（新实例）
+    """
+    # 从 position 中提取公司信息
+    company = ""
+    if position:
+        # 尝试从 "Title at Company" 格式中提取
+        if " at " in position.lower():
+            parts = position.lower().split(" at ")
+            if len(parts) >= 2:
+                company = parts[-1].strip()
+        elif " @ " in position:
+            parts = position.split(" @ ")
+            if len(parts) >= 2:
+                company = parts[-1].strip()
+    
+    # 执行深度搜索
+    deep_result = search_receiver_deep_context(
+        name=receiver.name,
+        position=position,
+        company=company,
+        linkedin_url=linkedin_url,
+        existing_context=receiver.context or "",
+    )
+    
+    if not deep_result:
+        print(f"[DeepSearch] No additional context found for {receiver.name}")
+        return receiver
+    
+    # 构建增强后的上下文
+    enhanced_context_parts = []
+    
+    if receiver.context:
+        enhanced_context_parts.append(receiver.context)
+    
+    if deep_result.recent_projects:
+        enhanced_context_parts.append("\n--- Recent Projects (Verified) ---")
+        for proj in deep_result.recent_projects[:3]:
+            enhanced_context_parts.append(f"• {proj}")
+    
+    if deep_result.key_experiences:
+        enhanced_context_parts.append("\n--- Key Experiences (Verified) ---")
+        for exp in deep_result.key_experiences[:3]:
+            enhanced_context_parts.append(f"• {exp}")
+    
+    if deep_result.recent_news:
+        enhanced_context_parts.append("\n--- Recent News (Verified) ---")
+        for news in deep_result.recent_news[:2]:
+            enhanced_context_parts.append(f"• {news}")
+    
+    if deep_result.verified_facts:
+        enhanced_context_parts.append("\n--- Additional Facts (Verified) ---")
+        for fact in deep_result.verified_facts[:3]:
+            enhanced_context_parts.append(f"• {fact}")
+    
+    enhanced_context = "\n".join(enhanced_context_parts)
+    
+    # 合并来源
+    enhanced_sources = list(receiver.sources or [])
+    for src in deep_result.sources:
+        if src not in enhanced_sources:
+            enhanced_sources.append(src)
+    
+    # 创建增强后的 ReceiverProfile
+    enhanced_receiver = ReceiverProfile(
+        name=receiver.name,
+        raw_text=receiver.raw_text,
+        education=receiver.education,
+        experiences=receiver.experiences + deep_result.key_experiences[:2],
+        skills=receiver.skills,
+        projects=receiver.projects + deep_result.recent_projects[:2],
+        context=enhanced_context,
+        sources=enhanced_sources[:10],
+    )
+    
+    print(f"[DeepSearch] Enhanced receiver profile with {len(deep_result.verified_facts)} facts, "
+          f"{len(deep_result.recent_projects)} projects, {len(deep_result.key_experiences)} experiences")
+    
+    return enhanced_receiver
 
 
 def _build_serpapi_search_query(
@@ -2295,7 +2779,7 @@ def regenerate_email_with_style(
     sender_info: dict | None = None,
     receiver_info: dict | None = None,
     *,
-    model: str = DEFAULT_MODEL
+    model: str | None = None
 ) -> str:
     """
     Regenerate an email with a different style/tone.
@@ -2305,7 +2789,7 @@ def regenerate_email_with_style(
         style_instruction: How to modify the style (e.g., "more professional", "more friendly")
         sender_info: Optional sender information for context
         receiver_info: Optional receiver information for context
-        model: Gemini model to use
+        model: Model to use (defaults based on USE_OPENAI_FOR_EMAIL config)
         
     Returns:
         The regenerated email with the new style
@@ -2316,7 +2800,9 @@ def regenerate_email_with_style(
     if receiver_info:
         context += f"\nReceiver: {receiver_info.get('name', 'Unknown')}"
     
-    prompt = f"""You are an expert email writer. Rewrite the following cold email according to the style instruction.
+    system_prompt = """You are an expert email editor. Your task is to adjust ONLY the tone/style of emails while preserving ALL original content exactly."""
+    
+    user_prompt = f"""Adjust the tone of the following cold email according to the style instruction.
 
 Original email:
 {original_email}
@@ -2324,12 +2810,41 @@ Original email:
 Style instruction: {style_instruction}
 {context}
 
-Rewrite the email to match the requested style while:
-- Keeping the core message and purpose
-- Maintaining professionalism
-- Keeping it appropriate for a cold email
+CRITICAL RULES:
+1. ONLY change the tone/style - do NOT change the substance
+2. PRESERVE ALL original information exactly:
+   - All names (sender, receiver, companies, people mentioned)
+   - All specific details (dates, numbers, facts, achievements)
+   - All credentials and experiences mentioned
+   - The specific ask/request
+   - Any shared connections or references
+3. DO NOT add new information that wasn't in the original
+4. DO NOT remove any factual content
+5. Keep the same email structure (Subject, greeting, body paragraphs, closing)
 
-Return only the rewritten email with Subject line and body. No explanations."""
+Your job is like adjusting the "volume" of formality - the content stays the same, only the delivery changes.
 
-    content = _call_gemini(prompt, model=model)
-    return content.strip()
+OUTPUT FORMAT (IMPORTANT):
+- Plain text only, NO Markdown (no **, no ##, no *)
+- Start with "Subject: " followed by the subject text
+- Then a blank line, then the email body
+
+Return only the adjusted email. No explanations."""
+
+    # 根据配置选择模型
+    use_openai = USE_OPENAI_FOR_EMAIL
+    
+    if use_openai:
+        actual_model = model or OPENAI_EMAIL_MODEL
+        result = _call_openai_chat(
+            system_content=system_prompt,
+            user_content=user_prompt,
+            model=actual_model,
+            temperature=0.7
+        )
+    else:
+        actual_model = model or DEFAULT_MODEL
+        prompt = f"System instruction: {system_prompt}\n\nUser request:\n{user_prompt}"
+        result = _call_gemini(prompt, model=actual_model)
+    
+    return result.strip()
