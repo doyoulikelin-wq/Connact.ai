@@ -11,8 +11,9 @@ from urllib.parse import quote_plus
 import google.generativeai as genai
 import requests
 from bs4 import BeautifulSoup
+from openai import OpenAI
 
-from config import DEFAULT_MODEL
+from config import DEFAULT_MODEL, USE_OPENAI_AS_PRIMARY, OPENAI_DEFAULT_MODEL
 
 
 @dataclass
@@ -206,6 +207,32 @@ def _configure_gemini() -> None:
     genai.configure(api_key=api_key)
 
 
+def _get_openai_client() -> OpenAI:
+    """Get or create OpenAI client."""
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY environment variable is required")
+    return OpenAI(api_key=api_key)
+
+
+def _call_openai_json(prompt: str, *, model: str = OPENAI_DEFAULT_MODEL) -> str:
+    """Call OpenAI chat completion and return the response text."""
+    client = _get_openai_client()
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.4,
+        response_format={"type": "json_object"},
+    )
+    content = response.choices[0].message.content
+    if not content:
+        raise RuntimeError("OpenAI response did not contain any content")
+    return content
+
+
 def extract_person_profile_from_web(
     name: str,
     field: str,
@@ -214,21 +241,19 @@ def extract_person_profile_from_web(
     max_pages: int = 3,
 ) -> ScrapedPersonInfo:
     """
-    Get information about a person using Gemini's knowledge.
+    Get information about a person using LLM's knowledge.
     Falls back to web scraping if needed.
     
     Args:
         name: The person's name
         field: Their field/domain (e.g., "AI research", "machine learning professor")
-        model: Gemini model to use for extraction
+        model: Model to use for extraction
         max_pages: Maximum pages to scrape (for fallback)
         
     Returns:
         ScrapedPersonInfo with extracted profile data
     """
-    _configure_gemini()
-    
-    # First, try to get information directly from Gemini's knowledge
+    # Prompt for LLM to extract person information
     prompt = f"""You are a research assistant. Please provide detailed, factual information about {name} who works in the field of {field}.
 
 Return a JSON object with the following structure:
@@ -251,19 +276,26 @@ Important:
 Return JSON only."""
 
     try:
-        gemini_model = genai.GenerativeModel(
-            model,
-            generation_config={"response_mime_type": "application/json"}
-        )
-        response = gemini_model.generate_content(prompt)
+        # Use OpenAI or Gemini based on configuration
+        if USE_OPENAI_AS_PRIMARY:
+            content = _call_openai_json(prompt)
+            source_name = "OpenAI Knowledge Base"
+        else:
+            _configure_gemini()
+            gemini_model = genai.GenerativeModel(
+                model,
+                generation_config={"response_mime_type": "application/json"}
+            )
+            response = gemini_model.generate_content(prompt)
+            content = response.text
+            source_name = "Gemini AI Knowledge Base"
         
-        content = response.text
         if not content:
-            raise RuntimeError("Gemini response did not contain any content")
+            raise RuntimeError("LLM response did not contain any content")
         
         profile_data = json.loads(content)
         
-        # Check if Gemini found information
+        # Check if LLM found information
         if profile_data.get("found", False):
             def get_str_list(data: dict, key: str) -> list[str]:
                 value = data.get(key, [])
@@ -282,10 +314,10 @@ Return JSON only."""
                 experiences=get_str_list(profile_data, "experiences"),
                 skills=get_str_list(profile_data, "skills"),
                 projects=get_str_list(profile_data, "projects"),
-                sources=["Gemini AI Knowledge Base"],
+                sources=[source_name],
             )
     except Exception as e:
-        print(f"Gemini knowledge extraction error: {e}")
+        print(f"LLM knowledge extraction error: {e}")
     
     # Fallback: try web scraping
     try:
@@ -293,7 +325,7 @@ Return JSON only."""
         raw_text, sources = scraper.scrape_person_info(name, field, max_pages=max_pages)
         
         if raw_text.strip():
-            # Use Gemini to extract structured info from scraped content
+            # Use LLM to extract structured info from scraped content
             return _extract_from_scraped_text(name, field, raw_text, sources, model)
     except Exception as e:
         print(f"Web scraping fallback error: {e}")
@@ -318,7 +350,7 @@ def _extract_from_scraped_text(
     sources: list[str],
     model: str
 ) -> ScrapedPersonInfo:
-    """Extract structured profile from scraped text using Gemini."""
+    """Extract structured profile from scraped text using LLM."""
     prompt = (
         "You are an expert at extracting structured profile information about a person from web content. "
         "Extract accurate information only - do not make up or guess information that isn't clearly stated. "
@@ -334,15 +366,20 @@ def _extract_from_scraped_text(
         "Return JSON only with the structured profile."
     )
     
-    gemini_model = genai.GenerativeModel(
-        model,
-        generation_config={"response_mime_type": "application/json"}
-    )
-    response = gemini_model.generate_content(prompt)
+    # Use OpenAI or Gemini based on configuration
+    if USE_OPENAI_AS_PRIMARY:
+        content = _call_openai_json(prompt)
+    else:
+        _configure_gemini()
+        gemini_model = genai.GenerativeModel(
+            model,
+            generation_config={"response_mime_type": "application/json"}
+        )
+        response = gemini_model.generate_content(prompt)
+        content = response.text
     
-    content = response.text
     if not content:
-        raise RuntimeError("Gemini response did not contain any content")
+        raise RuntimeError("LLM response did not contain any content")
     
     profile_data = json.loads(content)
     

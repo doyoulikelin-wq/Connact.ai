@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cold Email Generator v3</title>
+    <title>Connact.ai</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1876,7 +1876,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1><a class="app-logo" href="/" title="Back to home">📧 Cold Email Generator <span class="version-badge">v3.0</span></a></h1>
+            <h1><a class="app-logo" href="/" title="Back to home">🤝 Connact.ai</a></h1>
             <a href="/logout" class="btn-logout">Logout</a>
         </div>
 
@@ -3488,8 +3488,8 @@ I&apos;m {{sender_name}}, currently ...
             // Investment Banking (IB)
             {
                 id: 'ib_firm_type',
-                question: 'O: IB — What type of firm are you targeting?',
-                type: 'single',
+                question: 'O: IB — What type of firm are you targeting? (Select all that apply)',
+                type: 'multi',
                 dependsOn: 'career_directions',
                 showIf: ['ib'],
                 options: [
@@ -6089,9 +6089,12 @@ I&apos;m {{sender_name}}, currently ...
                 const item = document.createElement('div');
                 item.className = 'recommendation-item';
                 item.dataset.index = index;
+                item.dataset.recId = rec.id || '';  // Store unique ID in data attribute
                 
-                // Check if already selected
-                const isSelected = state.selectedTargets.some(t => t.name === rec.name);
+                // Check if already selected - use unique ID if available, fallback to name
+                const isSelected = state.selectedTargets.some(t => 
+                    (rec.id && t.id === rec.id) || (!rec.id && t.name === rec.name)
+                );
                 if (isSelected) item.classList.add('selected');
                 
                 const matchClass = rec.match_score >= 80 ? 'high' : (rec.match_score >= 60 ? 'medium' : 'low');
@@ -6132,14 +6135,17 @@ I&apos;m {{sender_name}}, currently ...
         // Toggle recommendation selection (multi-select)
         function toggleRecommendation(index) {
             const rec = state.recommendations[index];
-            const existingIndex = state.selectedTargets.findIndex(t => t.name === rec.name);
+            // Use unique ID for matching if available, fallback to name
+            const existingIndex = state.selectedTargets.findIndex(t => 
+                (rec.id && t.id === rec.id) || (!rec.id && t.name === rec.name)
+            );
             
             if (existingIndex >= 0) {
                 // Remove from selection
                 state.selectedTargets.splice(existingIndex, 1);
             } else {
-                // Add to selection
-                state.selectedTargets.push(rec);
+                // Add to selection (clone to avoid reference issues)
+                state.selectedTargets.push({ ...rec });
             }
             
             // Update UI
@@ -6179,7 +6185,11 @@ I&apos;m {{sender_name}}, currently ...
             document.querySelectorAll('.recommendation-item').forEach(item => {
                 const index = parseInt(item.dataset.index);
                 const rec = state.recommendations[index];
-                const isSelected = state.selectedTargets.some(t => t.name === rec.name);
+                if (!rec) return;  // Safety check
+                // Use unique ID for matching if available, fallback to name
+                const isSelected = state.selectedTargets.some(t => 
+                    (rec.id && t.id === rec.id) || (!rec.id && t.name === rec.name)
+                );
                 
                 if (isSelected) {
                     item.classList.add('selected');

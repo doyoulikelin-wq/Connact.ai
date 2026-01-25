@@ -1,4 +1,4 @@
-"""Flask web application for Cold Email Generator."""
+"""Flask web application for Connact.ai."""
 
 import os
 import tempfile
@@ -6,6 +6,14 @@ from pathlib import Path
 from functools import wraps
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+
+# Google OAuth
+try:
+    from flask_dance.contrib.google import make_google_blueprint, google
+    GOOGLE_OAUTH_ENABLED = True
+except ImportError:
+    GOOGLE_OAUTH_ENABLED = False
+    google = None
 
 from src.email_agent import (
     SenderProfile,
@@ -52,8 +60,32 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'coldemail-secret-key-2024')
 
+# Allow OAuth over HTTP for local development (NEVER use in production!)
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 # Password for accessing the app
 APP_PASSWORD = os.environ.get('APP_PASSWORD', 'gogogochufalo')
+
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+
+# Setup Google OAuth Blueprint
+if GOOGLE_OAUTH_ENABLED and GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+    google_bp = make_google_blueprint(
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        scope=[
+            'openid',
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile',
+        ],
+        redirect_to='google_callback',
+    )
+    app.register_blueprint(google_bp, url_prefix='/auth')
+    GOOGLE_LOGIN_ENABLED = True
+else:
+    GOOGLE_LOGIN_ENABLED = False
 
 # Store uploaded sender profile temporarily
 sender_profile_cache = {}
@@ -99,7 +131,7 @@ def login():
     if request.method == 'GET':
         if session.get('authenticated'):
             return redirect(url_for('index'))
-        return render_template('login.html')
+        return render_template('login.html', google_login_enabled=GOOGLE_LOGIN_ENABLED)
     
     # Handle POST - check for both JSON and form data
     if request.is_json:
@@ -117,13 +149,44 @@ def login():
     else:
         if request.is_json:
             return jsonify({'error': 'Incorrect password'}), 401
-        return render_template('login.html', error='Incorrect password')
+        return render_template('login.html', error='Incorrect password', google_login_enabled=GOOGLE_LOGIN_ENABLED)
+
+
+@app.route('/auth/google/callback')
+def google_callback():
+    """Handle Google OAuth callback."""
+    if not GOOGLE_LOGIN_ENABLED:
+        return redirect(url_for('login'))
+    
+    if not google.authorized:
+        return redirect(url_for('google.login'))
+    
+    try:
+        # Get user info from Google
+        resp = google.get('/oauth2/v2/userinfo')
+        if resp.ok:
+            user_info = resp.json()
+            session['authenticated'] = True
+            session['user_email'] = user_info.get('email', '')
+            session['user_name'] = user_info.get('name', '')
+            session['user_picture'] = user_info.get('picture', '')
+            session['login_method'] = 'google'
+            session.permanent = True
+            return redirect(url_for('index'))
+    except Exception as e:
+        print(f"Google OAuth error: {e}")
+    
+    return redirect(url_for('login'))
 
 
 @app.route('/logout')
 def logout():
     """Handle logout."""
     session.pop('authenticated', None)
+    session.pop('user_email', None)
+    session.pop('user_name', None)
+    session.pop('user_picture', None)
+    session.pop('login_method', None)
     return redirect(url_for('index'))
 
 

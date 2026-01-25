@@ -30,6 +30,8 @@ from config import (
     USE_OPENAI_RECOMMENDATIONS,
     USE_OPENAI_FOR_EMAIL,
     OPENAI_EMAIL_MODEL,
+    USE_OPENAI_AS_PRIMARY,
+    OPENAI_DEFAULT_MODEL,
 )
 
 # Prompt 数据收集 (可选)
@@ -320,6 +322,44 @@ def _call_gemini(prompt: str, *, model: str = DEFAULT_MODEL, json_mode: bool = F
     return response.text
 
 
+def _call_llm(prompt: str, *, json_mode: bool = False, model: str | None = None) -> str:
+    """
+    Unified LLM call function that routes to OpenAI or Gemini based on configuration.
+    
+    Args:
+        prompt: The prompt to send to the LLM
+        json_mode: Whether to request JSON response
+        model: Optional model override (if None, uses default based on provider)
+        
+    Returns:
+        The LLM response text
+    """
+    if USE_OPENAI_AS_PRIMARY:
+        # Use OpenAI
+        actual_model = model or OPENAI_DEFAULT_MODEL
+        if json_mode:
+            return _call_openai_json(prompt, model=actual_model)
+        else:
+            # For non-JSON mode, use chat with a generic system prompt
+            client = _get_openai_client()
+            response = client.chat.completions.create(
+                model=actual_model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.7,
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise RuntimeError("OpenAI response did not contain any content")
+            return content
+    else:
+        # Use Gemini
+        actual_model = model or DEFAULT_MODEL
+        return _call_gemini(prompt, model=actual_model, json_mode=json_mode)
+
+
 def _extract_json_from_text(text: str) -> str:
     """
     Extract JSON from text that may contain markdown code blocks or other content.
@@ -543,7 +583,7 @@ def extract_profile_from_text(
         f"Resume text:\n{cleaned_text}\n\nReturn JSON only."
     )
 
-    content = _call_gemini(prompt, model=model, json_mode=True)
+    content = _call_llm(prompt, json_mode=True)
     
     try:
         profile_data = json.loads(content)
@@ -725,10 +765,10 @@ def generate_email(
             temperature=0.7
         )
     else:
-        # 使用 Gemini
+        # 使用 Gemini (fallback)
         actual_model = model or DEFAULT_MODEL
         prompt = f"System instruction: {system_content}\n\nUser request:\n{user_content}"
-        result = _call_gemini(prompt, model=actual_model)
+        result = _call_llm(prompt, model=actual_model)
     
     result = result.strip()
     
@@ -783,7 +823,7 @@ Return a JSON array with this exact structure:
 
 Return JSON only, no other text."""
 
-    content = _call_gemini(prompt, model=model, json_mode=True)
+    content = _call_llm(prompt, json_mode=True)
     
     try:
         questions = json.loads(content)
@@ -904,7 +944,7 @@ If you want to ask another question:
 
 Return JSON only, with no additional text."""
 
-    content = _call_gemini(prompt, model=model, json_mode=True)
+    content = _call_llm(prompt, json_mode=True)
     try:
         data = json.loads(content)
         if not isinstance(data, dict):
@@ -1022,7 +1062,7 @@ If you want to ask another question:
 
 Return JSON only, with no additional text."""
 
-    content = _call_gemini(prompt, model=model, json_mode=True)
+    content = _call_llm(prompt, json_mode=True)
     try:
         data = json.loads(content)
         if not isinstance(data, dict):
@@ -1088,7 +1128,7 @@ Return a JSON object with:
 Infer reasonable details from the answers. Be professional and concise.
 Return JSON only."""
 
-    content = _call_gemini(prompt, model=model, json_mode=True)
+    content = _call_llm(prompt, json_mode=True)
     
     try:
         return json.loads(content)
@@ -1667,7 +1707,7 @@ If the search results are not about this person or contain no useful information
 Return JSON only, no other text."""
 
     try:
-        content = _call_gemini(prompt, model=DEFAULT_MODEL, json_mode=True)
+        content = _call_llm(prompt, json_mode=True)
         
         if not content:
             return None
@@ -2245,7 +2285,7 @@ Focus on:
 Return JSON only."""
 
     try:
-        content = _call_gemini(prompt, model=model, json_mode=True)
+        content = _call_llm(prompt, json_mode=True)
         result = json.loads(content)
         scored_list = result.get("scored_candidates", [])
         
@@ -2259,6 +2299,13 @@ Return JSON only."""
                 candidate["outreach_angle"] = scored.get("outreach_angle", "")
                 candidate["response_likelihood"] = scored.get("response_likelihood", "medium")
         
+        # 为每个候选人生成唯一 ID
+        for candidate in candidates:
+            name = candidate.get("name", "")
+            position = candidate.get("position", "")
+            linkedin_url = candidate.get("linkedin_url", "")
+            candidate["id"] = _generate_recommendation_id(name, position, linkedin_url)
+        
         # 按分数排序
         candidates.sort(key=lambda x: x.get("match_score", 0), reverse=True)
         
@@ -2267,8 +2314,21 @@ Return JSON only."""
         
     except Exception as e:
         print(f"[AI Scoring] Error: {e}")
-        # 返回原始列表，使用默认分数
+        # 返回原始列表，使用默认分数，但仍需添加 ID
+        for candidate in candidates:
+            name = candidate.get("name", "")
+            position = candidate.get("position", "")
+            linkedin_url = candidate.get("linkedin_url", "")
+            candidate["id"] = _generate_recommendation_id(name, position, linkedin_url)
         return candidates
+
+
+def _generate_recommendation_id(name: str, position: str, linkedin_url: str) -> str:
+    """Generate a unique ID for a recommendation based on its key attributes."""
+    import hashlib
+    # Create a stable hash from name + position + linkedin_url
+    key = f"{name.lower().strip()}|{position.lower().strip()}|{linkedin_url.lower().strip()}"
+    return hashlib.md5(key.encode()).hexdigest()[:12]
 
 
 def _normalize_recommendations(items: Any, grounding_urls: list[str] | None = None) -> list[dict[str, Any]]:
@@ -2350,10 +2410,15 @@ def _normalize_recommendations(items: Any, grounding_urls: list[str] | None = No
         if not linkedin_url:
             linkedin_url = _generate_linkedin_search_url(name, company)
 
+        # Generate unique ID for this recommendation
+        final_position = position or field
+        rec_id = _generate_recommendation_id(name, final_position, linkedin_url)
+
         normalized.append(
             {
+                "id": rec_id,  # Unique identifier for frontend matching
                 "name": name,
-                "position": position or field,
+                "position": final_position,
                 "field": field or position,
                 "linkedin_url": linkedin_url,  # Either validated profile URL or search URL
                 "match_score": match_score or 70,
@@ -2637,9 +2702,8 @@ def find_target_recommendations(
                 include_web_section=True,
                 require_tool_use=False,
             )
-            content = _call_gemini(
+            content = _call_llm(
                 fallback_prompt,
-                model=model,
                 json_mode=True,
             )
             raw_items = json.loads(content).get("recommendations", [])
@@ -2669,7 +2733,7 @@ def find_target_recommendations(
         sources=[],
         include_web_section=False,
     )
-    content = _call_gemini(prompt, model=model, json_mode=True)
+    content = _call_llm(prompt, json_mode=True)
     
     try:
         raw_items = json.loads(content).get("recommendations", [])
@@ -2689,10 +2753,13 @@ def find_target_recommendations(
         pass
 
     # Final fallback
+    fallback_name = "Contact in " + field
+    fallback_position = "Professional"
     return [
         {
-            "name": "Contact in " + field,
-            "position": "Professional",
+            "id": _generate_recommendation_id(fallback_name, fallback_position, ""),
+            "name": fallback_name,
+            "position": fallback_position,
             "field": field,
             "match_score": 70,
             "match_reason": "Relevant to your field",
@@ -2746,7 +2813,7 @@ Return a JSON object with this structure:
 
 Extract as much relevant information as possible. Return JSON only."""
 
-    content = _call_gemini(prompt, model=model, json_mode=True)
+    content = _call_llm(prompt, json_mode=True)
     
     try:
         profile = json.loads(content)
@@ -2845,6 +2912,6 @@ Return only the adjusted email. No explanations."""
     else:
         actual_model = model or DEFAULT_MODEL
         prompt = f"System instruction: {system_prompt}\n\nUser request:\n{user_prompt}"
-        result = _call_gemini(prompt, model=actual_model)
+        result = _call_llm(prompt, model=actual_model)
     
     return result.strip()

@@ -1,13 +1,83 @@
 # Development Log
 
+## 2026-01-25: 品牌重命名 + Google OAuth 登录
+
+### 品牌重命名
+- 将 "Cold Email Generator" 更名为 **Connact.ai**
+- 移除 v3.0 版本标识
+- 更新 Logo emoji 从 📧 改为 🤝
+
+### Google OAuth 登录
+新增 Gmail 账号登录功能，与原有密码登录并存。
+
+**实现细节**：
+- 使用 Flask-Dance 集成 Google OAuth 2.0
+- 登录页面显示 "Continue with Google" 按钮
+- 登录成功后存储用户邮箱、名称、头像到 session
+- 本地开发允许 HTTP（`OAUTHLIB_INSECURE_TRANSPORT=1`）
+
+**新增环境变量**：
+- `GOOGLE_CLIENT_ID`: Google OAuth 客户端 ID
+- `GOOGLE_CLIENT_SECRET`: Google OAuth 客户端密钥
+
+**文件改动**：
+- `app.py`: 添加 Google OAuth blueprint 和回调路由
+- `templates/login.html`: 添加 Google 登录按钮样式和逻辑
+- `requirements.txt`: 添加 Flask-Dance, google-auth, google-auth-oauthlib
+
+### Find Contact 问卷改进
+- `ib_firm_type` 问题改为多选（type: 'multi'）
+
+Files: `app.py`, `templates/login.html`, `templates/index_v2.html`, `templates/index.html`, `requirements.txt`
+
+---
+
+## 2026-01-25: 修复 Generate More 后 Contact 不准确的问题
+
+### 背景
+- 用户在找到 target list 后，点击 "Generate More" 按钮会导致 contact 信息不准确
+- 原因：系统使用 `name` 作为唯一标识匹配已选目标，但同名不同人的情况会导致混淆
+- 当 `state.recommendations` 被新数据替换后，`selectedTargets` 中的旧选择与新列表中的同名人会产生数据冲突
+
+### 解决方案
+使用唯一 ID 代替名字匹配，基于 `name + position + linkedin_url` 生成 12 位 MD5 哈希作为稳定标识。
+
+### 改动详情
+
+**后端 `src/email_agent.py`**：
+- 新增 `_generate_recommendation_id(name, position, linkedin_url)` 函数生成唯一 ID
+- `_normalize_recommendations()` 为每个推荐对象添加 `id` 字段
+- `_ai_score_and_analyze_candidates()` 返回前为 SerpAPI 结果添加 ID
+- Final fallback 返回值也添加 ID
+
+**前端 `templates/index_v2.html`**：
+- `renderRecommendations()`: 使用 `rec.id` 检查已选状态，向下兼容无 ID 情况（fallback 到 name）
+- `toggleRecommendation()`: 使用 ID 匹配；选择时 clone 对象避免引用问题
+- `updateSelectedTargetsUI()`: 使用 ID 匹配更新 checkbox 状态，添加 `rec` 存在性检查
+
+### 技术细节
+```javascript
+// 匹配逻辑（优先 ID，fallback 到 name）
+const isSelected = state.selectedTargets.some(t => 
+    (rec.id && t.id === rec.id) || (!rec.id && t.name === rec.name)
+);
+
+// 选择时 clone 对象
+state.selectedTargets.push({ ...rec });
+```
+
+Files: `src/email_agent.py`, `templates/index_v2.html`, `devlog.md`
+
+---
+
 ## 2026-01-18: Academic 模式锁定（Building）
 
 ### 背景
 - Academic 模式尚未开发完全，需要暂时锁定
 - 保留 UI 界面但禁止用户进入，提示 "Building"
 
-### 实现方案
 
+### 实现方案
 **CSS 样式**（~70 行新增）：
 - `.mode-card.locked`：锁定卡片样式（半透明、灰度滤镜、禁用指针）
 - `.lock-overlay`：遮罩层（居中显示锁图标和文字）

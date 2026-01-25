@@ -13,11 +13,17 @@ except PermissionError:
     pass
 
 # ============== 邮件生成模型配置 ==============
+# 全局开关：使用 OpenAI 作为所有 LLM 调用的后端（默认 true，因为 Gemini 配额用尽）
+USE_OPENAI_AS_PRIMARY = os.environ.get("USE_OPENAI_AS_PRIMARY", "true").lower() in ("1", "true", "yes")
+
 # 使用 OpenAI 还是 Gemini 生成邮件（默认使用 OpenAI GPT-4o）
 USE_OPENAI_FOR_EMAIL = os.environ.get("USE_OPENAI_FOR_EMAIL", "true").lower() in ("1", "true", "yes")
 
 # OpenAI 邮件生成模型
 OPENAI_EMAIL_MODEL = os.environ.get("OPENAI_EMAIL_MODEL", "gpt-4o")
+
+# OpenAI 通用模型（用于 profile 解析、问卷生成等）
+OPENAI_DEFAULT_MODEL = os.environ.get("OPENAI_DEFAULT_MODEL", "gpt-4o")
 
 # Default Gemini model (can be overridden via env)
 DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
@@ -25,15 +31,15 @@ DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 # Gemini model for recommendations with Google Search grounding
 GEMINI_SEARCH_MODEL = os.environ.get("GEMINI_SEARCH_MODEL", "gemini-2.0-flash")
 
-# Toggle Gemini Google Search grounding for recommendations - ENABLED by default
-USE_GEMINI_SEARCH = os.environ.get("USE_GEMINI_SEARCH", "true").lower() in ("1", "true", "yes")
+# Toggle Gemini Google Search grounding for recommendations - DISABLED (Gemini quota exceeded)
+USE_GEMINI_SEARCH = os.environ.get("USE_GEMINI_SEARCH", "false").lower() in ("1", "true", "yes")
 
 # Default model for recommendations (OpenAI) - disabled by default due to web_search incompatibility
-RECOMMENDATION_MODEL = os.environ.get("OPENAI_RECOMMENDATION_MODEL", "gpt-5.1")
+RECOMMENDATION_MODEL = os.environ.get("OPENAI_RECOMMENDATION_MODEL", "gpt-4o")
 
 # Toggle OpenAI built-in web_search for recommendations - DISABLED by default
 # OpenAI API does not support 'web_search' tool type, causes errors
 USE_OPENAI_WEB_SEARCH = os.environ.get("USE_OPENAI_WEB_SEARCH", "false").lower() in ("1", "true", "yes")
 
 # Toggle using OpenAI for recommendations at all (fallback uses Gemini)
-USE_OPENAI_RECOMMENDATIONS = os.environ.get("USE_OPENAI_RECOMMENDATIONS", "false").lower() in ("1", "true", "yes")
+USE_OPENAI_RECOMMENDATIONS = os.environ.get("USE_OPENAI_RECOMMENDATIONS", "true").lower() in ("1", "true", "yes")
