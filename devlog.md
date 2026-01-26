@@ -4,6 +4,7 @@
 
 ### Changes
 - 新增 `/access` 入口页：邀请码验证（unlock）+ waitlist 邮箱收集
+- UI：`Join waitlist` 按钮改为与 `Unlock access` 同色（更一致）
 - 邀请码只需输入一次：
   - 浏览器侧用 `session["beta_invite_ok"]` 记忆
   - 用户首次成功登录/注册后，写入 `users.beta_access`，后续登录可不再反复输入邀请码
