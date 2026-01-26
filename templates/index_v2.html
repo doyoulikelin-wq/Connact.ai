@@ -3444,18 +3444,28 @@ I&apos;m {{sender_name}}, currently ...
             state.tokenUsageLog = [];
         }
 
-        // Model pricing (per 1M tokens input, output is typically 3-4x)
+        // Model pricing (per 1M tokens)
+        // GPT-5系列自带adaptive thinking，Thinking变体生成额外内部tokens
         const MODEL_PRICING = {
+            // Economy
             'gpt-4o-mini': { input: 0.15, output: 0.60 },
+            'gpt-5-nano': { input: 0.05, output: 0.40 },
+            'gpt-5-mini': { input: 0.25, output: 2.00 },
+            // Standard
             'gpt-4o': { input: 2.50, output: 10.00 },
             'gpt-4.1': { input: 2.00, output: 8.00 },
-            'gpt-5-nano': { input: 0.05, output: 0.20 },
-            'gpt-5-mini': { input: 0.25, output: 1.00 },
-            'gpt-5': { input: 1.25, output: 5.00 },
-            'gpt-5.2': { input: 1.75, output: 7.00 },
-            'o3-mini': { input: 0.55, output: 2.20 },
-            'o3': { input: 2.00, output: 8.00 },
-            'o1': { input: 5.00, output: 20.00 },
+            'gpt-5': { input: 1.25, output: 10.00 },
+            'gpt-5.1': { input: 1.50, output: 12.00 },
+            // Premium
+            'gpt-5.2': { input: 1.75, output: 14.00 },
+            'gpt-5.2-pro': { input: 15.00, output: 120.00 },
+            // Thinking (same base price, generates more output tokens)
+            'gpt-5.1-thinking': { input: 1.50, output: 12.00 },
+            'gpt-5.2-thinking': { input: 1.75, output: 14.00 },
+            // Legacy reasoning
+            'o3-mini': { input: 1.10, output: 4.40 },
+            'o3': { input: 10.00, output: 40.00 },
+            'o1': { input: 15.00, output: 60.00 },
         };
 
         function calculateTokenCost(usage) {

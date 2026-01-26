@@ -74,26 +74,39 @@ USE_OPENAI_RECOMMENDATIONS = os.environ.get("USE_OPENAI_RECOMMENDATIONS", "true"
 
 # ============== 开发者模式配置 ==============
 # 开发者模式下可选的模型列表
+# 价格格式: "input/output per 1M tokens"
+# GPT-5系列自带adaptive thinking，复杂问题自动启用推理
+# Thinking变体会生成内部推理tokens（按output计费），成本更高但推理更强
 AVAILABLE_MODELS = {
-    "gpt-4o-mini": {"name": "GPT-4o Mini", "price": "$0.15/1M", "tier": "economy"},
-    "gpt-4o": {"name": "GPT-4o", "price": "$2.50/1M", "tier": "standard"},
-    "gpt-4.1": {"name": "GPT-4.1", "price": "$2.00/1M", "tier": "standard"},
-    "gpt-5-nano": {"name": "GPT-5 Nano", "price": "$0.05/1M", "tier": "economy"},
-    "gpt-5-mini": {"name": "GPT-5 Mini", "price": "$0.25/1M", "tier": "economy"},
-    "gpt-5": {"name": "GPT-5", "price": "$1.25/1M", "tier": "standard"},
-    "gpt-5.2": {"name": "GPT-5.2", "price": "$1.75/1M", "tier": "premium"},
-    "o3-mini": {"name": "o3-mini", "price": "$0.55/1M", "tier": "reasoning"},
-    "o3": {"name": "o3", "price": "$2.00/1M", "tier": "reasoning"},
-    "o1": {"name": "o1", "price": "$5.00/1M", "tier": "reasoning"},
+    # Economy tier - 简单任务
+    "gpt-4o-mini": {"name": "GPT-4o Mini", "price": "$0.15/$0.60", "tier": "economy"},
+    "gpt-5-nano": {"name": "GPT-5 Nano", "price": "$0.05/$0.40", "tier": "economy"},
+    "gpt-5-mini": {"name": "GPT-5 Mini", "price": "$0.25/$2.00", "tier": "economy"},
+    # Standard tier - 通用任务（自带adaptive thinking）
+    "gpt-4o": {"name": "GPT-4o", "price": "$2.50/$10.00", "tier": "standard"},
+    "gpt-4.1": {"name": "GPT-4.1", "price": "$2.00/$8.00", "tier": "standard"},
+    "gpt-5": {"name": "GPT-5", "price": "$1.25/$10.00", "tier": "standard"},
+    "gpt-5.1": {"name": "GPT-5.1", "price": "$1.50/$12.00", "tier": "standard"},
+    # Premium tier - 复杂任务
+    "gpt-5.2": {"name": "GPT-5.2", "price": "$1.75/$14.00", "tier": "premium"},
+    "gpt-5.2-pro": {"name": "GPT-5.2 Pro", "price": "$15.00/$120.00", "tier": "premium"},
+    # Explicit Thinking - 显式推理模式（生成大量内部tokens）
+    "gpt-5.1-thinking": {"name": "GPT-5.1 Thinking", "price": "$1.50/$12.00*", "tier": "thinking"},
+    "gpt-5.2-thinking": {"name": "GPT-5.2 Thinking", "price": "$1.75/$14.00*", "tier": "thinking"},
+    # Legacy reasoning models
+    "o3-mini": {"name": "o3-mini", "price": "$1.10/$4.40", "tier": "reasoning"},
+    "o3": {"name": "o3", "price": "$10.00/$40.00", "tier": "reasoning"},
+    "o1": {"name": "o1", "price": "$15.00/$60.00", "tier": "reasoning"},
 }
 
 # 每个步骤的默认模型（普通用户和开发者未选择时使用）
+# 推荐：大部分任务用economy/standard，不需要thinking
 DEFAULT_STEP_MODELS = {
-    "profile_extraction": "gpt-5-nano",
-    "questionnaire": "gpt-5-nano",
-    "answer_to_profile": "gpt-5-nano",
-    "find_recommendations": "gpt-5.2",
-    "deep_search": "gpt-5-mini",
-    "generate_email": "gpt-5",
-    "rewrite_email": "gpt-5-mini",
+    "profile_extraction": "gpt-5-nano",      # 简单提取，不需要推理
+    "questionnaire": "gpt-5-nano",           # 简单生成
+    "answer_to_profile": "gpt-5-nano",       # 简单转换
+    "find_recommendations": "gpt-5",         # 需要一定推理，standard足够
+    "deep_search": "gpt-5-mini",             # 信息整合
+    "generate_email": "gpt-5",               # 写作任务，standard足够
+    "rewrite_email": "gpt-5-mini",           # 风格调整，简单任务
 }
