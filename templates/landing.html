@@ -4,65 +4,157 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connact.ai</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @font-face {
+            font-family: 'Brice Semi Expanded';
+            src: local('Brice Semi Expanded'), local('BriceSemiExpanded');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         :root {
-            --bg1: #667eea;
-            --bg2: #764ba2;
-            --text: #0f172a;
-            --muted: #475569;
-            --border: rgba(148, 163, 184, 0.35);
-            --card: rgba(255, 255, 255, 0.92);
-            --shadow: 0 22px 60px rgba(0,0,0,0.22);
+            --bg: #0a0a0f;
+            --bg-secondary: #12121a;
+            --text: #e8e6f0;
+            --text-bright: #ffffff;
+            --muted: rgba(232, 230, 240, 0.65);
+            --muted-2: rgba(232, 230, 240, 0.45);
+            --accent: #8b5cf6;
+            --accent-hover: #a78bfa;
+            --accent-pressed: #7c3aed;
+            --accent-glow: rgba(139, 92, 246, 0.4);
+            --cyan: #22d3ee;
+            --magenta: #f472b6;
+            --emerald: #34d399;
+            --panel: rgba(20, 20, 30, 0.75);
+            --panel-strong: rgba(25, 25, 38, 0.88);
+            --panel-hover: rgba(30, 30, 45, 0.85);
+            --border: rgba(139, 92, 246, 0.2);
+            --border-soft: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(139, 92, 246, 0.5);
+            --shadow: 0 25px 80px rgba(0, 0, 0, 0.5), 0 0 60px rgba(139, 92, 246, 0.15);
+            --shadow-sm: 0 10px 40px rgba(0, 0, 0, 0.3), 0 0 30px rgba(139, 92, 246, 0.1);
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+            --focus-ring: 0 0 0 3px rgba(139, 92, 246, 0.4), 0 0 20px rgba(139, 92, 246, 0.3);
+            --success: #34d399;
+            --danger: #f87171;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: 'Brice Semi Expanded', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
             color: var(--text);
-            background: radial-gradient(1200px 600px at 20% 0%, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
-                        linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
             min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+            background: var(--bg);
+            background-image:
+                radial-gradient(800px 600px at 20% 10%, rgba(139, 92, 246, 0.15), transparent 50%),
+                radial-gradient(600px 500px at 80% 20%, rgba(34, 211, 238, 0.12), transparent 50%),
+                radial-gradient(700px 600px at 60% 80%, rgba(244, 114, 182, 0.1), transparent 50%),
+                radial-gradient(500px 400px at 10% 90%, rgba(52, 211, 153, 0.08), transparent 50%),
+                linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 60px 60px, 60px 60px;
+            background-attachment: fixed;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(2px 2px at 20% 30%, rgba(139, 92, 246, 0.4), transparent),
+                radial-gradient(2px 2px at 40% 70%, rgba(34, 211, 238, 0.3), transparent),
+                radial-gradient(2px 2px at 60% 20%, rgba(244, 114, 182, 0.3), transparent),
+                radial-gradient(2px 2px at 80% 60%, rgba(52, 211, 153, 0.3), transparent),
+                radial-gradient(1px 1px at 30% 50%, rgba(255, 255, 255, 0.2), transparent),
+                radial-gradient(1px 1px at 70% 40%, rgba(255, 255, 255, 0.15), transparent);
+            background-size: 350px 350px, 400px 400px, 300px 300px, 450px 450px, 200px 200px, 250px 250px;
+            animation: floatParticles 30s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes floatParticles {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.6; }
+            25% { transform: translate(10px, -20px) rotate(2deg); opacity: 0.8; }
+            50% { transform: translate(-5px, 10px) rotate(-1deg); opacity: 0.7; }
+            75% { transform: translate(15px, 5px) rotate(1deg); opacity: 0.9; }
         }
 
         a { color: inherit; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        a:hover { color: var(--text-bright); }
 
-        .wrap {
-            max-width: 1120px;
+        .container {
+            max-width: 1080px;
             margin: 0 auto;
-            padding: 24px 20px 72px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            backdrop-filter: blur(25px) saturate(180%);
+            box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(600px 200px at 0% 0%, rgba(139, 92, 246, 0.08), transparent 60%);
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .panel-strong {
+            background: var(--panel-strong);
         }
 
         .nav {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
-            padding: 12px 14px;
-            border-radius: 16px;
-            background: rgba(255, 255, 255, 0.14);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(10px);
+            gap: 12px;
+            padding: 14px 18px;
+            margin-bottom: 26px;
         }
 
         .brand {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-weight: 800;
-            letter-spacing: -0.2px;
-            color: rgba(255,255,255,0.95);
+            gap: 12px;
+            font-weight: 700;
+            color: var(--text-bright);
         }
 
-        .brand .mark {
-            width: 38px;
-            height: 38px;
-            border-radius: 12px;
+        .brand-mark {
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
             display: grid;
             place-items: center;
-            background: rgba(255,255,255,0.18);
-            border: 1px solid rgba(255,255,255,0.18);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--border-soft);
         }
 
         .nav-links {
@@ -73,346 +165,303 @@
             justify-content: flex-end;
         }
 
-        .pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 12px;
+        .nav-link {
+            padding: 8px 12px;
             border-radius: 999px;
-            font-weight: 700;
-            font-size: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.22);
-            background: rgba(255, 255, 255, 0.10);
-            color: rgba(255,255,255,0.95);
-            transition: transform 0.15s ease, background 0.15s ease;
-            cursor: pointer;
+            font-size: 13px;
+            color: var(--muted);
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
         }
 
-        .pill:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.16); }
-
-        .pill.primary {
-            background: rgba(255,255,255,0.92);
-            color: #1f2937;
-            border-color: rgba(255,255,255,0.65);
+        .nav-link:hover {
+            color: var(--text-bright);
+            border-color: var(--border);
+            background: rgba(255, 255, 255, 0.05);
         }
-
-        .pill.primary:hover { background: rgba(255,255,255,0.98); }
 
         .hero {
-            margin-top: 18px;
             display: grid;
-            grid-template-columns: 1.15fr 0.85fr;
-            gap: 18px;
-            align-items: stretch;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 960px) {
             .hero { grid-template-columns: 1fr; }
-        }
-
-        .hero-left {
-            padding: 34px 28px;
-            border-radius: 22px;
-            background: rgba(255, 255, 255, 0.10);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(10px);
         }
 
         .kicker {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 7px 12px;
+            gap: 10px;
+            padding: 6px 14px;
             border-radius: 999px;
-            font-weight: 800;
-            font-size: 12px;
-            letter-spacing: 0.2px;
-            color: rgba(255,255,255,0.92);
-            border: 1px solid rgba(255,255,255,0.22);
-            background: rgba(255,255,255,0.10);
+            border: 1px solid var(--border-soft);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
         h1 {
-            margin-top: 14px;
-            color: rgba(255,255,255,0.98);
-            font-size: 44px;
-            line-height: 1.05;
-            letter-spacing: -1px;
+            margin-top: 16px;
+            font-size: 46px;
+            line-height: 1.08;
+            color: var(--text-bright);
+            text-shadow: 0 0 40px var(--accent-glow);
         }
 
-        @media (max-width: 520px) {
+        @media (max-width: 560px) {
             h1 { font-size: 36px; }
         }
 
-        .sub {
-            margin-top: 14px;
-            color: rgba(255,255,255,0.88);
-            font-size: 16px;
-            line-height: 1.6;
-            max-width: 58ch;
-        }
-
-        .points {
-            margin-top: 18px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        @media (max-width: 520px) {
-            .points { grid-template-columns: 1fr; }
-        }
-
-        .point {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
-            padding: 12px 12px;
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.18);
-            background: rgba(255,255,255,0.08);
-        }
-
-        .point b { color: rgba(255,255,255,0.96); }
-        .point span { display: block; color: rgba(255,255,255,0.82); font-size: 13px; line-height: 1.45; margin-top: 2px; }
-
-        .hero-right {
-            border-radius: 22px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
-            padding: 22px;
-        }
-
-        .notice {
-            padding: 12px 12px;
-            border-radius: 14px;
-            font-size: 14px;
-            line-height: 1.45;
-            text-align: left;
-            margin-bottom: 12px;
-        }
-
-        .notice.success { background: #ecfdf5; color: #047857; border: 1px solid rgba(4, 120, 87, 0.2); }
-        .notice.error { background: #ffe6e6; color: #b91c1c; border: 1px solid rgba(185, 28, 28, 0.2); }
-        .notice.info { background: #eff6ff; color: #1d4ed8; border: 1px solid rgba(29, 78, 216, 0.2); }
-
-        .card-title {
-            font-size: 16px;
-            font-weight: 900;
-            letter-spacing: -0.2px;
-            color: #0f172a;
-            margin-bottom: 6px;
-        }
-
-        .card-sub {
+        .subtitle {
+            margin-top: 16px;
             color: var(--muted);
-            font-size: 13px;
-            line-height: 1.5;
-            margin-bottom: 14px;
-        }
-
-        .form {
-            display: grid;
-            gap: 10px;
-        }
-
-        .field {
-            display: grid;
-            gap: 8px;
-        }
-
-        .field label {
-            font-weight: 800;
-            color: #334155;
-            font-size: 13px;
-        }
-
-        .field input {
-            width: 100%;
-            padding: 14px 14px;
-            border-radius: 12px;
-            border: 2px solid rgba(148, 163, 184, 0.35);
+            line-height: 1.7;
             font-size: 15px;
-            background: #fff;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .field input:focus {
-            outline: none;
-            border-color: rgba(102, 126, 234, 0.85);
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.16);
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 12px;
-            border: none;
-            font-weight: 900;
-            font-size: 15px;
-            color: white;
-            cursor: pointer;
-            background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
-            transition: transform 0.12s ease, box-shadow 0.12s ease;
-        }
-
-        .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 25px rgba(102, 126, 234, 0.26); }
-
-        .divider {
-            margin: 14px 0;
+        .hero-actions {
+            margin-top: 20px;
             display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #94a3b8;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: rgba(148, 163, 184, 0.35);
-        }
-
-        .mini-links {
-            margin-top: 12px;
-            display: flex;
-            gap: 10px;
+            gap: 14px;
             flex-wrap: wrap;
         }
 
-        .mini-links a {
-            flex: 1;
-            min-width: 140px;
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 12px;
+        .chip-row {
+            margin-top: 22px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chip {
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border-soft);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .notice {
+            padding: 12px 14px;
             border-radius: 12px;
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            background: #fff;
-            font-weight: 900;
-            color: #1f2937;
+            margin-bottom: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .notice.success {
+            background: rgba(52, 211, 153, 0.15);
+            color: #c7f9e4;
+            border: 1px solid rgba(52, 211, 153, 0.25);
+        }
+
+        .notice.error {
+            background: rgba(248, 113, 113, 0.15);
+            color: #fecaca;
+            border: 1px solid rgba(248, 113, 113, 0.25);
+        }
+
+        .notice.info {
+            background: rgba(139, 92, 246, 0.12);
+            color: var(--muted);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .form-block {
+            display: grid;
+            gap: 14px;
+        }
+
+        .form-group {
+            display: grid;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .form-group input {
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid var(--border-soft);
+            background: rgba(10, 10, 16, 0.7);
+            color: var(--text);
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--border-glow);
+            box-shadow: var(--focus-ring);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--muted-2);
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border-soft);
+        }
+
+        .btn {
+            padding: 13px 24px;
+            border: none;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+            color: #fff;
+            box-shadow: 0 8px 25px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px var(--accent-glow), 0 0 30px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--border-glow);
+            box-shadow: var(--shadow-sm);
         }
 
         .section {
-            margin-top: 36px;
-            padding: 0 2px;
+            margin-top: 30px;
         }
 
-        .section h2 {
-            color: rgba(255,255,255,0.96);
-            font-size: 22px;
-            letter-spacing: -0.4px;
-            margin-bottom: 12px;
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--text-bright);
+            letter-spacing: -0.3px;
         }
 
         .grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
+            gap: 16px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 920px) {
             .grid { grid-template-columns: 1fr; }
         }
 
-        .tile {
-            background: rgba(255,255,255,0.90);
-            border: 1px solid rgba(255,255,255,0.70);
-            border-radius: 18px;
-            padding: 16px;
-            box-shadow: 0 18px 42px rgba(0,0,0,0.18);
-        }
-
-        .tile h3 {
+        .feature-card h3 {
             font-size: 16px;
-            font-weight: 950;
-            color: #0f172a;
-            margin-bottom: 6px;
-            letter-spacing: -0.2px;
+            margin-bottom: 8px;
+            color: var(--text-bright);
         }
 
-        .tile p {
-            color: #475569;
+        .feature-card p {
+            color: var(--muted);
             font-size: 13px;
-            line-height: 1.55;
+            line-height: 1.6;
         }
 
-        .example {
+        .example-grid {
             display: grid;
-            grid-template-columns: 0.95fr 1.05fr;
-            gap: 14px;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
         }
 
-        @media (max-width: 900px) { .example { grid-template-columns: 1fr; } }
+        @media (max-width: 920px) {
+            .example-grid { grid-template-columns: 1fr; }
+        }
 
-        .mono {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-            font-size: 12.5px;
-            line-height: 1.55;
+        .example-card h4 {
+            font-size: 14px;
+            color: var(--text-bright);
+            margin-bottom: 10px;
+        }
+
+        .example-card pre {
             white-space: pre-wrap;
             word-break: break-word;
-            color: #0f172a;
+            font-size: 12.5px;
+            line-height: 1.6;
+            color: var(--muted);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
         }
 
-        .foot {
-            margin-top: 40px;
-            padding-top: 18px;
-            border-top: 1px solid rgba(255,255,255,0.22);
-            color: rgba(255,255,255,0.86);
+        .footer {
+            margin-top: 36px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-soft);
+            color: var(--muted-2);
             font-size: 12px;
-            line-height: 1.5;
+            line-height: 1.6;
         }
-
-        .foot a { color: rgba(255,255,255,0.92); text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="wrap">
-        <div class="nav">
+    <div class="container">
+        <div class="panel nav">
             <div class="brand">
-                <div class="mark">🤝</div>
+                <div class="brand-mark">🤝</div>
                 <div>Connact.ai</div>
             </div>
             <div class="nav-links">
-                <a class="pill" href="#product">Product</a>
-                <a class="pill" href="#how">How it works</a>
-                <a class="pill" href="#privacy">Privacy</a>
-                <a class="pill primary" href="/login">Sign in</a>
+                <a class="nav-link" href="#product">Product</a>
+                <a class="nav-link" href="#how">How it works</a>
+                <a class="nav-link" href="#privacy">Privacy</a>
+                <a class="btn btn-secondary" href="/login">Sign in</a>
             </div>
         </div>
 
-        <div class="hero" id="top">
-            <div class="hero-left">
-                <div class="kicker">✨ Find people · Write emails · With evidence</div>
-                <h1>Find the right person.<br/>Send the right email.</h1>
-                <div class="sub">
-                    Connact helps you (1) discover the best targets to reach out to and (2) generate a first cold email that’s structured, specific, and grounded in real evidence.
+        <div class="hero">
+            <div class="panel">
+                <div class="kicker">Private beta · Evidence-first</div>
+                <h1>Find the right person.<br>Send the right email.</h1>
+                <p class="subtitle">
+                    Connact helps you discover who to reach out to and generate a first cold email that’s structured, specific, and grounded in real evidence.
+                </p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="#access">Unlock access</a>
+                    <a class="btn btn-secondary" href="/login">Sign in</a>
                 </div>
-
-                <div class="points" id="product">
-                    <div class="point">
-                        <div>🔎</div>
-                        <div>
-                            <b>Find people</b>
-                            <span>Each recommendation includes a match score, reasoning, evidence links, and uncertainty when needed.</span>
-                        </div>
-                    </div>
-                    <div class="point">
-                        <div>✉️</div>
-                        <div>
-                            <b>Generate emails</b>
-                            <span>Fixed structure: why them → value → one clear ask → opt‑out. No invented relationships.</span>
-                        </div>
-                    </div>
+                <div class="chip-row">
+                    <div class="chip">Match score + evidence</div>
+                    <div class="chip">No invented connections</div>
+                    <div class="chip">One clear ask</div>
                 </div>
             </div>
 
-            <div class="hero-right" id="access">
+            <div class="panel panel-strong" id="access">
                 {% if message %}
                 <div class="notice success">✅ {{ message }}</div>
                 {% endif %}
@@ -430,69 +479,81 @@
                 <div class="notice info">Join the waitlist or enter an invite code.</div>
                 {% endif %}
 
-                <div class="card-title">Get access</div>
-                <div class="card-sub">Enter an invite code once, or leave your email for the waitlist.</div>
+                <div class="form-block">
+                    <form method="POST" action="/access">
+                        <input type="hidden" name="next" value="{{ url_for('index') }}">
+                        <div class="form-group">
+                            <label for="invite_code">Invite code</label>
+                            <input id="invite_code" name="invite_code" type="text" placeholder="Enter invite code" autocomplete="off" {% if invite_required_for_login %}required{% endif %}>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Unlock access</button>
+                    </form>
 
-                <form class="form" method="POST" action="/access">
-                    <input type="hidden" name="next" value="{{ url_for('index') }}">
-                    <div class="field">
-                        <label for="invite_code">Invite code</label>
-                        <input id="invite_code" name="invite_code" type="text" placeholder="Enter invite code" autocomplete="off" {% if invite_required_for_login %}required{% endif %}>
-                    </div>
-                    <button class="btn" type="submit">Unlock access</button>
-                </form>
+                    <div class="divider">or</div>
 
-                <div class="divider">OR</div>
+                    <form method="POST" action="/waitlist">
+                        <input type="hidden" name="next" value="{{ url_for('index') }}">
+                        <div class="form-group">
+                            <label for="waitlist_email">Waitlist email</label>
+                            <input id="waitlist_email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Join waitlist</button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
-                <form class="form" method="POST" action="/waitlist">
-                    <input type="hidden" name="next" value="{{ url_for('index') }}">
-                    <div class="field">
-                        <label for="waitlist_email">Waitlist email</label>
-                        <input id="waitlist_email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
-                    </div>
-                    <button class="btn" type="submit">Join waitlist</button>
-                </form>
-
-                <div class="mini-links">
-                    <a href="/login">Sign in</a>
-                    <a href="/signup">Sign up</a>
+        <div class="section" id="product">
+            <div class="section-title">What you get</div>
+            <div class="grid">
+                <div class="panel feature-card">
+                    <h3>Find people with evidence</h3>
+                    <p>Each candidate includes match score, reasoning, and sources. Uncertainty is labeled when data is thin.</p>
+                </div>
+                <div class="panel feature-card">
+                    <h3>Generate a structured email</h3>
+                    <p>Why them → value exchange → one clear ask → opt‑out. Personalization comes from evidence, not fluff.</p>
+                </div>
+                <div class="panel feature-card">
+                    <h3>Reusable profile</h3>
+                    <p>We persist your sender profile and preferences so you don’t repeat input every time you log in.</p>
                 </div>
             </div>
         </div>
 
         <div class="section" id="how">
-            <h2>How it works</h2>
+            <div class="section-title">How it works</div>
             <div class="grid">
-                <div class="tile">
+                <div class="panel feature-card">
                     <h3>1) Build your profile</h3>
-                    <p>Upload a resume or answer a short questionnaire. We store your sender profile so you don’t repeat work every session.</p>
+                    <p>Upload a resume or answer a short questionnaire to create a structured sender profile.</p>
                 </div>
-                <div class="tile">
-                    <h3>2) Find targets with evidence</h3>
-                    <p>Get a ranked list with match scores and sources. You can verify the evidence before reaching out.</p>
+                <div class="panel feature-card">
+                    <h3>2) Pick targets</h3>
+                    <p>Use AI recommendations or input targets directly. You’ll see the evidence before sending.</p>
                 </div>
-                <div class="tile">
-                    <h3>3) Generate a first email</h3>
-                    <p>Structured output with one clear ask and an opt‑out. Personalization comes from evidence, not empty compliments.</p>
+                <div class="panel feature-card">
+                    <h3>3) Generate & refine</h3>
+                    <p>Generate an email, then iterate tone/length without rewriting from scratch.</p>
                 </div>
             </div>
         </div>
 
         <div class="section">
-            <h2>Example</h2>
-            <div class="example">
-                <div class="tile">
-                    <h3>Recommendation output</h3>
-                    <p class="mono">match_score: 0.86
+            <div class="section-title">Example</div>
+            <div class="example-grid">
+                <div class="panel example-card">
+                    <h4>Recommendation output</h4>
+                    <pre>match_score: 0.86
 match_reason: “Research overlaps in X; your project Y matches their recent work.”
 evidence:
   - https://example.com/paper
   - https://example.com/lab
-uncertainty: “Title may be outdated; verify current role.”</p>
+uncertainty: “Title may be outdated; verify current role.”</pre>
                 </div>
-                <div class="tile">
-                    <h3>Email output</h3>
-                    <p class="mono">Subject: Quick question about &lt;topic&gt;
+                <div class="panel example-card">
+                    <h4>Email output</h4>
+                    <pre>Subject: Quick question about &lt;topic&gt;
 
 Hi &lt;Name&gt; — I’m reaching out because &lt;why them (evidence)&gt;.
 
@@ -500,32 +561,31 @@ In short, I’m &lt;who you are&gt; and I’m working on &lt;what you’re doing
 
 Would you be open to a 15‑minute chat next week? If easier, I can send 2–3 times and work around your schedule.
 
-If now isn’t a good time, no worries at all — thanks for reading.</p>
+If now isn’t a good time, no worries at all — thanks for reading.</pre>
                 </div>
             </div>
         </div>
 
         <div class="section" id="privacy">
-            <h2>Privacy</h2>
+            <div class="section-title">Privacy</div>
             <div class="grid">
-                <div class="tile">
+                <div class="panel feature-card">
                     <h3>What we store</h3>
-                    <p>Per‑user sender profile + preferences to reduce repeated inputs. If you join the waitlist, we store your email for access updates.</p>
+                    <p>Per‑user sender profile + preferences to reduce repeated inputs. Waitlist emails are only for access updates.</p>
                 </div>
-                <div class="tile">
+                <div class="panel feature-card">
                     <h3>What we don’t do</h3>
-                    <p>No fake “mutual connections”, no invented experiences. When information is uncertain, we label it as uncertain.</p>
+                    <p>No invented relationships. No fake “mutual connections.” Uncertainty is explicitly labeled.</p>
                 </div>
-                <div class="tile">
+                <div class="panel feature-card">
                     <h3>Access control</h3>
-                    <p>During private beta, new access is gated by invite codes. Once you’re in, you shouldn’t need to re‑enter the code every time.</p>
+                    <p>During private beta, access is gated by invite codes. Once you’re in, you won’t re‑enter the code every time.</p>
                 </div>
             </div>
         </div>
 
-        <div class="foot">
-            <div>© Connact.ai · Private beta</div>
-            <div style="margin-top: 6px;">Need access? Use the “Get access” box above or go to <a href="/access">/access</a>.</div>
+        <div class="footer">
+            © Connact.ai · Private beta · Need access? Use the “Unlock access” card above or visit <a href="/access">/access</a>.
         </div>
     </div>
 
