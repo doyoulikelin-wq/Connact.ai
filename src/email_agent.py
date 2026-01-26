@@ -402,7 +402,7 @@ def _call_llm_with_usage(
                 system_content="You are a helpful assistant.",
                 user_content=prompt,
                 model=actual_model,
-                temperature=0.7,
+                temperature=0,
                 step=step,
             )
     else:
@@ -612,7 +612,7 @@ def _call_openai_json_with_usage(prompt: str, *, model: str, step: str = "") -> 
             {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
             {"role": "user", "content": prompt},
         ],
-        temperature=0.4,
+        temperature=0,
         response_format={"type": "json_object"},
     )
     content = response.choices[0].message.content
@@ -649,7 +649,7 @@ def _call_openai_json_with_web_search(prompt: str, *, model: str) -> str:
         ],
         tools=[{"type": "web_search"}],
         tool_choice="auto",
-        temperature=0.4,
+        temperature=0,
         response_format={"type": "json_object"},
     )
     content = response.choices[0].message.content
@@ -851,7 +851,7 @@ def generate_email(
             system_content=system_content,
             user_content=user_content,
             model=actual_model,
-            temperature=0.7,
+            temperature=0.3,
             step="generate_email"
         )
     else:
@@ -2997,7 +2997,7 @@ Return only the adjusted email. No explanations."""
             system_content=system_prompt,
             user_content=user_prompt,
             model=actual_model,
-            temperature=0.7,
+            temperature=0.3,
             step="rewrite_email"
         )
     else:
