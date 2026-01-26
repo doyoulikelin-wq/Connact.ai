@@ -120,14 +120,47 @@ def test_invite_required_for_login_validation(tmp_path):
         db_path=tmp_path / "app.db",
         invite_only=False,
         invite_required_for_login=True,
-        invite_codes=["INV123"],
+        invite_codes=[],
         email_verify_ttl_hours=24,
     )
+    invite = service.create_invite(allowed_email="test@example.com", label="test")
 
     with pytest.raises(InviteRequiredError):
         service.validate_invite_for_login(None)
 
     with pytest.raises(InviteInvalidError):
-        service.validate_invite_for_login("NOPE")
+        service.validate_invite_for_login("NOPE", email="test@example.com")
 
-    service.validate_invite_for_login("INV123")
+    invite_id = service.validate_invite_for_login(invite.code, email="test@example.com")
+    assert invite_id
+
+
+def test_db_invite_is_bound_to_email(tmp_path):
+    service = AuthService(
+        db_path=tmp_path / "app.db",
+        invite_only=True,
+        invite_required_for_login=True,
+        invite_codes=[],
+        email_verify_ttl_hours=24,
+    )
+    invite = service.create_invite(allowed_email="bound@example.com", label="bound")
+
+    # Signup must use the invite and match the bound email.
+    verification = service.create_password_user(
+        email="bound@example.com",
+        password="password123",
+        invite_code=invite.code,
+    )
+    assert verification.email == "bound@example.com"
+
+    with pytest.raises(InviteInvalidError):
+        service.create_password_user(
+            email="other@example.com",
+            password="password123",
+            invite_code=invite.code,
+        )
+
+    # Login gating must also match the bound email.
+    service.validate_invite_for_login(invite.code, email="bound@example.com")
+    with pytest.raises(InviteInvalidError):
+        service.validate_invite_for_login(invite.code, email="other@example.com")

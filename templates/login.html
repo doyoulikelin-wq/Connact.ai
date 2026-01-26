@@ -235,6 +235,9 @@
                     autocomplete="off"
                     {% if invite_required_for_login %}required{% endif %}
                 >
+                {% if invite_required_for_login %}
+                <div style="color: #777; font-size: 12px; margin-top: 6px;">Invite codes are personal and tied to your email.</div>
+                {% endif %}
             </div>
             {% endif %}
             <div class="form-group">
@@ -310,6 +313,11 @@
         if (googleBtn) {
             googleBtn.addEventListener('click', function() {
                 const invite = (document.getElementById('invite_code')?.value || '').trim();
+                const inviteRequired = {{ (invite_required_for_login or false) | tojson }};
+                if (inviteRequired && !invite) {
+                    alert('Invite code is required.');
+                    return;
+                }
                 const url = invite
                     ? `/login/google?invite_code=${encodeURIComponent(invite)}`
                     : '/login/google';

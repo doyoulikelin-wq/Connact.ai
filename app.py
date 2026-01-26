@@ -181,10 +181,18 @@ def login():
         invite_code = (request.form.get("invite_code", "") or "").strip()
     
     try:
-        auth_service.validate_invite_for_login(invite_code)
+        invite_id = auth_service.validate_invite_for_login(invite_code, email=email)
         user = auth_service.authenticate_password(
             email=email,
             password=password,
+            ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        auth_service.record_invite_use(
+            invite_id,
+            user_id=user.id,
+            email=email,
+            provider="password",
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
@@ -375,7 +383,7 @@ def google_callback():
 
         invite_code = session.pop("pending_invite_code", None)
         try:
-            auth_service.validate_invite_for_login(invite_code)
+            invite_id = auth_service.validate_invite_for_login(invite_code, email=email)
         except AuthError as e:
             return redirect(url_for("login", error=str(e)))
         user = auth_service.authenticate_google(
@@ -385,6 +393,14 @@ def google_callback():
             avatar_url=picture,
             email_verified=bool(email_verified) if email_verified is not None else None,
             invite_code=invite_code,
+            ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        auth_service.record_invite_use(
+            invite_id,
+            user_id=user.id,
+            email=email,
+            provider="google",
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
@@ -421,8 +437,11 @@ def google_login_start():
     if not GOOGLE_LOGIN_ENABLED:
         return redirect(url_for("login"))
     invite_code = (request.args.get("invite_code", "") or "").strip()
-    if auth_service.invite_required_for_login and not invite_code:
-        return redirect(url_for("login", error="Invite code is required."))
+    if auth_service.invite_required_for_login:
+        if not invite_code:
+            return redirect(url_for("login", error="Invite code is required."))
+        if not auth_service.is_known_invite_code(invite_code):
+            return redirect(url_for("login", error="Invalid invite code."))
     if invite_code:
         session["pending_invite_code"] = invite_code
     return redirect(url_for("google.login"))

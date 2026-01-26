@@ -177,7 +177,7 @@ Quick reading:
 
 1. Visit [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
 2. Log in with **Google** or **Email + Password**
-   - Internal beta: invite code is required to log in
+   - Internal beta: invite code is required to log in (per-user, tied to email)
    - Email signups require email verification before login
 3. **Choose your mode:**
    - **Quick Start**: No resume? Build profile via questionnaire
@@ -216,8 +216,6 @@ Quick reading:
    ```bash
    export SECRET_KEY='your-strong-secret'
    export INVITE_ONLY=true
-   export INVITE_CODE='your-invite-code'   # or INVITE_CODES='code1,code2'
-   # Optional: force invite code on every login (defaults to INVITE_ONLY)
    export INVITE_REQUIRED_FOR_LOGIN=true
    ```
 
@@ -225,6 +223,18 @@ Quick reading:
    - Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
    - Email verification delivery (SMTP): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
      - If SMTP is not configured, the server will print verification links to logs (useful for local/dev).
+
+6. Create per-user invite codes (stored in SQLite at `{DATA_DIR}/app.db`):
+   ```bash
+   python -m src.manage_invites create --email alice@example.com --label "Alice"
+   python -m src.manage_invites create --email bob@example.com --label "Bob"
+   ```
+
+   Notes:
+   - Plaintext invite codes are shown only once at creation time (DB stores hashes).
+   - If you already have legacy env invites (`INVITE_CODE(S)`), they are only used when the DB has no invites.
+   - Revoke an invite: `python -m src.manage_invites revoke --email alice@example.com`
+   - List invites: `python -m src.manage_invites list --active-only`
 
 6. Run the web app:
    ```bash
