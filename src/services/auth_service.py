@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import secrets
 import sqlite3
 import uuid
@@ -46,12 +47,6 @@ def _normalize_email(email: str) -> str:
 
 def _sha256_hex(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-def _generate_invite_code() -> str:
-    """Generate a human-friendly invite code."""
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    token = "".join(secrets.choice(alphabet) for _ in range(10))
-    return f"INV-{token}"
 
 
 class AuthError(Exception):
@@ -93,18 +88,6 @@ class EmailVerification:
     token: str
     expires_at: str
     email: str
-
-
-@dataclass(frozen=True)
-class InviteCreateResult:
-    id: str
-    code: str
-    allowed_email: str | None
-    created_at: str
-    expires_at: str | None
-    revoked_at: str | None
-    max_uses: int | None
-    used_count: int
 
 
 class AuthService:
@@ -237,323 +220,23 @@ class AuthService:
                 """
             )
 
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS invites (
-                    id TEXT PRIMARY KEY,
-                    code_hash TEXT NOT NULL UNIQUE,
-                    label TEXT,
-                    allowed_email TEXT,
-                    created_at TEXT NOT NULL,
-                    expires_at TEXT,
-                    revoked_at TEXT,
-                    max_uses INTEGER,
-                    used_count INTEGER NOT NULL DEFAULT 0
-                )
-                """
-            )
-
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS invite_usages (
-                    id TEXT PRIMARY KEY,
-                    invite_id TEXT NOT NULL,
-                    user_id TEXT,
-                    email TEXT,
-                    provider TEXT,
-                    ip TEXT,
-                    user_agent TEXT,
-                    created_at TEXT NOT NULL,
-                    FOREIGN KEY(invite_id) REFERENCES invites(id) ON DELETE CASCADE,
-                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
-                )
-                """
-            )
-
-    def _has_any_db_invites(self, conn: sqlite3.Connection) -> bool:
-        row = conn.execute("SELECT 1 FROM invites LIMIT 1").fetchone()
-        return row is not None
-
-    def _ensure_invites_configured(self, conn: sqlite3.Connection) -> None:
-        if self._invite_codes:
-            return
-        if self._has_any_db_invites(conn):
-            return
-        raise SignupDisabledError(
-            "Invite gating is enabled but no invites are configured. "
-            "Create DB invites or set INVITE_CODE/INVITE_CODES."
-        )
-
-    def _validate_db_invite(
-        self,
-        conn: sqlite3.Connection,
-        invite_code: str,
-        *,
-        email: str | None,
-    ) -> str:
-        code_hash = _sha256_hex(invite_code)
-        row = conn.execute(
-            """
-            SELECT id, allowed_email, expires_at, revoked_at, max_uses, used_count
-            FROM invites
-            WHERE code_hash = ?
-            LIMIT 1
-            """,
-            (code_hash,),
-        ).fetchone()
-        if not row:
-            raise InviteInvalidError("Invalid invite code.")
-
-        if row["revoked_at"]:
-            raise InviteInvalidError("Invite code has been revoked.")
-
-        if row["expires_at"]:
-            try:
-                expires_at = datetime.fromisoformat(row["expires_at"])
-            except Exception:
-                expires_at = None
-            if expires_at is not None:
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-                if expires_at < _utc_now():
-                    raise InviteInvalidError("Invite code has expired.")
-
-        allowed_email = row["allowed_email"]
-        if allowed_email:
-            email_norm = _normalize_email(email or "")
-            if not email_norm:
-                raise InviteInvalidError("Email is required for this invite code.")
-            if email_norm != allowed_email:
-                raise InviteInvalidError("Invite code is not valid for this email.")
-
-        max_uses = row["max_uses"]
-        used_count = int(row["used_count"] or 0)
-        if max_uses is not None and used_count >= int(max_uses):
-            raise InviteInvalidError("Invite code has reached its usage limit.")
-
-        return row["id"]
-
-    def _validate_invite(
-        self,
-        invite_code: str | None,
-        *,
-        enforce: bool,
-        email: str | None,
-    ) -> str | None:
+    def _validate_invite_code(self, invite_code: str | None, *, enforce: bool) -> None:
         if not enforce:
-            return None
+            return
+        if not self._invite_codes:
+            raise SignupDisabledError("Invite-only is enabled but no invite codes are configured.")
         code = (invite_code or "").strip()
         if not code:
             raise InviteRequiredError("Invite code is required.")
+        if code not in self._invite_codes:
+            raise InviteInvalidError("Invalid invite code.")
 
-        with self._connect() as conn:
-            self._ensure_invites_configured(conn)
+    def validate_invite_for_login(self, invite_code: str | None) -> None:
+        """Validate invite code for login gating (internal beta).
 
-            if self._has_any_db_invites(conn):
-                return self._validate_db_invite(conn, code, email=email)
-
-            if code not in self._invite_codes:
-                raise InviteInvalidError("Invalid invite code.")
-            return None
-
-    def validate_invite_for_signup(self, invite_code: str | None, *, email: str | None = None) -> str | None:
-        """Validate invite code for signup gating (invite-only)."""
-        return self._validate_invite(invite_code, enforce=self._invite_only, email=email)
-
-    def validate_invite_for_login(self, invite_code: str | None, *, email: str | None = None) -> str | None:
-        """Validate invite code for login gating (internal beta)."""
-        return self._validate_invite(invite_code, enforce=self._invite_required_for_login, email=email)
-
-    def is_known_invite_code(self, invite_code: str | None) -> bool:
-        code = (invite_code or "").strip()
-        if not code:
-            return False
-
-        with self._connect() as conn:
-            if self._has_any_db_invites(conn):
-                code_hash = _sha256_hex(code)
-                row = conn.execute(
-                    """
-                    SELECT expires_at, revoked_at
-                    FROM invites
-                    WHERE code_hash = ?
-                    LIMIT 1
-                    """,
-                    (code_hash,),
-                ).fetchone()
-                if not row:
-                    return False
-                if row["revoked_at"]:
-                    return False
-                if row["expires_at"]:
-                    try:
-                        expires_at = datetime.fromisoformat(row["expires_at"])
-                    except Exception:
-                        return False
-                    if expires_at.tzinfo is None:
-                        expires_at = expires_at.replace(tzinfo=timezone.utc)
-                    if expires_at < _utc_now():
-                        return False
-                return True
-
-        return code in self._invite_codes
-
-    def record_invite_use(
-        self,
-        invite_id: str | None,
-        *,
-        user_id: str | None,
-        email: str | None,
-        provider: str | None,
-        ip: str | None = None,
-        user_agent: str | None = None,
-    ) -> None:
-        """Record a successful login using a DB invite."""
-        if not invite_id:
-            return
-        with self._connect() as conn:
-            conn.execute(
-                "UPDATE invites SET used_count = used_count + 1 WHERE id = ?",
-                (invite_id,),
-            )
-            conn.execute(
-                """
-                INSERT INTO invite_usages (id, invite_id, user_id, email, provider, ip, user_agent, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(uuid.uuid4()),
-                    invite_id,
-                    user_id,
-                    _normalize_email(email or "") if email else None,
-                    provider,
-                    ip,
-                    user_agent,
-                    _now_iso(),
-                ),
-            )
-
-    def create_invite(
-        self,
-        *,
-        allowed_email: str,
-        label: str | None = None,
-        expires_at: datetime | None = None,
-        max_uses: int | None = None,
-    ) -> InviteCreateResult:
-        """Create a per-email invite code (stored as hash; plaintext returned once)."""
-        email_norm = _normalize_email(allowed_email)
-        if not email_norm:
-            raise AuthError("allowed_email is required.")
-
-        created_at = _now_iso()
-        expires_at_iso = None
-        if expires_at is not None:
-            expires_at_aware = expires_at
-            if expires_at_aware.tzinfo is None:
-                expires_at_aware = expires_at_aware.replace(tzinfo=timezone.utc)
-            expires_at_iso = expires_at_aware.isoformat()
-
-        for _ in range(5):
-            code = _generate_invite_code()
-            code_hash = _sha256_hex(code)
-            invite_id = str(uuid.uuid4())
-            try:
-                with self._connect() as conn:
-                    conn.execute(
-                        """
-                        INSERT INTO invites (
-                            id, code_hash, label, allowed_email, created_at, expires_at, revoked_at, max_uses, used_count
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, NULL, ?, 0)
-                        """,
-                        (
-                            invite_id,
-                            code_hash,
-                            (label or "").strip() or None,
-                            email_norm,
-                            created_at,
-                            expires_at_iso,
-                            int(max_uses) if max_uses is not None else None,
-                        ),
-                    )
-                return InviteCreateResult(
-                    id=invite_id,
-                    code=code,
-                    allowed_email=email_norm,
-                    created_at=created_at,
-                    expires_at=expires_at_iso,
-                    revoked_at=None,
-                    max_uses=int(max_uses) if max_uses is not None else None,
-                    used_count=0,
-                )
-            except sqlite3.IntegrityError:
-                continue
-
-        raise AuthError("Failed to generate a unique invite code. Please try again.")
-
-    def revoke_invite_by_id(self, invite_id: str) -> bool:
-        invite_id = (invite_id or "").strip()
-        if not invite_id:
-            return False
-        with self._connect() as conn:
-            cur = conn.execute(
-                "UPDATE invites SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL",
-                (_now_iso(), invite_id),
-            )
-            return cur.rowcount > 0
-
-    def revoke_invites_for_email(self, email: str) -> int:
-        email_norm = _normalize_email(email)
-        if not email_norm:
-            return 0
-        with self._connect() as conn:
-            cur = conn.execute(
-                "UPDATE invites SET revoked_at = ? WHERE allowed_email = ? AND revoked_at IS NULL",
-                (_now_iso(), email_norm),
-            )
-            return int(cur.rowcount or 0)
-
-    def list_invites(
-        self,
-        *,
-        email: str | None = None,
-        include_revoked: bool = True,
-    ) -> list[dict[str, Any]]:
-        """List DB invites (never returns the plaintext code)."""
-        email_norm = _normalize_email(email or "") if email else None
-        where = []
-        params: list[Any] = []
-        if email_norm:
-            where.append("allowed_email = ?")
-            params.append(email_norm)
-        if not include_revoked:
-            where.append("revoked_at IS NULL")
-        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-
-        with self._connect() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT id, label, allowed_email, created_at, expires_at, revoked_at, max_uses, used_count
-                FROM invites
-                {where_sql}
-                ORDER BY created_at DESC
-                """,
-                params,
-            ).fetchall()
-            return [
-                {
-                    "id": r["id"],
-                    "label": r["label"],
-                    "allowed_email": r["allowed_email"],
-                    "created_at": r["created_at"],
-                    "expires_at": r["expires_at"],
-                    "revoked_at": r["revoked_at"],
-                    "max_uses": r["max_uses"],
-                    "used_count": int(r["used_count"] or 0),
-                }
-                for r in rows
-            ]
+        When enabled, *every* login attempt (Google + Email/Password) must provide a valid code.
+        """
+        self._validate_invite_code(invite_code, enforce=self._invite_required_for_login)
 
     def _ensure_profile_row(self, conn: sqlite3.Connection, user_id: str) -> None:
         now = _now_iso()
@@ -635,7 +318,7 @@ class AuthService:
         if not password or len(password) < 8:
             raise AuthError("Password must be at least 8 characters.")
 
-        self.validate_invite_for_signup(invite_code, email=email_norm)
+        self._validate_invite_code(invite_code, enforce=self._invite_only)
 
         now = _now_iso()
         user_id = str(uuid.uuid4())
@@ -1005,7 +688,7 @@ class AuthService:
                 return self._row_to_user(user_row)
 
             # New user (invite-only)
-            self.validate_invite_for_signup(invite_code, email=email_norm)
+            self._validate_invite_code(invite_code, enforce=self._invite_only)
 
             user_id = str(uuid.uuid4())
             conn.execute(

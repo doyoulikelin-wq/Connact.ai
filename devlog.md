@@ -6,9 +6,8 @@
 - 新增 Email/Password 注册与登录（invite-only）
 - Email 注册需要完成邮箱验证后才能登录
 - Google 登录使用更稳定的身份标识（优先从 `id_token` 解析 OIDC `sub`，失败则 fallback 到 userinfo）
-- 邀请码升级为“每人一份、绑定 email、可撤销”，存储在 SQLite（只存 hash，不可逆）
-- 内测开关：可要求每次登录都必须提供邀请码（`INVITE_REQUIRED_FOR_LOGIN`）
-- 邀请码管理 CLI：`python -m src.manage_invites ...`
+- Google 新用户同样要求邀请码（通过 `/login/google?invite_code=...` 传入）
+- 内测开关：可要求每次登录都必须提供邀请码（`INVITE_REQUIRED_FOR_LOGIN`，默认跟随 `INVITE_ONLY`）
 
 ### 个人 Profile（按用户持久化）
 - 新增 SQLite 存储：`{DATA_DIR}/app.db`（可通过 `DB_PATH` 覆盖）
@@ -29,7 +28,7 @@
 
 ### 新增/更新环境变量
 - `INVITE_ONLY`（默认 true）
-- `INVITE_REQUIRED_FOR_LOGIN`（默认跟随 `INVITE_ONLY`）
+- `INVITE_CODE` 或 `INVITE_CODES`（逗号分隔）
 - `DB_PATH`（可选，默认 `{DATA_DIR}/app.db`）
 - `EMAIL_VERIFY_TTL_HOURS`（默认 24）
 - SMTP（可选，用于发送验证邮件）：`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
