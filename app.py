@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from functools import wraps
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -679,6 +680,19 @@ def api_me():
         response["default_step_models"] = DEFAULT_STEP_MODELS
 
     return jsonify(response)
+
+
+@app.route("/api/health")
+def api_health():
+    """Lightweight health check for debugging deployments."""
+    return jsonify(
+        {
+            "status": "ok",
+            "time_utc": datetime.utcnow().isoformat() + "Z",
+            "app_version": APP_VERSION,
+            "render_git_commit": (os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("GIT_COMMIT") or "").strip(),
+        }
+    )
 
 
 @app.route("/api/profile", methods=["GET", "POST"])

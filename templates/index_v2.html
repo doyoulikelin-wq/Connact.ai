@@ -3367,10 +3367,31 @@ I&apos;m {{sender_name}}, currently ...
         }
 
         // Developer Mode Functions
+        async function parseJsonResponse(response) {
+            const status = response.status;
+            const statusText = response.statusText || '';
+            const contentType = (response.headers.get('content-type') || '').toLowerCase();
+            const rawText = await response.text();
+            const trimmed = (rawText || '').trim();
+
+            const looksJson = contentType.includes('application/json') || trimmed.startsWith('{') || trimmed.startsWith('[');
+            if (looksJson) {
+                try {
+                    return trimmed ? JSON.parse(trimmed) : {};
+                } catch (e) {
+                    const snippet = trimmed.replace(/\\s+/g, ' ').slice(0, 200);
+                    throw new Error(`HTTP ${status} ${statusText}: Invalid JSON response: ${snippet}`);
+                }
+            }
+
+            const snippet = trimmed.replace(/\\s+/g, ' ').slice(0, 200);
+            throw new Error(`HTTP ${status} ${statusText}: Server returned non-JSON response: ${snippet}`);
+        }
+
         async function initDeveloperMode() {
             try {
                 const response = await fetch('/api/me');
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
 
                 if (data.success && data.user && data.user.developer_mode) {
                     state.isDeveloperMode = true;
@@ -3780,7 +3801,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: formData
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 
                 if (data.success) {
                     state.senderProfile = data.profile;
@@ -4211,7 +4232,7 @@ I&apos;m {{sender_name}}, currently ...
                     })
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 loading.classList.remove('hidden');
                 
                 if (data.success) {
@@ -4354,7 +4375,7 @@ I&apos;m {{sender_name}}, currently ...
                         })
                     });
                     
-                    const data = await response.json();
+                    const data = await parseJsonResponse(response);
                     loading.classList.add('hidden');
                     
                     if (data.success) {
@@ -5342,7 +5363,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: JSON.stringify(requestBody)
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 
                 // Stop loading animation
                 if (proLoadingInterval) clearInterval(proLoadingInterval);
@@ -5565,7 +5586,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: formData
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 
                 if (data.success) {
                     state.senderProfile = data.profile;
@@ -5615,7 +5636,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: formData
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 
                 if (data.success) {
                     state.manualTargetProfile = data.profile;
@@ -5820,7 +5841,7 @@ I&apos;m {{sender_name}}, currently ...
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(questionnaireBody)
                         });
-                        const data = await response.json();
+                        const data = await parseJsonResponse(response);
                         if (data.success) {
                             state.questionnaireQuestions = Array.isArray(data.questions) ? data.questions : [];
                             state.questionnaireIndex = state.questionnaireHistory.length;
@@ -5852,7 +5873,7 @@ I&apos;m {{sender_name}}, currently ...
                     })
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 
                 if (data.success) {
                     loading.classList.remove('visible');
@@ -6120,7 +6141,7 @@ I&apos;m {{sender_name}}, currently ...
                             max_questions: 5
                         })
                     });
-                    const data = await response.json();
+                    const data = await parseJsonResponse(response);
                     loading.classList.remove('visible');
                     if (data.success) {
                         renderNextQuestion(data);
@@ -6179,7 +6200,7 @@ I&apos;m {{sender_name}}, currently ...
                         max_questions: 5
                     })
                 });
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 loading.classList.remove('visible');
                 if (data.success) {
                     renderNextTargetQuestion(data);
@@ -6316,7 +6337,7 @@ I&apos;m {{sender_name}}, currently ...
                             max_questions: 5
                         })
                     });
-                    const data = await response.json();
+                    const data = await parseJsonResponse(response);
                     loading.classList.remove('visible');
                     if (data.success) {
                         renderNextTargetQuestion(data);
@@ -6450,7 +6471,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: JSON.stringify(requestBody)
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 
                 if (data.success) {
                     stopSearchLoadingAnimation();
@@ -6792,7 +6813,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: JSON.stringify(profileBody)
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 if (data.success) {
                     state.senderProfile = data.profile;
                 }
@@ -7095,7 +7116,7 @@ I&apos;m {{sender_name}}, currently ...
                         body: JSON.stringify(bodyPayload)
                     });
                     
-                    const data = await response.json();
+                    const data = await parseJsonResponse(response);
                     
                     if (data.success) {
                         state.generatedEmails.push({
@@ -7394,7 +7415,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: JSON.stringify(regenBody)
                 });
                 
-                const data = await response.json();
+                const data = await parseJsonResponse(response);
                 
                 if (data.success) {
                     // Store both versions

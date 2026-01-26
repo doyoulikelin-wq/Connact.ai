@@ -9,16 +9,20 @@
 - 新增单元测试覆盖 OpenAI 兼容逻辑
 - Render 部署：`gunicorn` 默认 `--timeout 30` 太短，LLM 调用容易被杀掉导致前端收到 HTML（`Unexpected token '<'`）。已把 `Procfile` timeout 提到 120 秒
 - 简历解析：对超长 resume text 做截断（避免 token 过大导致超时），并支持 `OPENAI_TIMEOUT_SECONDS` 配置 OpenAI 请求超时
+- 前端：统一 JSON 解析（遇到 HTML/非 JSON 时显示 HTTP 状态码 + 响应片段），避免只看到 `Unexpected token '<'`
+- 新增 `/api/health`：快速确认服务在线/部署信息（若 Render 注入 `RENDER_GIT_COMMIT` 会一并返回）
 
 ### Notes / Risks
 - 这些模型将使用默认 temperature（通常为 1），输出可能比 `temperature=0` 更不稳定
 
 ### Modified Files
+- `app.py`
 - `Procfile`
 - `src/email_agent.py`
 - `src/openai_compat.py`
 - `src/web_scraper.py`
 - `src/services/llm_service.py`
+- `templates/index_v2.html`
 - `tests/test_openai_compat.py`
 - `README.md`
 - `devlog.md`
