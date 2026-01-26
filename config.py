@@ -23,6 +23,10 @@ INVITE_ONLY = os.environ.get("INVITE_ONLY", "true").lower() in ("1", "true", "ye
 _invite_codes_raw = os.environ.get("INVITE_CODES", "") or os.environ.get("INVITE_CODE", "")
 INVITE_CODES = [c.strip() for c in _invite_codes_raw.split(",") if c.strip()]
 
+# Developer invite codes: 开发者邀请码，使用这些码注册的用户自动获得开发者模式
+_dev_codes_raw = os.environ.get("DEVELOPER_INVITE_CODES", "")
+DEVELOPER_INVITE_CODES = [c.strip() for c in _dev_codes_raw.split(",") if c.strip()]
+
 # Internal beta: require invite code on every login attempt (Google + Email/Password)
 _invite_required_for_login_raw = os.environ.get("INVITE_REQUIRED_FOR_LOGIN")
 if _invite_required_for_login_raw is None:
@@ -67,3 +71,29 @@ USE_OPENAI_WEB_SEARCH = os.environ.get("USE_OPENAI_WEB_SEARCH", "false").lower()
 
 # Toggle using OpenAI for recommendations at all (fallback uses Gemini)
 USE_OPENAI_RECOMMENDATIONS = os.environ.get("USE_OPENAI_RECOMMENDATIONS", "true").lower() in ("1", "true", "yes")
+
+# ============== 开发者模式配置 ==============
+# 开发者模式下可选的模型列表
+AVAILABLE_MODELS = {
+    "gpt-4o-mini": {"name": "GPT-4o Mini", "price": "$0.15/1M", "tier": "economy"},
+    "gpt-4o": {"name": "GPT-4o", "price": "$2.50/1M", "tier": "standard"},
+    "gpt-4.1": {"name": "GPT-4.1", "price": "$2.00/1M", "tier": "standard"},
+    "gpt-5-nano": {"name": "GPT-5 Nano", "price": "$0.05/1M", "tier": "economy"},
+    "gpt-5-mini": {"name": "GPT-5 Mini", "price": "$0.25/1M", "tier": "economy"},
+    "gpt-5": {"name": "GPT-5", "price": "$1.25/1M", "tier": "standard"},
+    "gpt-5.2": {"name": "GPT-5.2", "price": "$1.75/1M", "tier": "premium"},
+    "o3-mini": {"name": "o3-mini", "price": "$0.55/1M", "tier": "reasoning"},
+    "o3": {"name": "o3", "price": "$2.00/1M", "tier": "reasoning"},
+    "o1": {"name": "o1", "price": "$5.00/1M", "tier": "reasoning"},
+}
+
+# 每个步骤的默认模型（普通用户和开发者未选择时使用）
+DEFAULT_STEP_MODELS = {
+    "profile_extraction": "gpt-5-nano",
+    "questionnaire": "gpt-5-nano",
+    "answer_to_profile": "gpt-5-nano",
+    "find_recommendations": "gpt-5.2",
+    "deep_search": "gpt-5-mini",
+    "generate_email": "gpt-5",
+    "rewrite_email": "gpt-5-mini",
+}

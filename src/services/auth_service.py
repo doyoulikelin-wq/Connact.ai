@@ -29,6 +29,7 @@ from config import (
     INVITE_ONLY,
     INVITE_REQUIRED_FOR_LOGIN,
     EMAIL_VERIFY_TTL_HOURS,
+    DEVELOPER_INVITE_CODES,
 )
 
 
@@ -88,6 +89,8 @@ class User:
     last_login_at: str | None
     beta_access: int = 0
     beta_access_granted_at: str | None = None
+    developer_mode: int = 0
+    developer_mode_granted_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -107,6 +110,7 @@ class AuthService:
         invite_only: bool | None = None,
         invite_required_for_login: bool | None = None,
         invite_codes: list[str] | None = None,
+        developer_invite_codes: list[str] | None = None,
         email_verify_ttl_hours: int | None = None,
     ) -> None:
         self._db_path = Path(db_path) if db_path is not None else DB_PATH
@@ -117,6 +121,9 @@ class AuthService:
             else bool(invite_required_for_login)
         )
         self._invite_codes = INVITE_CODES if invite_codes is None else [c for c in invite_codes if c]
+        self._developer_invite_codes = (
+            DEVELOPER_INVITE_CODES if developer_invite_codes is None else [c for c in developer_invite_codes if c]
+        )
         self._email_verify_ttl_hours = (
             EMAIL_VERIFY_TTL_HOURS if email_verify_ttl_hours is None else int(email_verify_ttl_hours)
         )
@@ -246,6 +253,8 @@ class AuthService:
         migrations = [
             ("beta_access", "ALTER TABLE users ADD COLUMN beta_access INTEGER DEFAULT 0"),
             ("beta_access_granted_at", "ALTER TABLE users ADD COLUMN beta_access_granted_at TEXT"),
+            ("developer_mode", "ALTER TABLE users ADD COLUMN developer_mode INTEGER DEFAULT 0"),
+            ("developer_mode_granted_at", "ALTER TABLE users ADD COLUMN developer_mode_granted_at TEXT"),
         ]
         for _, statement in migrations:
             try:
@@ -254,27 +263,57 @@ class AuthService:
                 # Column likely already exists.
                 continue
 
-    def _validate_invite_code(self, invite_code: str | None, *, enforce: bool) -> None:
+    def _validate_invite_code(self, invite_code: str | None, *, enforce: bool) -> bool:
+        """Validate invite code and return whether it's a developer code.
+
+        Returns:
+            bool: True if developer invite code, False if regular invite code.
+
+        Raises:
+            SignupDisabledError: If invite-only is enabled but no codes configured.
+            InviteRequiredError: If code is required but not provided.
+            InviteInvalidError: If code is invalid.
+        """
         if not enforce:
-            return
-        if not self._invite_codes:
-            raise SignupDisabledError("Invite-only is enabled but no invite codes are configured.")
+            return False
+
         code = (invite_code or "").strip()
+
+        # Check developer codes first
+        if code and code in self._developer_invite_codes:
+            return True  # Developer mode
+
+        # Check regular codes
+        if code and code in self._invite_codes:
+            return False  # Regular user
+
+        # Neither - check if codes are configured
+        all_codes = self._invite_codes + self._developer_invite_codes
+        if not all_codes:
+            raise SignupDisabledError("Invite-only is enabled but no invite codes are configured.")
+
         if not code:
             raise InviteRequiredError("Invite code is required.")
-        if code not in self._invite_codes:
-            raise InviteInvalidError("Invalid invite code.")
 
-    def validate_invite_code(self, invite_code: str | None) -> None:
-        """Validate invite code against configured allowlist (always enforced)."""
-        self._validate_invite_code(invite_code, enforce=True)
+        raise InviteInvalidError("Invalid invite code.")
 
-    def validate_invite_for_login(self, invite_code: str | None) -> None:
+    def validate_invite_code(self, invite_code: str | None) -> bool:
+        """Validate invite code against configured allowlist (always enforced).
+
+        Returns:
+            bool: True if developer invite code, False if regular invite code.
+        """
+        return self._validate_invite_code(invite_code, enforce=True)
+
+    def validate_invite_for_login(self, invite_code: str | None) -> bool:
         """Validate invite code for login gating (internal beta).
 
         When enabled, *every* login attempt (Google + Email/Password) must provide a valid code.
+
+        Returns:
+            bool: True if developer invite code, False if regular invite code.
         """
-        self._validate_invite_code(invite_code, enforce=self._invite_required_for_login)
+        return self._validate_invite_code(invite_code, enforce=self._invite_required_for_login)
 
     def get_user_id_for_password_email(self, email: str) -> str | None:
         email_norm = _normalize_email(email)
@@ -323,6 +362,35 @@ class AuthService:
             conn.execute(
                 "UPDATE users SET beta_access = 1, beta_access_granted_at = COALESCE(beta_access_granted_at, ?) WHERE id = ?",
                 (now, user_id),
+            )
+
+    def user_has_developer_mode(self, user_id: str) -> bool:
+        """Check if user has developer mode enabled."""
+        if not user_id:
+            return False
+        with self._connect() as conn:
+            row = conn.execute("SELECT developer_mode FROM users WHERE id = ? LIMIT 1", (user_id,)).fetchone()
+            return bool(_parse_int(row["developer_mode"] if row else 0))
+
+    def grant_developer_mode(self, user_id: str) -> None:
+        """Grant developer mode to a user."""
+        if not user_id:
+            return
+        now = _now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET developer_mode = 1, developer_mode_granted_at = COALESCE(developer_mode_granted_at, ?) WHERE id = ?",
+                (now, user_id),
+            )
+
+    def revoke_developer_mode(self, user_id: str) -> None:
+        """Revoke developer mode from a user."""
+        if not user_id:
+            return
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET developer_mode = 0 WHERE id = ?",
+                (user_id,),
             )
 
     def add_waitlist_email(
@@ -393,6 +461,8 @@ class AuthService:
         keys = set(row.keys())
         beta_access = _parse_int(row["beta_access"]) if "beta_access" in keys else 0
         beta_access_granted_at = row["beta_access_granted_at"] if "beta_access_granted_at" in keys else None
+        developer_mode = _parse_int(row["developer_mode"]) if "developer_mode" in keys else 0
+        developer_mode_granted_at = row["developer_mode_granted_at"] if "developer_mode_granted_at" in keys else None
         return User(
             id=row["id"],
             primary_email=row["primary_email"],
@@ -402,6 +472,8 @@ class AuthService:
             last_login_at=row["last_login_at"],
             beta_access=beta_access,
             beta_access_granted_at=beta_access_granted_at,
+            developer_mode=developer_mode,
+            developer_mode_granted_at=developer_mode_granted_at,
         )
 
     def get_user(self, user_id: str) -> User | None:
@@ -413,7 +485,9 @@ class AuthService:
                 SELECT
                     id, primary_email, display_name, avatar_url, created_at, last_login_at,
                     COALESCE(beta_access, 0) AS beta_access,
-                    beta_access_granted_at
+                    beta_access_granted_at,
+                    COALESCE(developer_mode, 0) AS developer_mode,
+                    developer_mode_granted_at
                 FROM users
                 WHERE id = ?
                 """,
@@ -441,7 +515,7 @@ class AuthService:
         if not password or len(password) < 8:
             raise AuthError("Password must be at least 8 characters.")
 
-        self._validate_invite_code(invite_code, enforce=self._invite_only)
+        is_developer = self._validate_invite_code(invite_code, enforce=self._invite_only)
 
         now = _now_iso()
         user_id = str(uuid.uuid4())
@@ -464,10 +538,10 @@ class AuthService:
 
             conn.execute(
                 """
-                INSERT INTO users (id, primary_email, display_name, avatar_url, created_at, last_login_at, is_active)
-                VALUES (?, ?, ?, NULL, ?, NULL, 1)
+                INSERT INTO users (id, primary_email, display_name, avatar_url, created_at, last_login_at, is_active, developer_mode, developer_mode_granted_at)
+                VALUES (?, ?, ?, NULL, ?, NULL, 1, ?, ?)
                 """,
-                (user_id, email_norm, (display_name or "").strip() or None, now),
+                (user_id, email_norm, (display_name or "").strip() or None, now, 1 if is_developer else 0, now if is_developer else None),
             )
             conn.execute(
                 """
@@ -739,7 +813,7 @@ class AuthService:
                     user_agent=user_agent,
                 )
                 row = conn.execute(
-                    "SELECT id, primary_email, display_name, avatar_url, created_at, last_login_at FROM users WHERE id = ?",
+                    "SELECT id, primary_email, display_name, avatar_url, created_at, last_login_at, COALESCE(developer_mode, 0) AS developer_mode, developer_mode_granted_at, COALESCE(beta_access, 0) AS beta_access, beta_access_granted_at FROM users WHERE id = ?",
                     (user_id,),
                 ).fetchone()
                 return self._row_to_user(row)
@@ -749,7 +823,9 @@ class AuthService:
             if email_norm:
                 user_row = conn.execute(
                     """
-                    SELECT id, primary_email, display_name, avatar_url, created_at, last_login_at
+                    SELECT id, primary_email, display_name, avatar_url, created_at, last_login_at,
+                        COALESCE(developer_mode, 0) AS developer_mode, developer_mode_granted_at,
+                        COALESCE(beta_access, 0) AS beta_access, beta_access_granted_at
                     FROM users
                     WHERE primary_email = ?
                     LIMIT 1
@@ -759,7 +835,9 @@ class AuthService:
                 if not user_row:
                     user_row = conn.execute(
                         """
-                        SELECT u.id, u.primary_email, u.display_name, u.avatar_url, u.created_at, u.last_login_at
+                        SELECT u.id, u.primary_email, u.display_name, u.avatar_url, u.created_at, u.last_login_at,
+                            COALESCE(u.developer_mode, 0) AS developer_mode, u.developer_mode_granted_at,
+                            COALESCE(u.beta_access, 0) AS beta_access, u.beta_access_granted_at
                         FROM auth_identities ai
                         JOIN users u ON u.id = ai.user_id
                         WHERE ai.email = ?
@@ -811,13 +889,13 @@ class AuthService:
                 return self._row_to_user(user_row)
 
             # New user (invite-only)
-            self._validate_invite_code(invite_code, enforce=self._invite_only)
+            is_developer = self._validate_invite_code(invite_code, enforce=self._invite_only)
 
             user_id = str(uuid.uuid4())
             conn.execute(
                 """
-                INSERT INTO users (id, primary_email, display_name, avatar_url, created_at, last_login_at, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, 1)
+                INSERT INTO users (id, primary_email, display_name, avatar_url, created_at, last_login_at, is_active, developer_mode, developer_mode_granted_at)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
                 """,
                 (
                     user_id,
@@ -826,6 +904,8 @@ class AuthService:
                     avatar_url,
                     now,
                     now,
+                    1 if is_developer else 0,
+                    now if is_developer else None,
                 ),
             )
             conn.execute(
@@ -857,7 +937,7 @@ class AuthService:
                 user_agent=user_agent,
             )
             row = conn.execute(
-                "SELECT id, primary_email, display_name, avatar_url, created_at, last_login_at FROM users WHERE id = ?",
+                "SELECT id, primary_email, display_name, avatar_url, created_at, last_login_at, COALESCE(developer_mode, 0) AS developer_mode, developer_mode_granted_at, COALESCE(beta_access, 0) AS beta_access, beta_access_granted_at FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
             return self._row_to_user(row)
