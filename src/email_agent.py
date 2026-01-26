@@ -32,6 +32,7 @@ from config import (
     OPENAI_EMAIL_MODEL,
     USE_OPENAI_AS_PRIMARY,
     OPENAI_DEFAULT_MODEL,
+    DEFAULT_STEP_MODELS,
 )
 
 # Prompt 数据收集 (可选)
@@ -392,12 +393,17 @@ def _call_llm_with_usage(
         Tuple of (response text, TokenUsage)
     """
     if USE_OPENAI_AS_PRIMARY:
-        # Use OpenAI - ignore Gemini model names and use OpenAI default
-        # This handles cases where DEFAULT_MODEL (gemini-*) is passed as default
-        if model and model.startswith("gemini"):
-            actual_model = OPENAI_DEFAULT_MODEL
+        # Use OpenAI - determine the right model based on step and config
+        # Priority: explicit non-Gemini model > DEFAULT_STEP_MODELS[step] > OPENAI_DEFAULT_MODEL
+        if model and not model.startswith("gemini"):
+            # Explicit OpenAI model provided, use it
+            actual_model = model
+        elif step and step in DEFAULT_STEP_MODELS:
+            # Use step-specific model from config
+            actual_model = DEFAULT_STEP_MODELS[step]
         else:
-            actual_model = model or OPENAI_DEFAULT_MODEL
+            # Fallback to default
+            actual_model = OPENAI_DEFAULT_MODEL
         if json_mode:
             return _call_openai_json_with_usage(prompt, model=actual_model, step=step)
         else:
