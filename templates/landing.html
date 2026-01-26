@@ -396,6 +396,36 @@
         .roadmap {
             display: grid;
             gap: 14px;
+            position: relative;
+            isolation: isolate;
+            padding-left: 0px;
+        }
+
+        .roadmap::before {
+            content: '';
+            position: absolute;
+            top: 18px;
+            bottom: 18px;
+            left: 46px;
+            width: 2px;
+            border-radius: 999px;
+            background: linear-gradient(
+                180deg,
+                rgba(255, 255, 255, 0),
+                rgba(139, 92, 246, 0.35),
+                rgba(34, 211, 238, 0.25),
+                rgba(244, 114, 182, 0.18),
+                rgba(255, 255, 255, 0)
+            );
+            background-size: 100% 200%;
+            animation: roadmapFlow 7s linear infinite;
+            z-index: 0;
+        }
+
+        @keyframes roadmapFlow {
+            0% { background-position: 0% 0%; opacity: 0.7; }
+            50% { background-position: 0% 65%; opacity: 1; }
+            100% { background-position: 0% 100%; opacity: 0.7; }
         }
 
         .roadmap-step {
@@ -403,6 +433,16 @@
             grid-template-columns: 52px 1fr;
             gap: 14px;
             align-items: start;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.55s ease, transform 0.55s ease, background 0.25s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .roadmap-step.in-view {
+            opacity: 1;
+            transform: translateY(0px);
         }
 
         .roadmap-step:hover {
@@ -426,6 +466,16 @@
             box-shadow: 0 10px 28px var(--accent-glow);
             border: 1px solid rgba(255, 255, 255, 0.10);
             transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .roadmap-step.in-view .step-bubble {
+            animation: stepPulse 4.2s ease-in-out infinite;
+        }
+
+        @keyframes stepPulse {
+            0%, 100% { box-shadow: 0 10px 28px var(--accent-glow); }
+            50% { box-shadow: 0 14px 36px var(--accent-glow), 0 0 26px rgba(139, 92, 246, 0.35); }
         }
 
         .step-title {
@@ -485,6 +535,14 @@
             color: var(--muted-2);
             font-size: 12px;
             line-height: 1.6;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            body::before { animation: none !important; }
+            .roadmap::before { animation: none !important; }
+            .roadmap-step { transition: none !important; opacity: 1 !important; transform: none !important; }
+            .roadmap-step.in-view .step-bubble { animation: none !important; }
+            .btn, .nav-link, .roadmap-step, .step-bubble { transition: none !important; }
         }
     </style>
 </head>
@@ -705,6 +763,25 @@ If now isn’t a good time, no worries at all — thanks for reading.</pre>
                 inviteInput.focus();
             } else if (waitlistInput) {
                 waitlistInput.focus();
+            }
+
+            const steps = Array.from(document.querySelectorAll('.roadmap-step'));
+            if (!steps.length) return;
+
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver(
+                    (entries) => {
+                        for (const entry of entries) {
+                            if (!entry.isIntersecting) continue;
+                            entry.target.classList.add('in-view');
+                            observer.unobserve(entry.target);
+                        }
+                    },
+                    { root: null, rootMargin: '0px 0px -10% 0px', threshold: 0.18 }
+                );
+                for (const step of steps) observer.observe(step);
+            } else {
+                for (const step of steps) step.classList.add('in-view');
             }
         })();
     </script>
