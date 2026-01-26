@@ -27,7 +27,7 @@ from src.services.auth_service import (
     SignupDisabledError,
 )
 
-from config import AVAILABLE_MODELS, DEFAULT_STEP_MODELS
+from config import AVAILABLE_MODELS, DEFAULT_STEP_MODELS, DEVELOPER_INVITE_CODES
 
 from src.email_agent import (
     SenderProfile,
@@ -332,6 +332,10 @@ def login():
         if auth_service.invite_required_for_login and not auth_service.user_has_beta_access(user.id) and invite_ok:
             auth_service.grant_beta_access(user.id)
 
+        # Upgrade to developer mode if using developer invite code
+        if invite_code and invite_code in DEVELOPER_INVITE_CODES and not auth_service.user_has_developer_mode(user.id):
+            auth_service.grant_developer_mode(user.id)
+
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or email
         session["user_name"] = user.display_name or ""
@@ -597,6 +601,10 @@ def google_callback():
             if auth_service.user_has_beta_access(user.id):
                 session["beta_invite_ok"] = True
                 session.permanent = True
+
+        # Upgrade to developer mode if using developer invite code
+        if invite_code and invite_code in DEVELOPER_INVITE_CODES and not auth_service.user_has_developer_mode(user.id):
+            auth_service.grant_developer_mode(user.id)
 
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or (email or "")

@@ -801,6 +801,13 @@ class AuthService:
                     """,
                     (email_norm, (display_name or "").strip() or None, avatar_url, now, user_id),
                 )
+                # Upgrade to developer mode if using developer invite code
+                code = (invite_code or "").strip()
+                if code and code in self._developer_invite_codes:
+                    conn.execute(
+                        "UPDATE users SET developer_mode = 1, developer_mode_granted_at = COALESCE(developer_mode_granted_at, ?) WHERE id = ? AND developer_mode = 0",
+                        (now, user_id),
+                    )
                 self._ensure_profile_row(conn, user_id)
                 self._record_login_event(
                     conn,
