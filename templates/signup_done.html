@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Email - Connact.ai</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 560px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 4em;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.8em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 22px;
+        }
+
+        .card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 18px;
+            text-align: left;
+            margin-bottom: 18px;
+            color: #334155;
+            line-height: 1.6;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 18px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            opacity: 0.95;
+        }
+
+        .linkbox {
+            margin-top: 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            word-break: break-all;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🛡️</div>
+        <h1>Email Verification</h1>
+        <p class="subtitle">One more step to finish setup</p>
+
+        <div class="card">
+            <div><strong>Status:</strong> {{ message }}</div>
+            {% if email %}
+            <div style="margin-top: 8px;"><strong>Email:</strong> {{ email }}</div>
+            {% endif %}
+
+            {% if verification_link %}
+            <div style="margin-top: 12px;">
+                <div><strong>Verification link:</strong></div>
+                <div class="linkbox">{{ verification_link }}</div>
+                <div style="margin-top: 10px;">
+                    <a class="btn" href="{{ verification_link }}">Verify now</a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <a class="btn" href="/login">Back to login</a>
+    </div>
+</body>
+</html>
+

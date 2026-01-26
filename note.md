@@ -18,7 +18,12 @@
 
 ### v1.2 - 切换到 Google Gemini API
 
-### v2.0 (Current) - 智能向导式 Web 界面 🎉
+### v3.1 (Current) - 账号体系 + Profile 持久化
+
+- Invite-only 账号体系：Email/Password（邮箱验证）+ Google OAuth
+- 每个用户有自己的 sender profile / preferences，并会持久化到 SQLite（跨会话复用）
+
+### v2.0 - 智能向导式 Web 界面 🎉
 
 **已实现功能：**
 
@@ -40,7 +45,6 @@
    - 风格调整选项：更专业 / 更亲近 / 更简洁 / 更详细 / 自定义
 
 **线上地址**: https://coldemail-agent.onrender.com/
-**密码**: gogogochufalo
 
 ### v2.1 - 目标偏好问卷 & Field 下沉到 Step 3
 - Step 1 只保留 purpose，移除 field 选择
@@ -85,7 +89,7 @@
 
 - [ ] 一对多（同一个 sender → 多个 receiver 批量生成）
 - [ ] 邮件发送集成（直接发送而非复制）
-- [ ] 用户账号系统（保存历史记录）
+- [x] 用户账号系统（保存历史记录）
 - [ ] 更多领域和场景模板
 - [ ] 邮件效果追踪（打开率、回复率）
 
@@ -93,6 +97,7 @@
 
 ## 5. 最新改动快照
 
+- 新增 invite-only 账号系统：Email/Password（邮箱验证）+ Google OAuth；用户 sender profile / 偏好会持久化并在下次登录自动复用。
 - 新增「全局模式切换」浮动入口：无论在向导哪个步骤，都能随时切换 Quick Start / Professional。切换会重置当前流程并自动进入对应起点（Quick 直接进入 Step 1，Professional 进入轨道选择）。
 - Step 5 邮件展示改为可编辑：拆分 Subject / Body，并提供类似 ChatGPT 的内嵌 Copy 按钮（分别复制主题与正文）。
 - Step 5 自定义语气（Custom）输入框加大，方便写更长的改写指令。

@@ -248,6 +248,34 @@
             box-shadow: var(--shadow-sm);
         }
 
+        .user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-soft);
+            border-radius: 999px;
+            padding: 8px 14px;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 600;
+            max-width: 340px;
+        }
+
+        .user-chip img {
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .user-chip span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
         /* Progress Steps - Holographic Bar */
         .progress-container {
             display: flex;
@@ -1877,7 +1905,17 @@
         <!-- Header -->
         <div class="header">
             <h1><a class="app-logo" href="/" title="Back to home">🤝 Connact.ai</a></h1>
-            <a href="/logout" class="btn-logout">Logout</a>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                {% if user_name or user_email %}
+                <div class="user-chip" title="{{ user_email or '' }}">
+                    {% if user_picture %}
+                    <img src="{{ user_picture }}" alt="User">
+                    {% endif %}
+                    <span>{{ user_name or user_email }}</span>
+                </div>
+                {% endif %}
+                <a href="/logout" class="btn-logout">Logout</a>
+            </div>
         </div>
 
         <!-- Progress Steps (hidden until mode selected) -->
@@ -2712,11 +2750,11 @@ I&apos;m {{sender_name}}, currently ...
                     </li>
                     <li style="padding: 10px 0; border-bottom: 1px solid rgba(139, 92, 246, 0.2); display: flex; align-items: flex-start; gap: 10px;">
                         <span style="color: #22d3ee; font-size: 1.2em;">✓</span>
-                        <span style="color: #e0e0e8;">Uploaded resumes and profile information are processed <strong>securely</strong> and not stored permanently.</span>
+                        <span style="color: #e0e0e8;">Uploaded resumes and profile information are processed <strong>securely</strong>. We may store your profile under your account so you can continue later.</span>
                     </li>
                     <li style="padding: 10px 0; display: flex; align-items: flex-start; gap: 10px;">
                         <span style="color: #22d3ee; font-size: 1.2em;">✓</span>
-                        <span style="color: #e0e0e8;">You can close this app at any time and your session data will be cleared.</span>
+                        <span style="color: #e0e0e8;">You can log out at any time and your session data will be cleared.</span>
                     </li>
                 </ul>
             </div>
@@ -2830,6 +2868,10 @@ I&apos;m {{sender_name}}, currently ...
             const randomPart = Math.random().toString(36).substring(2, 10);
             return `${timestamp}-${randomPart}`;
         }
+
+        // Server-provided persisted profile (per logged-in user)
+        const INITIAL_SENDER_PROFILE = {{ initial_sender_profile | tojson }};
+        const INITIAL_PREFERENCES = {{ initial_preferences | tojson }};
         
         // Global state
         const state = {
@@ -2853,7 +2895,7 @@ I&apos;m {{sender_name}}, currently ...
                 prominence: ''
             },
             hasResume: null,
-            senderProfile: null,
+            senderProfile: INITIAL_SENDER_PROFILE || null,
             questionnaireHistory: [], // [{ question, answer }]
             questionnaireQuestions: [], // Batch questions (Quick Start)
             questionnaireIndex: 0,
@@ -2927,7 +2969,7 @@ I&apos;m {{sender_name}}, currently ...
                     prominence: ''
                 },
                 hasResume: mode === 'quick' ? false : null,
-                senderProfile: null,
+                senderProfile: INITIAL_SENDER_PROFILE || null,
                 questionnaireHistory: [],
                 questionnaireQuestions: [],
                 questionnaireIndex: 0,

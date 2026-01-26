@@ -176,7 +176,9 @@ Quick reading:
 ### Web Interface (Recommended)
 
 1. Visit [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
-2. Enter password: `gogogochufalo`
+2. Log in with **Google** or **Email + Password**
+   - First-time users need an invite code (invite-only)
+   - Email signups require email verification before login
 3. **Choose your mode:**
    - **Quick Start**: No resume? Build profile via questionnaire
    - **Professional**: Upload resume, choose Finance or Academic track
@@ -210,12 +212,24 @@ Quick reading:
    ```
    > Local development uses `./data` by default. On Render, set this to your Disk mount path.
 
-5. Run the web app:
+5. Auth / Accounts (recommended):
+   ```bash
+   export SECRET_KEY='your-strong-secret'
+   export INVITE_ONLY=true
+   export INVITE_CODE='your-invite-code'   # or INVITE_CODES='code1,code2'
+   ```
+
+   Optional:
+   - Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+   - Email verification delivery (SMTP): `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
+     - If SMTP is not configured, the server will print verification links to logs (useful for local/dev).
+
+6. Run the web app:
    ```bash
    python app.py
    ```
 
-4. Open http://localhost:5000 in your browser
+7. Open http://localhost:5000 in your browser
 
 ### CLI Usage
 

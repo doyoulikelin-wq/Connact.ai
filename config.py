@@ -12,6 +12,23 @@ except PermissionError:
     # 本地测试时可能没有权限创建 /var/data，跳过
     pass
 
+# ============== Auth / 用户配置 ==============
+# SQLite 数据库路径（默认放在 DATA_DIR 下）
+DB_PATH = Path(os.environ.get("DB_PATH", str(DATA_DIR / "app.db")))
+
+# Invite-only 注册：默认开启（生产推荐）
+INVITE_ONLY = os.environ.get("INVITE_ONLY", "true").lower() in ("1", "true", "yes")
+
+# Invite codes: 支持单个 INVITE_CODE 或多个 INVITE_CODES（逗号分隔）
+_invite_codes_raw = os.environ.get("INVITE_CODES", "") or os.environ.get("INVITE_CODE", "")
+INVITE_CODES = [c.strip() for c in _invite_codes_raw.split(",") if c.strip()]
+
+# Email verification token 有效期（小时）
+try:
+    EMAIL_VERIFY_TTL_HOURS = int(os.environ.get("EMAIL_VERIFY_TTL_HOURS", "24"))
+except ValueError:
+    EMAIL_VERIFY_TTL_HOURS = 24
+
 # ============== 邮件生成模型配置 ==============
 # 全局开关：使用 OpenAI 作为所有 LLM 调用的后端（默认 true，因为 Gemini 配额用尽）
 USE_OPENAI_AS_PRIMARY = os.environ.get("USE_OPENAI_AS_PRIMARY", "true").lower() in ("1", "true", "yes")

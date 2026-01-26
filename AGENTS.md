@@ -2,7 +2,7 @@
 
 ## 项目结构与模块组织
 
-- `app.py`：Flask Web 入口（路由 + session/密码保护）。
+- `app.py`：Flask Web 入口（路由 + session/账号登录保护）。
 - `src/`：核心逻辑
   - `email_agent.py`：从 PDF/JSON 抽取画像、推荐目标、生成/改写邮件。
   - `web_scraper.py`：轻量搜索与页面抓取（在缺少检索增强/grounding 时作为补充）。
@@ -54,7 +54,7 @@
 
 ## 测试指南
 
-- 尚未配置专用测试框架（当前没有 `tests/` 目录）。
+- 使用 `pytest`（见 `tests/` 目录）。
 - 新增/修改行为时，至少提供可复现路径：
   - CLI：在 `examples/` 增补/更新示例，并在说明中给出运行命令。
   - Web：注明相关接口与请求体（例如 `/api/generate-email`）。
@@ -92,5 +92,5 @@
 
 ## 安全与配置提示
 
-- 通过环境变量配置：`GEMINI_API_KEY`（或 `GOOGLE_API_KEY`）、可选 `OPENAI_API_KEY`，以及 Web 端的 `APP_PASSWORD`/`SECRET_KEY`。
+- 通过环境变量配置：`GEMINI_API_KEY`（或 `GOOGLE_API_KEY`）、可选 `OPENAI_API_KEY`，以及 Web 端的 `SECRET_KEY`、`INVITE_ONLY`、`INVITE_CODE(S)`、`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`（可选）。
 - 不要提交 PDF（`.gitignore` 已忽略 `*.pdf`）。

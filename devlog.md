@@ -1,5 +1,39 @@
 # Development Log
 
+## 2026-01-26: Invite-only 账号体系 + 个人 Profile 持久化
+
+### 账号体系（替换共享 APP_PASSWORD）
+- 新增 Email/Password 注册与登录（invite-only）
+- Email 注册需要完成邮箱验证后才能登录
+- Google 登录使用更稳定的身份标识（优先从 `id_token` 解析 OIDC `sub`，失败则 fallback 到 userinfo）
+- Google 新用户同样要求邀请码（通过 `/login/google?invite_code=...` 传入）
+
+### 个人 Profile（按用户持久化）
+- 新增 SQLite 存储：`{DATA_DIR}/app.db`（可通过 `DB_PATH` 覆盖）
+- 持久化字段：
+  - `sender_profile`（简历解析 / 问卷生成的 sender profile）
+  - `preferences`（最近一次找人偏好）
+- `index_v2` 会自动注入并复用已保存的 sender profile（跨会话）
+
+### 新增接口
+- Web:
+  - `GET/POST /signup`
+  - `GET /verify-email?token=...`
+  - `POST /resend-verification`
+  - `GET /login/google`（启动 Google OAuth，携带邀请码）
+- API:
+  - `GET /api/me`
+  - `GET/POST /api/profile`
+
+### 新增/更新环境变量
+- `INVITE_ONLY`（默认 true）
+- `INVITE_CODE` 或 `INVITE_CODES`（逗号分隔）
+- `DB_PATH`（可选，默认 `{DATA_DIR}/app.db`）
+- `EMAIL_VERIFY_TTL_HOURS`（默认 24）
+- SMTP（可选，用于发送验证邮件）：`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`
+
+Files: `app.py`, `config.py`, `src/services/auth_service.py`, `templates/login.html`, `templates/signup.html`, `templates/signup_done.html`, `templates/index_v2.html`, `tests/test_auth_service.py`, `README.md`, `devlog.md`, `note.md`
+
 ## 2026-01-25: 品牌重命名 + Google OAuth 登录
 
 ### 品牌重命名
@@ -962,9 +996,8 @@ response = gemini_model.generate_content(prompt)
       - Custom instructions
     - Copy to clipboard functionality
 
-- **Password Protection**
-  - Session-based authentication
-  - Password: gogogochufalo
+- **Password Protection (legacy)**
+  - Session-based authentication (removed in 2026-01-26, replaced by per-user accounts)
 
 - **Render Deployment**
   - Live at https://coldemail-agent.onrender.com/

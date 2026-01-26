@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Connact.ai</title>
+    <title>Sign Up - Connact.ai</title>
     <style>
         * {
             margin: 0;
@@ -27,7 +27,7 @@
             padding: 40px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             width: 100%;
-            max-width: 440px;
+            max-width: 460px;
             text-align: center;
         }
 
@@ -62,10 +62,10 @@
             border: 1px solid rgba(185, 28, 28, 0.2);
         }
 
-        .notice.success {
-            background: #ecfdf5;
-            color: #047857;
-            border: 1px solid rgba(4, 120, 87, 0.2);
+        .notice.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid rgba(29, 78, 216, 0.2);
         }
 
         .form-group {
@@ -95,6 +95,12 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
         }
 
+        .help {
+            color: #777;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
         .btn {
             width: 100%;
             padding: 14px 24px;
@@ -115,17 +121,6 @@
 
         .btn:active {
             transform: translateY(0);
-        }
-
-        .btn-secondary {
-            background: white;
-            color: #333;
-            border: 2px solid #e0e0e0;
-        }
-
-        .btn-secondary:hover {
-            border-color: #667eea;
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.15);
         }
 
         .divider {
@@ -186,44 +181,50 @@
         .links a:hover {
             text-decoration: underline;
         }
-
-        details.resend {
-            margin-top: 18px;
-            text-align: left;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 12px 14px;
-            background: #fafafa;
-        }
-
-        details.resend summary {
-            cursor: pointer;
-            color: #555;
-            font-weight: 600;
-        }
-
-        .footer {
-            margin-top: 28px;
-            color: #999;
-            font-size: 12px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="logo">✉️</div>
         <h1>Connact.ai</h1>
-        <p class="subtitle">Log in to continue</p>
+        <p class="subtitle">Create your account</p>
+
+        {% if invite_only %}
+        <div class="notice info">🎫 Invite-only: you’ll need a valid invite code to create a new account.</div>
+        {% endif %}
 
         {% if message %}
-        <div class="notice success">✅ {{ message }}</div>
+        <div class="notice info">ℹ️ {{ message }}</div>
         {% endif %}
 
         {% if error %}
         <div class="notice error">❌ {{ error }}</div>
         {% endif %}
 
-        <form method="POST" action="/login">
+        <form method="POST" action="/signup">
+            <div class="form-group">
+                <label for="invite_code">🎫 Invite code</label>
+                <input
+                    type="text"
+                    id="invite_code"
+                    name="invite_code"
+                    placeholder="Enter invite code"
+                    autocomplete="off"
+                    {% if invite_only %}required{% endif %}
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="name">👤 Name (optional)</label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="Your name"
+                    autocomplete="name"
+                >
+            </div>
+
             <div class="form-group">
                 <label for="email">📧 Email</label>
                 <input
@@ -234,6 +235,7 @@
                     autocomplete="email"
                     required
                 >
+                <div class="help">We’ll require email verification for password signups.</div>
             </div>
 
             <div class="form-group">
@@ -242,54 +244,22 @@
                     type="password"
                     id="password"
                     name="password"
-                    placeholder="Enter your password"
-                    autocomplete="current-password"
+                    placeholder="At least 8 characters"
+                    autocomplete="new-password"
+                    minlength="8"
                     required
                 >
             </div>
 
-            <button type="submit" class="btn">🚀 Log in</button>
+            <button type="submit" class="btn">✨ Create account</button>
         </form>
 
         <div class="links">
-            <a href="/signup">Create an account</a>
+            <a href="/login">Back to login</a>
         </div>
-
-        <details class="resend">
-            <summary>Didn’t get a verification email?</summary>
-            <div style="height: 10px;"></div>
-            <form method="POST" action="/resend-verification">
-                <div class="form-group">
-                    <label for="resend_email">📧 Email</label>
-                    <input
-                        type="email"
-                        id="resend_email"
-                        name="email"
-                        placeholder="you@example.com"
-                        autocomplete="email"
-                        required
-                    >
-                </div>
-                <button type="submit" class="btn btn-secondary">Resend verification email</button>
-            </form>
-        </details>
 
         {% if google_login_enabled %}
         <div class="divider"><span>or</span></div>
-
-        {% if invite_only %}
-        <div class="form-group">
-            <label for="invite_code">🎫 Invite code (required for new accounts)</label>
-            <input
-                type="text"
-                id="invite_code"
-                name="invite_code"
-                placeholder="Enter invite code (optional if you already have an account)"
-                autocomplete="off"
-            >
-        </div>
-        {% endif %}
-
         <button type="button" class="btn-google" id="googleBtn">
             <svg width="20" height="20" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -300,12 +270,10 @@
             Continue with Google
         </button>
         {% endif %}
-
-        <div class="footer">Secure login with verified email or Google</div>
     </div>
 
     <script>
-        document.getElementById('email')?.focus();
+        document.getElementById('invite_code')?.focus();
         const googleBtn = document.getElementById('googleBtn');
         if (googleBtn) {
             googleBtn.addEventListener('click', function() {

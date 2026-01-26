@@ -15,6 +15,16 @@ except ImportError:
     GOOGLE_OAUTH_ENABLED = False
     google = None
 
+from src.services.auth_service import (
+    auth_service,
+    AuthError,
+    InvalidCredentialsError,
+    EmailNotVerifiedError,
+    InviteRequiredError,
+    InviteInvalidError,
+    SignupDisabledError,
+)
+
 from src.email_agent import (
     SenderProfile,
     ReceiverProfile,
@@ -61,10 +71,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'coldemail-secret-key-2024')
 
 # Allow OAuth over HTTP for local development (NEVER use in production!)
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-
-# Password for accessing the app
-APP_PASSWORD = os.environ.get('APP_PASSWORD', 'gogogochufalo')
+if os.environ.get("FLASK_ENV", "").lower() != "production" and os.environ.get("OAUTHLIB_INSECURE_TRANSPORT") is None:
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
@@ -98,7 +106,7 @@ def login_required(f):
     """Decorator to require login for API endpoints."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('authenticated'):
+        if not session.get('user_id'):
             return jsonify({'error': 'Authentication required'}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -107,20 +115,38 @@ def login_required(f):
 @app.route('/')
 def index():
     """Render the main page."""
-    if not session.get('authenticated'):
+    if not session.get('user_id'):
         return redirect(url_for('login'))
     # Use v2 template by default
     if APP_VERSION == 'v3':
-        return render_template('index_v3.html')
+        return render_template(
+            'index_v3.html',
+            user_email=session.get("user_email", ""),
+            user_name=session.get("user_name", ""),
+            user_picture=session.get("user_picture", ""),
+        )
     elif APP_VERSION == 'v2':
-        return render_template('index_v2.html')
-    return render_template('index.html')
+        user_profile = auth_service.get_user_profile(session.get("user_id", "")) if session.get("user_id") else {}
+        return render_template(
+            'index_v2.html',
+            user_email=session.get("user_email", ""),
+            user_name=session.get("user_name", ""),
+            user_picture=session.get("user_picture", ""),
+            initial_sender_profile=user_profile.get("sender_profile"),
+            initial_preferences=user_profile.get("preferences"),
+        )
+    return render_template(
+        'index.html',
+        user_email=session.get("user_email", ""),
+        user_name=session.get("user_name", ""),
+        user_picture=session.get("user_picture", ""),
+    )
 
 
 @app.route('/v3')
 def index_v3():
     """Render the v3 interface for testing."""
-    if not session.get('authenticated'):
+    if not session.get('user_id'):
         return redirect(url_for('login'))
     return render_template('index_v3.html')
 
@@ -129,27 +155,176 @@ def index_v3():
 def login():
     """Handle login."""
     if request.method == 'GET':
-        if session.get('authenticated'):
+        if session.get('user_id'):
             return redirect(url_for('index'))
-        return render_template('login.html', google_login_enabled=GOOGLE_LOGIN_ENABLED)
+
+        error = request.args.get("error")
+        message = request.args.get("message")
+        return render_template(
+            'login.html',
+            google_login_enabled=GOOGLE_LOGIN_ENABLED,
+            error=error,
+            message=message,
+            invite_only=auth_service.invite_only,
+        )
     
-    # Handle POST - check for both JSON and form data
+    # Handle POST - check for both JSON and form data (email/password login)
     if request.is_json:
         data = request.get_json()
+        email = (data.get('email', '') or '').strip()
         password = data.get('password', '')
     else:
+        email = (request.form.get('email', '') or '').strip()
         password = request.form.get('password', '')
     
-    if password == APP_PASSWORD:
-        session['authenticated'] = True
+    try:
+        user = auth_service.authenticate_password(
+            email=email,
+            password=password,
+            ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        session["user_id"] = user.id
+        session["user_email"] = user.primary_email or email
+        session["user_name"] = user.display_name or ""
+        session["user_picture"] = user.avatar_url or ""
+        session["login_method"] = "password"
         session.permanent = True
         if request.is_json:
-            return jsonify({'success': True})
-        return redirect(url_for('index'))
-    else:
+            return jsonify({"success": True})
+        return redirect(url_for("index"))
+    except EmailNotVerifiedError:
         if request.is_json:
-            return jsonify({'error': 'Incorrect password'}), 401
-        return render_template('login.html', error='Incorrect password', google_login_enabled=GOOGLE_LOGIN_ENABLED)
+            return jsonify({"error": "Email not verified", "code": "email_not_verified"}), 403
+        return redirect(url_for("login", error="Email not verified. Please verify your email first."))
+    except InvalidCredentialsError:
+        if request.is_json:
+            return jsonify({"error": "Invalid email or password"}), 401
+        return redirect(url_for("login", error="Invalid email or password."))
+    except AuthError as e:
+        if request.is_json:
+            return jsonify({"error": str(e)}), 400
+        return redirect(url_for("login", error=str(e)))
+
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    """Invite-only signup for email/password accounts (requires email verification)."""
+    if request.method == "GET":
+        if session.get("user_id"):
+            return redirect(url_for("index"))
+        error = request.args.get("error")
+        message = request.args.get("message")
+        return render_template(
+            "signup.html",
+            google_login_enabled=GOOGLE_LOGIN_ENABLED,
+            error=error,
+            message=message,
+            invite_only=auth_service.invite_only,
+        )
+
+    if request.is_json:
+        data = request.get_json()
+        email = (data.get("email", "") or "").strip()
+        password = data.get("password", "") or ""
+        display_name = (data.get("name", "") or "").strip()
+        invite_code = (data.get("invite_code", "") or "").strip()
+    else:
+        email = (request.form.get("email", "") or "").strip()
+        password = request.form.get("password", "") or ""
+        display_name = (request.form.get("name", "") or "").strip()
+        invite_code = (request.form.get("invite_code", "") or "").strip()
+
+    try:
+        verification = auth_service.create_password_user(
+            email=email,
+            password=password,
+            display_name=display_name or None,
+            invite_code=invite_code or None,
+            ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+
+        # Send verification email if SMTP is configured; otherwise show link on screen (dev/local).
+        verification_link = url_for("verify_email", token=verification.token, _external=True)
+        email_sent = _send_verification_email(verification.email, verification_link)
+
+        if request.is_json:
+            return jsonify(
+                {
+                    "success": True,
+                    "email_sent": email_sent,
+                    "verification_link": None if email_sent else verification_link,
+                }
+            )
+        message = "Account created. Please verify your email to log in."
+        if not email_sent:
+            message += " (Email sending not configured; use the verification link below.)"
+        return render_template(
+            "signup_done.html",
+            message=message,
+            email=verification.email,
+            email_sent=email_sent,
+            verification_link=None if email_sent else verification_link,
+        )
+    except (InviteRequiredError, InviteInvalidError, SignupDisabledError) as e:
+        if request.is_json:
+            return jsonify({"error": str(e)}), 403
+        return redirect(url_for("signup", error=str(e)))
+    except AuthError as e:
+        if request.is_json:
+            return jsonify({"error": str(e)}), 400
+        return redirect(url_for("signup", error=str(e)))
+
+
+@app.route("/verify-email")
+def verify_email():
+    """Verify email for password accounts."""
+    token = request.args.get("token", "")
+    user_id = auth_service.verify_email_token(token)
+    if user_id:
+        return redirect(url_for("login", message="Email verified. You can now log in."))
+    return redirect(url_for("login", error="Invalid or expired verification link."))
+
+
+@app.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    """Resend email verification for password accounts."""
+    if request.is_json:
+        data = request.get_json()
+        email = (data.get("email", "") or "").strip()
+    else:
+        email = (request.form.get("email", "") or "").strip()
+    try:
+        verification = auth_service.resend_email_verification(
+            email=email,
+            ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        verification_link = url_for("verify_email", token=verification.token, _external=True)
+        email_sent = _send_verification_email(verification.email, verification_link)
+        if request.is_json:
+            return jsonify(
+                {
+                    "success": True,
+                    "email_sent": email_sent,
+                    "verification_link": None if email_sent else verification_link,
+                }
+            )
+        message = "Verification email resent."
+        if not email_sent:
+            message += " (Email sending not configured; use the verification link below.)"
+        return render_template(
+            "signup_done.html",
+            message=message,
+            email=verification.email,
+            email_sent=email_sent,
+            verification_link=None if email_sent else verification_link,
+        )
+    except AuthError as e:
+        if request.is_json:
+            return jsonify({"error": str(e)}), 400
+        return redirect(url_for("login", error=str(e)))
 
 
 @app.route('/auth/google/callback')
@@ -162,19 +337,60 @@ def google_callback():
         return redirect(url_for('google.login'))
     
     try:
-        # Get user info from Google
-        resp = google.get('/oauth2/v2/userinfo')
-        if resp.ok:
-            user_info = resp.json()
-            session['authenticated'] = True
-            session['user_email'] = user_info.get('email', '')
-            session['user_name'] = user_info.get('name', '')
-            session['user_picture'] = user_info.get('picture', '')
-            session['login_method'] = 'google'
-            session.permanent = True
-            return redirect(url_for('index'))
+        # Prefer stable OIDC subject via id_token if available; fallback to userinfo.
+        claims = None
+        token = getattr(google, "token", None) or {}
+        id_token_str = token.get("id_token")
+        if id_token_str and GOOGLE_CLIENT_ID:
+            try:
+                from google.oauth2 import id_token as google_id_token
+                from google.auth.transport import requests as google_requests
+
+                claims = google_id_token.verify_oauth2_token(
+                    id_token_str,
+                    google_requests.Request(),
+                    GOOGLE_CLIENT_ID,
+                )
+            except Exception:
+                claims = None
+
+        if not claims:
+            resp = google.get("/oauth2/v2/userinfo")
+            if resp.ok:
+                claims = resp.json()
+
+        if not claims:
+            raise Exception("Failed to fetch Google user info.")
+
+        google_sub = claims.get("sub") or claims.get("id") or ""
+        email = claims.get("email")
+        name = claims.get("name")
+        picture = claims.get("picture")
+        email_verified = claims.get("email_verified")
+
+        invite_code = session.pop("pending_invite_code", None)
+        user = auth_service.authenticate_google(
+            google_sub=google_sub,
+            email=email,
+            display_name=name,
+            avatar_url=picture,
+            email_verified=bool(email_verified) if email_verified is not None else None,
+            invite_code=invite_code,
+            ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+
+        session["user_id"] = user.id
+        session["user_email"] = user.primary_email or (email or "")
+        session["user_name"] = user.display_name or (name or "")
+        session["user_picture"] = user.avatar_url or (picture or "")
+        session["login_method"] = "google"
+        session.permanent = True
+        return redirect(url_for("index"))
     except Exception as e:
         print(f"Google OAuth error: {e}")
+        if isinstance(e, (InviteRequiredError, InviteInvalidError, SignupDisabledError)):
+            return redirect(url_for("login", error=str(e)))
     
     return redirect(url_for('login'))
 
@@ -182,12 +398,107 @@ def google_callback():
 @app.route('/logout')
 def logout():
     """Handle logout."""
-    session.pop('authenticated', None)
+    session.pop("user_id", None)
     session.pop('user_email', None)
     session.pop('user_name', None)
     session.pop('user_picture', None)
     session.pop('login_method', None)
     return redirect(url_for('index'))
+
+
+@app.route("/login/google")
+def google_login_start():
+    """Start Google OAuth flow (stores optional invite code in session for new users)."""
+    if not GOOGLE_LOGIN_ENABLED:
+        return redirect(url_for("login"))
+    invite_code = (request.args.get("invite_code", "") or "").strip()
+    if invite_code:
+        session["pending_invite_code"] = invite_code
+    return redirect(url_for("google.login"))
+
+
+@app.route("/api/me")
+@login_required
+def api_me():
+    """Return current user basic info."""
+    user_id = session.get("user_id", "")
+    user = auth_service.get_user(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    return jsonify(
+        {
+            "success": True,
+            "user": {
+                "id": user.id,
+                "email": user.primary_email,
+                "name": user.display_name,
+                "picture": user.avatar_url,
+                "last_login_at": user.last_login_at,
+            },
+        }
+    )
+
+
+@app.route("/api/profile", methods=["GET", "POST"])
+@login_required
+def api_profile():
+    """Get or update current user's persisted profile."""
+    user_id = session.get("user_id", "")
+    if request.method == "GET":
+        profile = auth_service.get_user_profile(user_id)
+        return jsonify({"success": True, **profile})
+
+    data = request.get_json() or {}
+    sender_profile = data.get("sender_profile")
+    preferences = data.get("preferences")
+    auth_service.update_user_profile(
+        user_id=user_id,
+        sender_profile=sender_profile if isinstance(sender_profile, dict) else None,
+        preferences=preferences if isinstance(preferences, dict) else None,
+    )
+    return jsonify({"success": True})
+
+
+def _send_verification_email(to_email: str, verification_link: str) -> bool:
+    """Send email verification link via SMTP if configured.
+
+    Configure with:
+      SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM
+    """
+    host = os.environ.get("SMTP_HOST", "").strip()
+    if not host:
+        print(f"[verify-email] {to_email}: {verification_link}")
+        return False
+
+    import smtplib
+    from email.message import EmailMessage
+
+    try:
+        port = int(os.environ.get("SMTP_PORT", "587"))
+    except ValueError:
+        port = 587
+    username = os.environ.get("SMTP_USERNAME", "").strip()
+    password = os.environ.get("SMTP_PASSWORD", "")
+    from_email = os.environ.get("SMTP_FROM", "").strip() or username or "no-reply@example.com"
+
+    msg = EmailMessage()
+    msg["Subject"] = "Verify your email"
+    msg["From"] = from_email
+    msg["To"] = to_email
+    msg.set_content(
+        "Welcome!\n\nPlease verify your email by opening this link:\n\n"
+        f"{verification_link}\n\n"
+        "If you didn't request this, you can ignore this email.\n"
+    )
+
+    with smtplib.SMTP(host, port) as server:
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        if username and password:
+            server.login(username, password)
+        server.send_message(msg)
+    return True
 
 
 @app.route('/api/upload-sender-pdf', methods=['POST'])
@@ -232,10 +543,24 @@ def upload_sender_pdf():
             'projects': profile.projects,
         }
         sender_profile_cache[session_id] = profile_dict
+
+        # Persist to the logged-in user's profile (for future sessions)
+        user_id = session.get("user_id", "")
+        if user_id:
+            auth_service.update_user_profile(user_id=user_id, sender_profile=profile_dict)
         
         # 保存解析后的简历数据
         if USER_UPLOAD_ENABLED and user_upload_storage:
             user_upload_storage.save_resume_profile(session_id, profile_dict)
+            # Attach user identity info to this upload session (best-effort)
+            user_upload_storage.update_user_info(
+                session_id,
+                {
+                    "user_id": user_id,
+                    "user_email": session.get("user_email", ""),
+                    "login_method": session.get("login_method", ""),
+                },
+            )
         
         return jsonify({
             'success': True,
@@ -489,16 +814,23 @@ def api_profile_from_questionnaire():
     
     try:
         profile = build_profile_from_answers(purpose, field, answers)
+        profile_dict = {
+            'name': profile.get('name', 'User'),
+            'raw_text': profile.get('summary', ''),
+            'education': profile.get('education', []),
+            'experiences': profile.get('experiences', []),
+            'skills': profile.get('skills', []),
+            'projects': profile.get('projects', []),
+        }
+
+        # Persist to the logged-in user's profile (for future sessions)
+        user_id = session.get("user_id", "")
+        if user_id:
+            auth_service.update_user_profile(user_id=user_id, sender_profile=profile_dict)
+
         return jsonify({
             'success': True,
-            'profile': {
-                'name': profile.get('name', 'User'),
-                'raw_text': profile.get('summary', ''),
-                'education': profile.get('education', []),
-                'experiences': profile.get('experiences', []),
-                'skills': profile.get('skills', []),
-                'projects': profile.get('projects', []),
-            }
+            'profile': profile_dict
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -517,6 +849,11 @@ def api_find_recommendations():
     
     if not purpose or not field:
         return jsonify({'error': 'Purpose and field are required'}), 400
+
+    # Persist latest preferences to user profile (best-effort)
+    user_id = session.get("user_id", "")
+    if user_id and isinstance(preferences, dict):
+        auth_service.update_user_profile(user_id=user_id, preferences=preferences)
     
     # 开始数据收集会话
     session_id = None
@@ -524,6 +861,8 @@ def api_find_recommendations():
         session_id = start_prompt_session(user_info={
             "purpose": purpose,
             "field": field,
+            "user_id": user_id,
+            "user_email": session.get("user_email", ""),
             "sender_name": sender_profile.get("name", ""),
             "sender_profile": sender_profile,  # 完整的 sender 信息
             "preferences": preferences,  # 用户偏好
