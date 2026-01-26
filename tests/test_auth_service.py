@@ -97,6 +97,7 @@ def test_profile_persistence_roundtrip(tmp_path):
     service = AuthService(
         db_path=tmp_path / "app.db",
         invite_only=False,
+        invite_required_for_login=False,
         invite_codes=[],
         email_verify_ttl_hours=24,
     )
@@ -113,3 +114,20 @@ def test_profile_persistence_roundtrip(tmp_path):
     assert loaded["sender_profile"]["name"] == "E"
     assert loaded["preferences"]["location"] == "NYC"
 
+
+def test_invite_required_for_login_validation(tmp_path):
+    service = AuthService(
+        db_path=tmp_path / "app.db",
+        invite_only=False,
+        invite_required_for_login=True,
+        invite_codes=["INV123"],
+        email_verify_ttl_hours=24,
+    )
+
+    with pytest.raises(InviteRequiredError):
+        service.validate_invite_for_login(None)
+
+    with pytest.raises(InviteInvalidError):
+        service.validate_invite_for_login("NOPE")
+
+    service.validate_invite_for_login("INV123")

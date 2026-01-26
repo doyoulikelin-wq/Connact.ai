@@ -177,7 +177,7 @@ Quick reading:
 
 1. Visit [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
 2. Log in with **Google** or **Email + Password**
-   - First-time users need an invite code (invite-only)
+   - Internal beta: invite code is required to log in
    - Email signups require email verification before login
 3. **Choose your mode:**
    - **Quick Start**: No resume? Build profile via questionnaire
@@ -217,6 +217,8 @@ Quick reading:
    export SECRET_KEY='your-strong-secret'
    export INVITE_ONLY=true
    export INVITE_CODE='your-invite-code'   # or INVITE_CODES='code1,code2'
+   # Optional: force invite code on every login (defaults to INVITE_ONLY)
+   export INVITE_REQUIRED_FOR_LOGIN=true
    ```
 
    Optional:

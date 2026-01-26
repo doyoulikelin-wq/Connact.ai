@@ -23,6 +23,13 @@ INVITE_ONLY = os.environ.get("INVITE_ONLY", "true").lower() in ("1", "true", "ye
 _invite_codes_raw = os.environ.get("INVITE_CODES", "") or os.environ.get("INVITE_CODE", "")
 INVITE_CODES = [c.strip() for c in _invite_codes_raw.split(",") if c.strip()]
 
+# Internal beta: require invite code on every login attempt (Google + Email/Password)
+_invite_required_for_login_raw = os.environ.get("INVITE_REQUIRED_FOR_LOGIN")
+if _invite_required_for_login_raw is None:
+    INVITE_REQUIRED_FOR_LOGIN = INVITE_ONLY
+else:
+    INVITE_REQUIRED_FOR_LOGIN = _invite_required_for_login_raw.lower() in ("1", "true", "yes")
+
 # Email verification token 有效期（小时）
 try:
     EMAIL_VERIFY_TTL_HOURS = int(os.environ.get("EMAIL_VERIFY_TTL_HOURS", "24"))

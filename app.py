@@ -166,6 +166,7 @@ def login():
             error=error,
             message=message,
             invite_only=auth_service.invite_only,
+            invite_required_for_login=auth_service.invite_required_for_login,
         )
     
     # Handle POST - check for both JSON and form data (email/password login)
@@ -173,11 +174,14 @@ def login():
         data = request.get_json()
         email = (data.get('email', '') or '').strip()
         password = data.get('password', '')
+        invite_code = (data.get("invite_code", "") or "").strip()
     else:
         email = (request.form.get('email', '') or '').strip()
         password = request.form.get('password', '')
+        invite_code = (request.form.get("invite_code", "") or "").strip()
     
     try:
+        auth_service.validate_invite_for_login(invite_code)
         user = auth_service.authenticate_password(
             email=email,
             password=password,
@@ -221,6 +225,7 @@ def signup():
             error=error,
             message=message,
             invite_only=auth_service.invite_only,
+            invite_required_for_login=auth_service.invite_required_for_login,
         )
 
     if request.is_json:
@@ -369,6 +374,10 @@ def google_callback():
         email_verified = claims.get("email_verified")
 
         invite_code = session.pop("pending_invite_code", None)
+        try:
+            auth_service.validate_invite_for_login(invite_code)
+        except AuthError as e:
+            return redirect(url_for("login", error=str(e)))
         user = auth_service.authenticate_google(
             google_sub=google_sub,
             email=email,
@@ -412,6 +421,8 @@ def google_login_start():
     if not GOOGLE_LOGIN_ENABLED:
         return redirect(url_for("login"))
     invite_code = (request.args.get("invite_code", "") or "").strip()
+    if auth_service.invite_required_for_login and not invite_code:
+        return redirect(url_for("login", error="Invite code is required."))
     if invite_code:
         session["pending_invite_code"] = invite_code
     return redirect(url_for("google.login"))

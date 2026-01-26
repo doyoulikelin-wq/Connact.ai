@@ -24,7 +24,13 @@ from typing import Any
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from config import DB_PATH, INVITE_CODES, INVITE_ONLY, EMAIL_VERIFY_TTL_HOURS
+from config import (
+    DB_PATH,
+    INVITE_CODES,
+    INVITE_ONLY,
+    INVITE_REQUIRED_FOR_LOGIN,
+    EMAIL_VERIFY_TTL_HOURS,
+)
 
 
 def _utc_now() -> datetime:
@@ -92,11 +98,17 @@ class AuthService:
         *,
         db_path: Path | None = None,
         invite_only: bool | None = None,
+        invite_required_for_login: bool | None = None,
         invite_codes: list[str] | None = None,
         email_verify_ttl_hours: int | None = None,
     ) -> None:
         self._db_path = Path(db_path) if db_path is not None else DB_PATH
         self._invite_only = INVITE_ONLY if invite_only is None else bool(invite_only)
+        self._invite_required_for_login = (
+            INVITE_REQUIRED_FOR_LOGIN
+            if invite_required_for_login is None
+            else bool(invite_required_for_login)
+        )
         self._invite_codes = INVITE_CODES if invite_codes is None else [c for c in invite_codes if c]
         self._email_verify_ttl_hours = (
             EMAIL_VERIFY_TTL_HOURS if email_verify_ttl_hours is None else int(email_verify_ttl_hours)
@@ -111,6 +123,10 @@ class AuthService:
     @property
     def invite_only(self) -> bool:
         return self._invite_only
+
+    @property
+    def invite_required_for_login(self) -> bool:
+        return self._invite_required_for_login
 
     def _ensure_parent_dir(self) -> None:
         try:
@@ -204,8 +220,8 @@ class AuthService:
                 """
             )
 
-    def _validate_invite(self, invite_code: str | None) -> None:
-        if not self._invite_only:
+    def _validate_invite_code(self, invite_code: str | None, *, enforce: bool) -> None:
+        if not enforce:
             return
         if not self._invite_codes:
             raise SignupDisabledError("Invite-only is enabled but no invite codes are configured.")
@@ -214,6 +230,13 @@ class AuthService:
             raise InviteRequiredError("Invite code is required.")
         if code not in self._invite_codes:
             raise InviteInvalidError("Invalid invite code.")
+
+    def validate_invite_for_login(self, invite_code: str | None) -> None:
+        """Validate invite code for login gating (internal beta).
+
+        When enabled, *every* login attempt (Google + Email/Password) must provide a valid code.
+        """
+        self._validate_invite_code(invite_code, enforce=self._invite_required_for_login)
 
     def _ensure_profile_row(self, conn: sqlite3.Connection, user_id: str) -> None:
         now = _now_iso()
@@ -295,7 +318,7 @@ class AuthService:
         if not password or len(password) < 8:
             raise AuthError("Password must be at least 8 characters.")
 
-        self._validate_invite(invite_code)
+        self._validate_invite_code(invite_code, enforce=self._invite_only)
 
         now = _now_iso()
         user_id = str(uuid.uuid4())
@@ -665,7 +688,7 @@ class AuthService:
                 return self._row_to_user(user_row)
 
             # New user (invite-only)
-            self._validate_invite(invite_code)
+            self._validate_invite_code(invite_code, enforce=self._invite_only)
 
             user_id = str(uuid.uuid4())
             conn.execute(
@@ -766,4 +789,3 @@ class AuthService:
 
 # Global instance for app usage
 auth_service = AuthService()
-

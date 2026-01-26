@@ -7,6 +7,7 @@
 - Email 注册需要完成邮箱验证后才能登录
 - Google 登录使用更稳定的身份标识（优先从 `id_token` 解析 OIDC `sub`，失败则 fallback 到 userinfo）
 - Google 新用户同样要求邀请码（通过 `/login/google?invite_code=...` 传入）
+- 内测开关：可要求每次登录都必须提供邀请码（`INVITE_REQUIRED_FOR_LOGIN`，默认跟随 `INVITE_ONLY`）
 
 ### 个人 Profile（按用户持久化）
 - 新增 SQLite 存储：`{DATA_DIR}/app.db`（可通过 `DB_PATH` 覆盖）
