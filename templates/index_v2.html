@@ -3050,10 +3050,13 @@ I&apos;m {{sender_name}}, currently ...
             selectedModels: {
                 profile_extraction: '',
                 questionnaire: '',
+                answer_to_profile: '',
                 find_recommendations: '',
                 generate_email: '',
                 rewrite_email: ''
-            }
+            },
+            // Token usage tracking (developer mode)
+            tokenUsageLog: []
         };
 
         // Purpose field mapping for better prompts
@@ -3289,6 +3292,7 @@ I&apos;m {{sender_name}}, currently ...
             Object.assign(state, getFreshState(mode));
             resetFormsAndPanels(mode);
             resetRecommendationState();
+            clearTokenUsage();  // Clear token usage for new session
             updateModeSwitcherUI(mode);
 
             const modeSelection = document.getElementById('mode-selection');
@@ -3426,6 +3430,110 @@ I&apos;m {{sender_name}}, currently ...
         function getSelectedModel(stepKey) {
             if (!state.isDeveloperMode) return null;
             return state.selectedModels[stepKey] || null;
+        }
+
+        // Token usage tracking functions
+        function addTokenUsage(usageList) {
+            if (!state.isDeveloperMode || !usageList) return;
+            if (Array.isArray(usageList)) {
+                state.tokenUsageLog.push(...usageList);
+            }
+        }
+
+        function clearTokenUsage() {
+            state.tokenUsageLog = [];
+        }
+
+        // Model pricing (per 1M tokens input, output is typically 3-4x)
+        const MODEL_PRICING = {
+            'gpt-4o-mini': { input: 0.15, output: 0.60 },
+            'gpt-4o': { input: 2.50, output: 10.00 },
+            'gpt-4.1': { input: 2.00, output: 8.00 },
+            'gpt-5-nano': { input: 0.05, output: 0.20 },
+            'gpt-5-mini': { input: 0.25, output: 1.00 },
+            'gpt-5': { input: 1.25, output: 5.00 },
+            'gpt-5.2': { input: 1.75, output: 7.00 },
+            'o3-mini': { input: 0.55, output: 2.20 },
+            'o3': { input: 2.00, output: 8.00 },
+            'o1': { input: 5.00, output: 20.00 },
+        };
+
+        function calculateTokenCost(usage) {
+            const pricing = MODEL_PRICING[usage.model] || { input: 1.00, output: 4.00 };
+            const inputCost = (usage.input_tokens / 1000000) * pricing.input;
+            const outputCost = (usage.output_tokens / 1000000) * pricing.output;
+            return inputCost + outputCost;
+        }
+
+        function showTokenUsageSummary() {
+            if (!state.isDeveloperMode || state.tokenUsageLog.length === 0) return;
+
+            let totalInput = 0;
+            let totalOutput = 0;
+            let totalCost = 0;
+
+            const stepSummary = {};
+            state.tokenUsageLog.forEach(u => {
+                totalInput += u.input_tokens || 0;
+                totalOutput += u.output_tokens || 0;
+                const cost = calculateTokenCost(u);
+                totalCost += cost;
+
+                const step = u.step || 'unknown';
+                if (!stepSummary[step]) {
+                    stepSummary[step] = { input: 0, output: 0, cost: 0, model: u.model };
+                }
+                stepSummary[step].input += u.input_tokens || 0;
+                stepSummary[step].output += u.output_tokens || 0;
+                stepSummary[step].cost += cost;
+            });
+
+            // Build summary HTML
+            let summaryHtml = `
+                <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 20px;">
+                    <h3 style="color: var(--accent); margin-bottom: 15px;">📊 Token Usage Summary</h3>
+                    <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <th style="text-align: left; padding: 8px;">Step</th>
+                            <th style="text-align: right; padding: 8px;">Model</th>
+                            <th style="text-align: right; padding: 8px;">Input</th>
+                            <th style="text-align: right; padding: 8px;">Output</th>
+                            <th style="text-align: right; padding: 8px;">Cost</th>
+                        </tr>`;
+
+            for (const [step, data] of Object.entries(stepSummary)) {
+                summaryHtml += `
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: 8px;">${step}</td>
+                            <td style="text-align: right; padding: 8px; color: var(--muted);">${data.model}</td>
+                            <td style="text-align: right; padding: 8px;">${data.input.toLocaleString()}</td>
+                            <td style="text-align: right; padding: 8px;">${data.output.toLocaleString()}</td>
+                            <td style="text-align: right; padding: 8px;">$${data.cost.toFixed(4)}</td>
+                        </tr>`;
+            }
+
+            summaryHtml += `
+                        <tr style="font-weight: bold; background: rgba(139, 92, 246, 0.1);">
+                            <td style="padding: 8px;">Total</td>
+                            <td style="padding: 8px;"></td>
+                            <td style="text-align: right; padding: 8px;">${totalInput.toLocaleString()}</td>
+                            <td style="text-align: right; padding: 8px;">${totalOutput.toLocaleString()}</td>
+                            <td style="text-align: right; padding: 8px; color: var(--accent);">$${totalCost.toFixed(4)}</td>
+                        </tr>
+                    </table>
+                </div>`;
+
+            // Insert after email result
+            const emailResult = document.getElementById('email-result');
+            if (emailResult) {
+                let usageDiv = document.getElementById('token-usage-summary');
+                if (!usageDiv) {
+                    usageDiv = document.createElement('div');
+                    usageDiv.id = 'token-usage-summary';
+                    emailResult.parentNode.insertBefore(usageDiv, emailResult.nextSibling);
+                }
+                usageDiv.innerHTML = summaryHtml;
+            }
         }
 
         // Initialize
@@ -3666,10 +3774,11 @@ I&apos;m {{sender_name}}, currently ...
                 
                 if (data.success) {
                     state.senderProfile = data.profile;
+                    addTokenUsage(data.token_usage);  // Track token usage
                     loading.classList.add('hidden');
                     success.classList.remove('hidden');
                     nextBtn.disabled = false;
-                    
+
                     // Show resume summary
                     const summary = document.getElementById('pro-resume-summary');
                     summary.innerHTML = `
@@ -5450,6 +5559,7 @@ I&apos;m {{sender_name}}, currently ...
                 
                 if (data.success) {
                     state.senderProfile = data.profile;
+                    addTokenUsage(data.token_usage);  // Track token usage
                     loading.classList.remove('visible');
                     success.classList.remove('hidden');
                     updateQuickStartQuestionnaireVisibility();
@@ -6337,6 +6447,7 @@ I&apos;m {{sender_name}}, currently ...
                     loading.classList.remove('visible');
                     actions.style.display = 'flex';
                     state.recommendations = data.recommendations;
+                    addTokenUsage(data.token_usage);  // Track token usage
                     renderRecommendations(data.recommendations);
                 } else {
                     throw new Error(data.error || 'Failed to find recommendations');
@@ -6982,6 +7093,8 @@ I&apos;m {{sender_name}}, currently ...
                             receiverProfile: receiverProfile,
                             email: data.email
                         });
+                        // Track token usage (developer mode)
+                        addTokenUsage(data.token_usage);
                     } else {
                         state.generatedEmails.push({
                             target: target,
@@ -6990,17 +7103,20 @@ I&apos;m {{sender_name}}, currently ...
                         });
                     }
                 }
-                
+
                 loading.classList.remove('visible');
                 result.classList.remove('hidden');
-                
+
                 // Show navigation if multiple emails
                 if (state.generatedEmails.length > 1) {
                     nav.classList.remove('hidden');
                     document.getElementById('total-emails').textContent = state.generatedEmails.length;
                 }
-                
+
                 displayCurrentEmail();
+
+                // Show token usage summary (developer mode)
+                showTokenUsageSummary();
                 
             } catch (error) {
                 loading.classList.remove('visible');
@@ -7276,12 +7392,15 @@ I&apos;m {{sender_name}}, currently ...
                     state.generatedEmails[state.currentEmailIndex].regeneratedEmail = data.email;
                     state.generatedEmails[state.currentEmailIndex].email = data.email;
                     state.generatedEmails[state.currentEmailIndex].selectedVersion = 'regenerated';
-                    
+
+                    addTokenUsage(data.token_usage);  // Track token usage
                     loading.classList.remove('visible');
                     result.classList.remove('hidden');
-                    
+
                     // Show compare view
                     showCompareView(originalEmail, data.email);
+                    // Update usage summary
+                    showTokenUsageSummary();
                 } else {
                     throw new Error(data.error || 'Failed to regenerate email');
                 }
