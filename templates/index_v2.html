@@ -2003,16 +2003,30 @@
             </div>
             <div class="developer-selector-row">
                 <div class="developer-selector-group">
-                    <label>📄 Profile</label>
+                    <label>📄 Profile Extract</label>
                     <select id="devModelProfile"></select>
                 </div>
                 <div class="developer-selector-group">
-                    <label>🔍 Find</label>
+                    <label>❓ Questionnaire</label>
+                    <select id="devModelQuestionnaire"></select>
+                </div>
+                <div class="developer-selector-group">
+                    <label>📝 Answer→Profile</label>
+                    <select id="devModelAnswerToProfile"></select>
+                </div>
+            </div>
+            <div class="developer-selector-row">
+                <div class="developer-selector-group">
+                    <label>🔍 Find Targets</label>
                     <select id="devModelRecommend"></select>
                 </div>
                 <div class="developer-selector-group">
-                    <label>✉️ Email</label>
+                    <label>✉️ Generate Email</label>
                     <select id="devModelEmail"></select>
+                </div>
+                <div class="developer-selector-group">
+                    <label>🔄 Rewrite Email</label>
+                    <select id="devModelRewrite"></select>
                 </div>
             </div>
         </div>
@@ -3374,8 +3388,11 @@ I&apos;m {{sender_name}}, currently ...
         function populateDeveloperSelectors() {
             const selectors = {
                 'devModelProfile': 'profile_extraction',
+                'devModelQuestionnaire': 'questionnaire',
+                'devModelAnswerToProfile': 'answer_to_profile',
                 'devModelRecommend': 'find_recommendations',
-                'devModelEmail': 'generate_email'
+                'devModelEmail': 'generate_email',
+                'devModelRewrite': 'rewrite_email'
             };
 
             for (const [selectId, stepKey] of Object.entries(selectors)) {
