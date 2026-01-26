@@ -193,11 +193,17 @@ Quick reading:
    pip install -r requirements.txt
    ```
 
-2. Set up Google Gemini API Key:
+2. Set up OpenAI API Key (default backend):
    ```bash
+   export OPENAI_API_KEY=your_api_key
+   ```
+
+   Optional: use Gemini instead of OpenAI:
+   ```bash
+   export USE_OPENAI_AS_PRIMARY=false
    export GEMINI_API_KEY=your_api_key
    ```
-   Get your API Key: https://makersuite.google.com/app/apikey
+   Note: Some OpenAI models (e.g. `gpt-5-nano`, `o1`/`o1-mini`) only support the default temperature. The server will automatically retry by dropping unsupported optional params (e.g. `temperature`, `response_format`) if the API rejects them.
 
 3. (Optional) Set up SerpAPI Key for accurate LinkedIn URLs:
    ```bash

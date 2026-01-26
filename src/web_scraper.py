@@ -215,22 +215,134 @@ def _get_openai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
+def _extract_openai_error_info(exc: Exception) -> dict | None:
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict):
+            return err
+        return body
+
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            err = data.get("error")
+            if isinstance(err, dict):
+                return err
+            return data
+
+    return None
+
+
+def _get_openai_unsupported_param(exc: Exception) -> str | None:
+    info = _extract_openai_error_info(exc) or {}
+    param = info.get("param") if isinstance(info, dict) else None
+    code = info.get("code") if isinstance(info, dict) else None
+    if isinstance(param, str) and code in {"unsupported_value", "unsupported_parameter"}:
+        return param.split(".", 1)[0]
+
+    message = str(info.get("message") if isinstance(info, dict) else "") or str(exc)
+    match = re.search(r"Unsupported value: '([^']+)'", message)
+    if match:
+        return match.group(1).split(".", 1)[0]
+    return None
+
+
+_OPENAI_UNSUPPORTED_PARAMS_BY_MODEL: dict[str, set[str]] = {}
+
+
+def _openai_chat_completions_create_with_fallback(client: OpenAI, create_kwargs: dict) -> object:
+    attempt_kwargs = dict(create_kwargs)
+    model = str(attempt_kwargs.get("model") or "")
+
+    known_unsupported = _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.get(model)
+    if known_unsupported:
+        for param in known_unsupported:
+            attempt_kwargs.pop(param, None)
+
+    for _attempt in range(6):
+        try:
+            return client.chat.completions.create(**attempt_kwargs)
+        except Exception as exc:
+            unsupported_param = _get_openai_unsupported_param(exc)
+            if unsupported_param and unsupported_param in attempt_kwargs and unsupported_param not in {"model", "messages"}:
+                attempt_kwargs.pop(unsupported_param, None)
+                if model:
+                    _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.setdefault(model, set()).add(unsupported_param)
+                print(f"[OpenAI compat] model={model} dropped unsupported param={unsupported_param}")
+                continue
+            raise
+    return client.chat.completions.create(**attempt_kwargs)
+
+
+def _extract_json_from_text(text: str) -> str:
+    """Extract JSON from text that may contain markdown code blocks or extra wrapper text."""
+    json_block_pattern = r"```(?:json)?\\s*\\n?([\\s\\S]*?)\\n?```"
+    matches = re.findall(json_block_pattern, text)
+    if matches:
+        for match in matches:
+            candidate = match.strip()
+            try:
+                json.loads(candidate)
+                return candidate
+            except json.JSONDecodeError:
+                continue
+
+    brace_start = text.find("{")
+    if brace_start != -1:
+        depth = 0
+        for i, char in enumerate(text[brace_start:], brace_start):
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[brace_start : i + 1]
+                    try:
+                        json.loads(candidate)
+                        return candidate
+                    except json.JSONDecodeError:
+                        continue
+
+    return text
+
+
+def _ensure_strict_json(text: str) -> str:
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return cleaned
+    try:
+        json.loads(cleaned)
+        return cleaned
+    except json.JSONDecodeError:
+        extracted = _extract_json_from_text(cleaned)
+        json.loads(extracted)
+        return extracted
+
+
 def _call_openai_json(prompt: str, *, model: str = OPENAI_DEFAULT_MODEL) -> str:
     """Call OpenAI chat completion and return the response text."""
     client = _get_openai_client()
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.4,
-        response_format={"type": "json_object"},
+    response = _openai_chat_completions_create_with_fallback(
+        client,
+        {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.4,
+            "response_format": {"type": "json_object"},
+        },
     )
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("OpenAI response did not contain any content")
-    return content
+    return _ensure_strict_json(content)
 
 
 def extract_person_profile_from_web(

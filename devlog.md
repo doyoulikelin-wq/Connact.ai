@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-01-26: Fix OpenAI temperature=0 unsupported models (Resume upload)
+
+### Changes
+- 修复开发者模式选择 `gpt-5-nano` / `o1` 系列等模型时上传简历报错（OpenAI 400：这些模型不支持 `temperature=0`，只能用默认值）
+- OpenAI 调用增加兼容重试：遇到 unsupported param/value 时自动去掉对应参数（包含 `temperature` / `response_format` 等），并按模型缓存避免重复 400
+- JSON 输出增加兜底：从 code block / wrapper text 中提取 JSON，降低解析失败概率
+- 新增单元测试覆盖 OpenAI 兼容逻辑
+
+### Notes / Risks
+- 这些模型将使用默认 temperature（通常为 1），输出可能比 `temperature=0` 更不稳定
+
+### Modified Files
+- `src/email_agent.py`
+- `src/web_scraper.py`
+- `src/services/llm_service.py`
+- `tests/test_openai_fallback.py`
+- `README.md`
+- `devlog.md`
+
 ## 2026-01-26: Beta Access Gate（邀请码一次验证）+ Waitlist
 
 ### Changes

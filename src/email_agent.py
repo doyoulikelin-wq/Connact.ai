@@ -550,6 +550,104 @@ def _get_openai_client() -> OpenAI:
     return OpenAI(api_key=api_key)
 
 
+def _extract_openai_error_info(exc: Exception) -> dict[str, Any] | None:
+    """
+    Best-effort extraction of OpenAI API error info from exceptions.
+
+    OpenAI python SDK errors often expose a `.body` dict containing:
+      {"error": {"message": "...", "param": "...", "code": "..."}}
+    """
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict):
+            return err
+        return body
+
+    response = getattr(exc, "response", None)
+    if response is not None:
+        try:
+            data = response.json()
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            err = data.get("error")
+            if isinstance(err, dict):
+                return err
+            return data
+
+    return None
+
+
+def _get_openai_unsupported_param(exc: Exception) -> str | None:
+    """Return the top-level request param rejected by OpenAI, if available."""
+    info = _extract_openai_error_info(exc) or {}
+    param = info.get("param") if isinstance(info, dict) else None
+    code = info.get("code") if isinstance(info, dict) else None
+    if isinstance(param, str) and code in {"unsupported_value", "unsupported_parameter"}:
+        return param.split(".", 1)[0]
+
+    import re
+
+    message = str(info.get("message") if isinstance(info, dict) else "") or str(exc)
+    match = re.search(r"Unsupported value: '([^']+)'", message)
+    if match:
+        return match.group(1).split(".", 1)[0]
+    return None
+
+
+_OPENAI_UNSUPPORTED_PARAMS_BY_MODEL: dict[str, set[str]] = {}
+
+
+def _openai_chat_completions_create_with_fallback(
+    client: OpenAI,
+    create_kwargs: dict[str, Any],
+) -> Any:
+    """
+    Call `client.chat.completions.create` with retries for model-specific unsupported params.
+
+    Some OpenAI models (e.g. reasoning models) only accept default temperature and will
+    400 if `temperature` is provided with non-default values.
+    """
+    attempt_kwargs = dict(create_kwargs)
+    model = str(attempt_kwargs.get("model") or "")
+
+    known_unsupported = _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.get(model)
+    if known_unsupported:
+        for param in known_unsupported:
+            attempt_kwargs.pop(param, None)
+
+    for _attempt in range(6):
+        try:
+            return client.chat.completions.create(**attempt_kwargs)
+        except Exception as exc:
+            unsupported_param = _get_openai_unsupported_param(exc)
+            if unsupported_param and unsupported_param in attempt_kwargs and unsupported_param not in {"model", "messages"}:
+                attempt_kwargs.pop(unsupported_param, None)
+                if model:
+                    _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.setdefault(model, set()).add(unsupported_param)
+                print(f"[OpenAI compat] model={model} dropped unsupported param={unsupported_param}")
+                continue
+            raise
+
+    # Defensive: should never reach here
+    return client.chat.completions.create(**attempt_kwargs)
+
+
+def _ensure_strict_json(text: str) -> str:
+    """Ensure the returned string is valid JSON (best-effort extraction from wrappers)."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return cleaned
+    try:
+        json.loads(cleaned)
+        return cleaned
+    except json.JSONDecodeError:
+        extracted = _extract_json_from_text(cleaned)
+        json.loads(extracted)
+        return extracted
+
+
 def _call_openai_chat(
     system_content: str,
     user_content: str,
@@ -585,13 +683,16 @@ def _call_openai_chat_with_usage(
     Call OpenAI chat completion and return content with token usage.
     """
     client = _get_openai_client()
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_content},
-        ],
-        temperature=temperature,
+    response = _openai_chat_completions_create_with_fallback(
+        client,
+        {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content},
+            ],
+            "temperature": temperature,
+        },
     )
     content = response.choices[0].message.content
     if not content:
@@ -616,18 +717,22 @@ def _call_openai_json(prompt: str, *, model: str) -> str:
 def _call_openai_json_with_usage(prompt: str, *, model: str, step: str = "") -> tuple[str, TokenUsage]:
     """Call OpenAI chat completion and return content with token usage."""
     client = _get_openai_client()
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0,
-        response_format={"type": "json_object"},
+    response = _openai_chat_completions_create_with_fallback(
+        client,
+        {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        },
     )
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("OpenAI response did not contain any content")
+    content = _ensure_strict_json(content)
 
     usage = TokenUsage(
         input_tokens=response.usage.prompt_tokens if response.usage else 0,
@@ -644,28 +749,31 @@ def _call_openai_json_with_web_search(prompt: str, *, model: str) -> str:
     Call OpenAI chat completion with built-in web_search tool support.
     """
     client = _get_openai_client()
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a concise research assistant. "
-                    "Use the web_search tool to gather real names and facts before answering. "
-                    "Respond with strict JSON only."
-                ),
-            },
-            {"role": "user", "content": prompt},
-        ],
-        tools=[{"type": "web_search"}],
-        tool_choice="auto",
-        temperature=0,
-        response_format={"type": "json_object"},
+    response = _openai_chat_completions_create_with_fallback(
+        client,
+        {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a concise research assistant. "
+                        "Use the web_search tool to gather real names and facts before answering. "
+                        "Respond with strict JSON only."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "tools": [{"type": "web_search"}],
+            "tool_choice": "auto",
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        },
     )
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("OpenAI response did not contain any content")
-    return content
+    return _ensure_strict_json(content)
 
 
 def extract_profile_from_text(
