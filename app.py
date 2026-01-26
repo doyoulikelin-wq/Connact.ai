@@ -116,6 +116,8 @@ def login_required(f):
 def index():
     """Render the main page."""
     if not session.get('user_id'):
+        if (auth_service.invite_only or auth_service.invite_required_for_login) and not session.get("beta_invite_ok"):
+            return redirect(url_for("access"))
         return redirect(url_for('login'))
     # Use v2 template by default
     if APP_VERSION == 'v3':
@@ -143,6 +145,69 @@ def index():
     )
 
 
+@app.route("/access", methods=["GET", "POST"])
+def access():
+    """Beta access gate: enter invite code or join waitlist."""
+    if session.get("user_id"):
+        return redirect(url_for("index"))
+
+    if request.method == "GET":
+        error = request.args.get("error")
+        message = request.args.get("message")
+        return render_template(
+            "access.html",
+            error=error,
+            message=message,
+            invite_only=auth_service.invite_only,
+            invite_required_for_login=auth_service.invite_required_for_login,
+            invite_ok=bool(session.get("beta_invite_ok")),
+        )
+
+    if request.is_json:
+        data = request.get_json() or {}
+        invite_code = (data.get("invite_code", "") or "").strip()
+    else:
+        invite_code = (request.form.get("invite_code", "") or "").strip()
+
+    try:
+        auth_service.validate_invite_code(invite_code)
+        session["beta_invite_ok"] = True
+        session["beta_invite_code"] = invite_code
+        session.permanent = True
+        if request.is_json:
+            return jsonify({"success": True})
+        return redirect(url_for("login", message="Invite code verified. Please log in or sign up."))
+    except AuthError as e:
+        if request.is_json:
+            return jsonify({"error": str(e)}), 400
+        return redirect(url_for("access", error=str(e)))
+
+
+@app.route("/waitlist", methods=["POST"])
+def waitlist():
+    """Join waitlist by leaving an email address."""
+    if request.is_json:
+        data = request.get_json() or {}
+        email = (data.get("email", "") or "").strip()
+    else:
+        email = (request.form.get("email", "") or "").strip()
+
+    try:
+        created = auth_service.add_waitlist_email(
+            email,
+            ip=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        message = "Thanks! You’re on the waitlist." if created else "You’re already on the waitlist."
+        if request.is_json:
+            return jsonify({"success": True, "created": created})
+        return redirect(url_for("access", message=message))
+    except AuthError as e:
+        if request.is_json:
+            return jsonify({"error": str(e)}), 400
+        return redirect(url_for("access", error=str(e)))
+
+
 @app.route('/v3')
 def index_v3():
     """Render the v3 interface for testing."""
@@ -167,6 +232,7 @@ def login():
             message=message,
             invite_only=auth_service.invite_only,
             invite_required_for_login=auth_service.invite_required_for_login,
+            invite_ok=bool(session.get("beta_invite_ok")),
         )
     
     # Handle POST - check for both JSON and form data (email/password login)
@@ -181,13 +247,39 @@ def login():
         invite_code = (request.form.get("invite_code", "") or "").strip()
     
     try:
-        auth_service.validate_invite_for_login(invite_code)
+        invite_ok = bool(session.get("beta_invite_ok"))
+        if not invite_code:
+            invite_code = (session.get("beta_invite_code") or "").strip()
+
+        if auth_service.invite_required_for_login and not invite_ok:
+            user_id = auth_service.get_user_id_for_password_email(email)
+            if user_id and auth_service.user_has_beta_access(user_id):
+                invite_ok = True
+                session["beta_invite_ok"] = True
+                session.permanent = True
+            else:
+                if invite_code:
+                    auth_service.validate_invite_code(invite_code)
+                    session["beta_invite_ok"] = True
+                    session["beta_invite_code"] = invite_code
+                    session.permanent = True
+                    invite_ok = True
+                else:
+                    if request.is_json:
+                        return jsonify({"error": "Invite code required"}), 403
+                    return redirect(url_for("access", error="Invite code required."))
+
         user = auth_service.authenticate_password(
             email=email,
             password=password,
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
+
+        # Grant beta access after the first successful invite-gated login.
+        if auth_service.invite_required_for_login and not auth_service.user_has_beta_access(user.id) and invite_ok:
+            auth_service.grant_beta_access(user.id)
+
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or email
         session["user_name"] = user.display_name or ""
@@ -217,6 +309,12 @@ def signup():
     if request.method == "GET":
         if session.get("user_id"):
             return redirect(url_for("index"))
+        invite_ok = bool(session.get("beta_invite_ok"))
+        invite_code = (session.get("beta_invite_code") or "").strip()
+        if auth_service.invite_required_for_login and not invite_ok:
+            return redirect(url_for("access", message="Enter an invite code to continue."))
+        if auth_service.invite_only and not invite_code:
+            return redirect(url_for("access", message="Enter an invite code to sign up."))
         error = request.args.get("error")
         message = request.args.get("message")
         return render_template(
@@ -226,6 +324,7 @@ def signup():
             message=message,
             invite_only=auth_service.invite_only,
             invite_required_for_login=auth_service.invite_required_for_login,
+            invite_ok=invite_ok,
         )
 
     if request.is_json:
@@ -241,6 +340,27 @@ def signup():
         invite_code = (request.form.get("invite_code", "") or "").strip()
 
     try:
+        invite_ok = bool(session.get("beta_invite_ok"))
+        if not invite_code:
+            invite_code = (session.get("beta_invite_code") or "").strip()
+
+        if auth_service.invite_required_for_login and not invite_ok:
+            if invite_code:
+                auth_service.validate_invite_code(invite_code)
+                session["beta_invite_ok"] = True
+                session["beta_invite_code"] = invite_code
+                session.permanent = True
+                invite_ok = True
+            else:
+                if request.is_json:
+                    return jsonify({"error": "Invite code required"}), 403
+                return redirect(url_for("access", error="Invite code required."))
+
+        if auth_service.invite_only and not invite_code:
+            if request.is_json:
+                return jsonify({"error": "Invite code required"}), 403
+            return redirect(url_for("access", error="Invite code required."))
+
         verification = auth_service.create_password_user(
             email=email,
             password=password,
@@ -249,6 +369,11 @@ def signup():
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
+
+        if auth_service.invite_required_for_login and invite_ok:
+            user_id = auth_service.get_user_id_for_password_email(email)
+            if user_id:
+                auth_service.grant_beta_access(user_id)
 
         # Send verification email if SMTP is configured; otherwise show link on screen (dev/local).
         verification_link = url_for("verify_email", token=verification.token, _external=True)
@@ -373,11 +498,36 @@ def google_callback():
         picture = claims.get("picture")
         email_verified = claims.get("email_verified")
 
-        invite_code = session.pop("pending_invite_code", None)
-        try:
-            auth_service.validate_invite_for_login(invite_code)
-        except AuthError as e:
-            return redirect(url_for("login", error=str(e)))
+        invite_code = (session.get("beta_invite_code") or "").strip() or None
+        pending_invite_code = (session.pop("pending_invite_code", None) or "").strip() or None
+        if not invite_code and pending_invite_code:
+            invite_code = pending_invite_code
+
+        invite_ok = bool(session.get("beta_invite_ok"))
+        existing_user_id = auth_service.get_user_id_for_google_sub(google_sub)
+        if not existing_user_id and email and (email_verified is True):
+            existing_user_id = auth_service.get_user_id_for_password_email(email)
+
+        if auth_service.invite_required_for_login and not invite_ok:
+            if existing_user_id and auth_service.user_has_beta_access(existing_user_id):
+                invite_ok = True
+                session["beta_invite_ok"] = True
+                session.permanent = True
+            elif invite_code:
+                try:
+                    auth_service.validate_invite_code(invite_code)
+                    session["beta_invite_ok"] = True
+                    session["beta_invite_code"] = invite_code
+                    session.permanent = True
+                    invite_ok = True
+                except AuthError as e:
+                    return redirect(url_for("access", error=str(e)))
+            else:
+                return redirect(url_for("access", error="Invite code required."))
+
+        if auth_service.invite_only and not existing_user_id and not invite_code:
+            return redirect(url_for("access", error="Invite code required."))
+
         user = auth_service.authenticate_google(
             google_sub=google_sub,
             email=email,
@@ -388,6 +538,13 @@ def google_callback():
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
+
+        if auth_service.invite_required_for_login:
+            if invite_ok:
+                auth_service.grant_beta_access(user.id)
+            if auth_service.user_has_beta_access(user.id):
+                session["beta_invite_ok"] = True
+                session.permanent = True
 
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or (email or "")
@@ -421,10 +578,15 @@ def google_login_start():
     if not GOOGLE_LOGIN_ENABLED:
         return redirect(url_for("login"))
     invite_code = (request.args.get("invite_code", "") or "").strip()
-    if auth_service.invite_required_for_login and not invite_code:
-        return redirect(url_for("login", error="Invite code is required."))
     if invite_code:
-        session["pending_invite_code"] = invite_code
+        try:
+            auth_service.validate_invite_code(invite_code)
+            session["beta_invite_ok"] = True
+            session["beta_invite_code"] = invite_code
+            session["pending_invite_code"] = invite_code
+            session.permanent = True
+        except AuthError as e:
+            return redirect(url_for("access", error=str(e)))
     return redirect(url_for("google.login"))
 
 

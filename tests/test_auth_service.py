@@ -6,6 +6,7 @@ import pytest
 
 from src.services.auth_service import (
     AuthService,
+    AuthError,
     EmailNotVerifiedError,
     InviteInvalidError,
     InviteRequiredError,
@@ -131,3 +132,42 @@ def test_invite_required_for_login_validation(tmp_path):
         service.validate_invite_for_login("NOPE")
 
     service.validate_invite_for_login("INV123")
+
+
+def test_waitlist_records_and_dedupes(tmp_path):
+    service = AuthService(
+        db_path=tmp_path / "app.db",
+        invite_only=False,
+        invite_required_for_login=False,
+        invite_codes=[],
+        email_verify_ttl_hours=24,
+    )
+
+    assert service.add_waitlist_email("Waitlist@Example.com", ip="127.0.0.1", user_agent="pytest") is True
+    assert service.add_waitlist_email("waitlist@example.com") is False
+
+    with pytest.raises(AuthError):
+        service.add_waitlist_email("")
+
+
+def test_beta_access_grant_and_check(tmp_path):
+    service = AuthService(
+        db_path=tmp_path / "app.db",
+        invite_only=False,
+        invite_required_for_login=True,
+        invite_codes=["INV123"],
+        email_verify_ttl_hours=24,
+    )
+    service.create_password_user(email="beta@example.com", password="password123", invite_code=None)
+
+    user_id = service.get_user_id_for_password_email("beta@example.com")
+    assert user_id
+    assert service.user_has_beta_access(user_id) is False
+
+    service.grant_beta_access(user_id)
+    assert service.user_has_beta_access(user_id) is True
+
+    user = service.get_user(user_id)
+    assert user
+    assert user.beta_access == 1
+    assert user.beta_access_granted_at

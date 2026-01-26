@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import secrets
 import sqlite3
 import uuid
@@ -48,6 +47,12 @@ def _normalize_email(email: str) -> str:
 def _sha256_hex(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
+def _parse_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
 
 class AuthError(Exception):
     """Base class for auth errors."""
@@ -81,6 +86,8 @@ class User:
     avatar_url: str | None
     created_at: str
     last_login_at: str | None
+    beta_access: int = 0
+    beta_access_granted_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -158,6 +165,7 @@ class AuthService:
                 )
                 """
             )
+            self._ensure_user_columns(conn)
 
             conn.execute(
                 """
@@ -220,6 +228,32 @@ class AuthService:
                 """
             )
 
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS waitlist (
+                    id TEXT PRIMARY KEY,
+                    email TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL,
+                    ip TEXT,
+                    user_agent TEXT
+                )
+                """
+            )
+
+    def _ensure_user_columns(self, conn: sqlite3.Connection) -> None:
+        """Best-effort schema migrations for the users table."""
+        # NOTE: SQLite doesn't support ADD COLUMN IF NOT EXISTS.
+        migrations = [
+            ("beta_access", "ALTER TABLE users ADD COLUMN beta_access INTEGER DEFAULT 0"),
+            ("beta_access_granted_at", "ALTER TABLE users ADD COLUMN beta_access_granted_at TEXT"),
+        ]
+        for _, statement in migrations:
+            try:
+                conn.execute(statement)
+            except sqlite3.OperationalError:
+                # Column likely already exists.
+                continue
+
     def _validate_invite_code(self, invite_code: str | None, *, enforce: bool) -> None:
         if not enforce:
             return
@@ -231,12 +265,89 @@ class AuthService:
         if code not in self._invite_codes:
             raise InviteInvalidError("Invalid invite code.")
 
+    def validate_invite_code(self, invite_code: str | None) -> None:
+        """Validate invite code against configured allowlist (always enforced)."""
+        self._validate_invite_code(invite_code, enforce=True)
+
     def validate_invite_for_login(self, invite_code: str | None) -> None:
         """Validate invite code for login gating (internal beta).
 
         When enabled, *every* login attempt (Google + Email/Password) must provide a valid code.
         """
         self._validate_invite_code(invite_code, enforce=self._invite_required_for_login)
+
+    def get_user_id_for_password_email(self, email: str) -> str | None:
+        email_norm = _normalize_email(email)
+        if not email_norm:
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT user_id
+                FROM auth_identities
+                WHERE provider = 'password' AND provider_sub = ?
+                LIMIT 1
+                """,
+                (email_norm,),
+            ).fetchone()
+            return row["user_id"] if row else None
+
+    def get_user_id_for_google_sub(self, google_sub: str) -> str | None:
+        google_sub = (google_sub or "").strip()
+        if not google_sub:
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT user_id
+                FROM auth_identities
+                WHERE provider = 'google' AND provider_sub = ?
+                LIMIT 1
+                """,
+                (google_sub,),
+            ).fetchone()
+            return row["user_id"] if row else None
+
+    def user_has_beta_access(self, user_id: str) -> bool:
+        if not user_id:
+            return False
+        with self._connect() as conn:
+            row = conn.execute("SELECT beta_access FROM users WHERE id = ? LIMIT 1", (user_id,)).fetchone()
+            return bool(_parse_int(row["beta_access"] if row else 0))
+
+    def grant_beta_access(self, user_id: str) -> None:
+        if not user_id:
+            return
+        now = _now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE users SET beta_access = 1, beta_access_granted_at = COALESCE(beta_access_granted_at, ?) WHERE id = ?",
+                (now, user_id),
+            )
+
+    def add_waitlist_email(
+        self,
+        email: str,
+        *,
+        ip: str | None = None,
+        user_agent: str | None = None,
+    ) -> bool:
+        email_norm = _normalize_email(email)
+        if not email_norm:
+            raise AuthError("Email is required.")
+
+        with self._connect() as conn:
+            existing = conn.execute("SELECT 1 FROM waitlist WHERE email = ? LIMIT 1", (email_norm,)).fetchone()
+            if existing:
+                return False
+            conn.execute(
+                """
+                INSERT INTO waitlist (id, email, created_at, ip, user_agent)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (str(uuid.uuid4()), email_norm, _now_iso(), ip, user_agent),
+            )
+            return True
 
     def _ensure_profile_row(self, conn: sqlite3.Connection, user_id: str) -> None:
         now = _now_iso()
@@ -279,6 +390,9 @@ class AuthService:
         )
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
+        keys = set(row.keys())
+        beta_access = _parse_int(row["beta_access"]) if "beta_access" in keys else 0
+        beta_access_granted_at = row["beta_access_granted_at"] if "beta_access_granted_at" in keys else None
         return User(
             id=row["id"],
             primary_email=row["primary_email"],
@@ -286,6 +400,8 @@ class AuthService:
             avatar_url=row["avatar_url"],
             created_at=row["created_at"],
             last_login_at=row["last_login_at"],
+            beta_access=beta_access,
+            beta_access_granted_at=beta_access_granted_at,
         )
 
     def get_user(self, user_id: str) -> User | None:
@@ -293,7 +409,14 @@ class AuthService:
             return None
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT id, primary_email, display_name, avatar_url, created_at, last_login_at FROM users WHERE id = ?",
+                """
+                SELECT
+                    id, primary_email, display_name, avatar_url, created_at, last_login_at,
+                    COALESCE(beta_access, 0) AS beta_access,
+                    beta_access_granted_at
+                FROM users
+                WHERE id = ?
+                """,
                 (user_id,),
             ).fetchone()
             return self._row_to_user(row) if row else None

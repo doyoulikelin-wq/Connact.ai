@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beta Access - Connact.ai</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 4em;
+            margin-bottom: 16px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.8em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 22px;
+            line-height: 1.5;
+        }
+
+        .notice {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            text-align: left;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .notice.error {
+            background: #ffe6e6;
+            color: #b91c1c;
+            border: 1px solid rgba(185, 28, 28, 0.2);
+        }
+
+        .notice.success {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid rgba(4, 120, 87, 0.2);
+        }
+
+        .notice.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid rgba(29, 78, 216, 0.2);
+        }
+
+        .panel {
+            margin-top: 16px;
+            padding: 18px;
+            border: 1px solid #e0e0e0;
+            border-radius: 16px;
+            background: #fafafa;
+            text-align: left;
+        }
+
+        .panel h2 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .panel p {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+            background: white;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.15);
+        }
+
+        .actions {
+            margin-top: 18px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .actions a {
+            flex: 1;
+            display: inline-block;
+            text-decoration: none;
+            text-align: center;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-weight: 600;
+            border: 2px solid #e0e0e0;
+            color: #333;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .actions a:hover {
+            border-color: #667eea;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.12);
+        }
+
+        .footer {
+            margin-top: 22px;
+            color: #999;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">✉️</div>
+        <h1>Connact.ai</h1>
+        <p class="subtitle">
+            Private beta access.
+            {% if invite_required_for_login %}
+            An invite code is required to enter.
+            {% elif invite_only %}
+            An invite code is required to create a new account.
+            {% else %}
+            Enter an invite code if you have one, or join the waitlist.
+            {% endif %}
+        </p>
+
+        {% if message %}
+        <div class="notice success">✅ {{ message }}</div>
+        {% endif %}
+
+        {% if error %}
+        <div class="notice error">❌ {{ error }}</div>
+        {% endif %}
+
+        {% if invite_ok %}
+        <div class="notice info">ℹ️ Invite verified for this browser. You can log in anytime.</div>
+        {% endif %}
+
+        <div class="panel">
+            <h2>🎫 Have an invite code?</h2>
+            <p>Enter your code once to unlock access on this browser.</p>
+            <form method="POST" action="/access">
+                <div class="form-group">
+                    <label for="invite_code">Invite code</label>
+                    <input type="text" id="invite_code" name="invite_code" placeholder="Enter invite code" autocomplete="off" required>
+                </div>
+                <button type="submit" class="btn">Unlock access</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2>📝 Join the waitlist</h2>
+            <p>Leave your email and we’ll notify you when access opens up.</p>
+            <form method="POST" action="/waitlist">
+                <div class="form-group">
+                    <label for="waitlist_email">Email</label>
+                    <input type="email" id="waitlist_email" name="email" placeholder="you@example.com" autocomplete="email" required>
+                </div>
+                <button type="submit" class="btn btn-secondary">Join waitlist</button>
+            </form>
+        </div>
+
+        <div class="actions">
+            <a href="/login">Log in</a>
+            <a href="/signup">Sign up</a>
+        </div>
+
+        <div class="footer">
+            We’ll only use your waitlist email for access updates.
+        </div>
+    </div>
+
+    <script>
+        const inviteOk = {{ 'true' if invite_ok else 'false' }};
+        const inviteInput = document.getElementById('invite_code');
+        const waitlistInput = document.getElementById('waitlist_email');
+        if (!inviteOk && inviteInput) {
+            inviteInput.focus();
+        } else if (waitlistInput) {
+            waitlistInput.focus();
+        }
+    </script>
+</body>
+</html>

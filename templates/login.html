@@ -68,6 +68,12 @@
             border: 1px solid rgba(4, 120, 87, 0.2);
         }
 
+        .notice.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid rgba(29, 78, 216, 0.2);
+        }
+
         .form-group {
             margin-bottom: 16px;
             text-align: left;
@@ -223,20 +229,14 @@
         <div class="notice error">❌ {{ error }}</div>
         {% endif %}
 
+        {% if invite_required_for_login and not invite_ok %}
+        <div class="notice info">
+            🎫 Private beta: enter your invite code on <a href="/access">the access page</a> to unlock this browser,
+            or join the waitlist.
+        </div>
+        {% endif %}
+
         <form method="POST" action="/login">
-            {% if invite_only or invite_required_for_login %}
-            <div class="form-group">
-                <label for="invite_code">🎫 Invite code{% if invite_required_for_login %} (required){% endif %}</label>
-                <input
-                    type="text"
-                    id="invite_code"
-                    name="invite_code"
-                    placeholder="{% if invite_required_for_login %}Enter invite code to log in{% else %}Enter invite code (required for new accounts){% endif %}"
-                    autocomplete="off"
-                    {% if invite_required_for_login %}required{% endif %}
-                >
-            </div>
-            {% endif %}
             <div class="form-group">
                 <label for="email">📧 Email</label>
                 <input
@@ -309,11 +309,7 @@
         const googleBtn = document.getElementById('googleBtn');
         if (googleBtn) {
             googleBtn.addEventListener('click', function() {
-                const invite = (document.getElementById('invite_code')?.value || '').trim();
-                const url = invite
-                    ? `/login/google?invite_code=${encodeURIComponent(invite)}`
-                    : '/login/google';
-                window.location.href = url;
+                window.location.href = '/login/google';
             });
         }
     </script>

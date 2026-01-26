@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-01-26: Beta Access Gate（邀请码一次验证）+ Waitlist
+
+### Changes
+- 新增 `/access` 入口页：邀请码验证（unlock）+ waitlist 邮箱收集
+- 邀请码只需输入一次：
+  - 浏览器侧用 `session["beta_invite_ok"]` 记忆
+  - 用户首次成功登录/注册后，写入 `users.beta_access`，后续登录可不再反复输入邀请码
+- Google OAuth / Email 登录统一使用同一套 gating 逻辑（缺邀请码时引导到 `/access`）
+- 新增 `waitlist` 表记录邮箱（含 `ip` / `user_agent`）
+
+### Modified Files
+- `app.py`
+- `src/services/auth_service.py`
+- `templates/access.html`
+- `templates/login.html`
+- `templates/signup.html`
+- `tests/test_auth_service.py`
+
 ## 2026-01-26: Invite-only 账号体系 + 个人 Profile 持久化
 
 ### 账号体系（替换共享 APP_PASSWORD）
