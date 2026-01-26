@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connact.ai</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg1: #667eea;
+            --bg2: #764ba2;
+            --text: #0f172a;
+            --muted: #475569;
+            --border: rgba(148, 163, 184, 0.35);
+            --card: rgba(255, 255, 255, 0.92);
+            --shadow: 0 22px 60px rgba(0,0,0,0.22);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            color: var(--text);
+            background: radial-gradient(1200px 600px at 20% 0%, rgba(255,255,255,0.35), rgba(255,255,255,0) 60%),
+                        linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+            min-height: 100vh;
+        }
+
+        a { color: inherit; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .wrap {
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 24px 20px 72px;
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 800;
+            letter-spacing: -0.2px;
+            color: rgba(255,255,255,0.95);
+        }
+
+        .brand .mark {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.18);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.10);
+            color: rgba(255,255,255,0.95);
+            transition: transform 0.15s ease, background 0.15s ease;
+            cursor: pointer;
+        }
+
+        .pill:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.16); }
+
+        .pill.primary {
+            background: rgba(255,255,255,0.92);
+            color: #1f2937;
+            border-color: rgba(255,255,255,0.65);
+        }
+
+        .pill.primary:hover { background: rgba(255,255,255,0.98); }
+
+        .hero {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            gap: 18px;
+            align-items: stretch;
+        }
+
+        @media (max-width: 900px) {
+            .hero { grid-template-columns: 1fr; }
+        }
+
+        .hero-left {
+            padding: 34px 28px;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px);
+        }
+
+        .kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-weight: 800;
+            font-size: 12px;
+            letter-spacing: 0.2px;
+            color: rgba(255,255,255,0.92);
+            border: 1px solid rgba(255,255,255,0.22);
+            background: rgba(255,255,255,0.10);
+        }
+
+        h1 {
+            margin-top: 14px;
+            color: rgba(255,255,255,0.98);
+            font-size: 44px;
+            line-height: 1.05;
+            letter-spacing: -1px;
+        }
+
+        @media (max-width: 520px) {
+            h1 { font-size: 36px; }
+        }
+
+        .sub {
+            margin-top: 14px;
+            color: rgba(255,255,255,0.88);
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 58ch;
+        }
+
+        .points {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 520px) {
+            .points { grid-template-columns: 1fr; }
+        }
+
+        .point {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 12px 12px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.18);
+            background: rgba(255,255,255,0.08);
+        }
+
+        .point b { color: rgba(255,255,255,0.96); }
+        .point span { display: block; color: rgba(255,255,255,0.82); font-size: 13px; line-height: 1.45; margin-top: 2px; }
+
+        .hero-right {
+            border-radius: 22px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            padding: 22px;
+        }
+
+        .notice {
+            padding: 12px 12px;
+            border-radius: 14px;
+            font-size: 14px;
+            line-height: 1.45;
+            text-align: left;
+            margin-bottom: 12px;
+        }
+
+        .notice.success { background: #ecfdf5; color: #047857; border: 1px solid rgba(4, 120, 87, 0.2); }
+        .notice.error { background: #ffe6e6; color: #b91c1c; border: 1px solid rgba(185, 28, 28, 0.2); }
+        .notice.info { background: #eff6ff; color: #1d4ed8; border: 1px solid rgba(29, 78, 216, 0.2); }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: -0.2px;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .card-sub {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        .form {
+            display: grid;
+            gap: 10px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+
+        .field label {
+            font-weight: 800;
+            color: #334155;
+            font-size: 13px;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 14px 14px;
+            border-radius: 12px;
+            border: 2px solid rgba(148, 163, 184, 0.35);
+            font-size: 15px;
+            background: #fff;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .field input:focus {
+            outline: none;
+            border-color: rgba(102, 126, 234, 0.85);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.16);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 900;
+            font-size: 15px;
+            color: white;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+            transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 25px rgba(102, 126, 234, 0.26); }
+
+        .divider {
+            margin: 14px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(148, 163, 184, 0.35);
+        }
+
+        .mini-links {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .mini-links a {
+            flex: 1;
+            min-width: 140px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: #fff;
+            font-weight: 900;
+            color: #1f2937;
+        }
+
+        .section {
+            margin-top: 36px;
+            padding: 0 2px;
+        }
+
+        .section h2 {
+            color: rgba(255,255,255,0.96);
+            font-size: 22px;
+            letter-spacing: -0.4px;
+            margin-bottom: 12px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+
+        @media (max-width: 900px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+
+        .tile {
+            background: rgba(255,255,255,0.90);
+            border: 1px solid rgba(255,255,255,0.70);
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 18px 42px rgba(0,0,0,0.18);
+        }
+
+        .tile h3 {
+            font-size: 16px;
+            font-weight: 950;
+            color: #0f172a;
+            margin-bottom: 6px;
+            letter-spacing: -0.2px;
+        }
+
+        .tile p {
+            color: #475569;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .example {
+            display: grid;
+            grid-template-columns: 0.95fr 1.05fr;
+            gap: 14px;
+        }
+
+        @media (max-width: 900px) { .example { grid-template-columns: 1fr; } }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 12.5px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #0f172a;
+        }
+
+        .foot {
+            margin-top: 40px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255,255,255,0.22);
+            color: rgba(255,255,255,0.86);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .foot a { color: rgba(255,255,255,0.92); text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="nav">
+            <div class="brand">
+                <div class="mark">🤝</div>
+                <div>Connact.ai</div>
+            </div>
+            <div class="nav-links">
+                <a class="pill" href="#product">Product</a>
+                <a class="pill" href="#how">How it works</a>
+                <a class="pill" href="#privacy">Privacy</a>
+                <a class="pill primary" href="/login">Sign in</a>
+            </div>
+        </div>
+
+        <div class="hero" id="top">
+            <div class="hero-left">
+                <div class="kicker">✨ Find people · Write emails · With evidence</div>
+                <h1>Find the right person.<br/>Send the right email.</h1>
+                <div class="sub">
+                    Connact helps you (1) discover the best targets to reach out to and (2) generate a first cold email that’s structured, specific, and grounded in real evidence.
+                </div>
+
+                <div class="points" id="product">
+                    <div class="point">
+                        <div>🔎</div>
+                        <div>
+                            <b>Find people</b>
+                            <span>Each recommendation includes a match score, reasoning, evidence links, and uncertainty when needed.</span>
+                        </div>
+                    </div>
+                    <div class="point">
+                        <div>✉️</div>
+                        <div>
+                            <b>Generate emails</b>
+                            <span>Fixed structure: why them → value → one clear ask → opt‑out. No invented relationships.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hero-right" id="access">
+                {% if message %}
+                <div class="notice success">✅ {{ message }}</div>
+                {% endif %}
+                {% if error %}
+                <div class="notice error">❌ {{ error }}</div>
+                {% endif %}
+
+                {% if invite_ok %}
+                <div class="notice info">ℹ️ Access is unlocked for this browser. You can sign in anytime.</div>
+                {% elif invite_required_for_login %}
+                <div class="notice info">🎫 Private beta: an invite code is required to sign in.</div>
+                {% elif invite_only %}
+                <div class="notice info">🎫 Invite-only: an invite code is required to create a new account.</div>
+                {% else %}
+                <div class="notice info">Join the waitlist or enter an invite code.</div>
+                {% endif %}
+
+                <div class="card-title">Get access</div>
+                <div class="card-sub">Enter an invite code once, or leave your email for the waitlist.</div>
+
+                <form class="form" method="POST" action="/access">
+                    <input type="hidden" name="next" value="{{ url_for('index') }}">
+                    <div class="field">
+                        <label for="invite_code">Invite code</label>
+                        <input id="invite_code" name="invite_code" type="text" placeholder="Enter invite code" autocomplete="off" {% if invite_required_for_login %}required{% endif %}>
+                    </div>
+                    <button class="btn" type="submit">Unlock access</button>
+                </form>
+
+                <div class="divider">OR</div>
+
+                <form class="form" method="POST" action="/waitlist">
+                    <input type="hidden" name="next" value="{{ url_for('index') }}">
+                    <div class="field">
+                        <label for="waitlist_email">Waitlist email</label>
+                        <input id="waitlist_email" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+                    </div>
+                    <button class="btn" type="submit">Join waitlist</button>
+                </form>
+
+                <div class="mini-links">
+                    <a href="/login">Sign in</a>
+                    <a href="/signup">Sign up</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="how">
+            <h2>How it works</h2>
+            <div class="grid">
+                <div class="tile">
+                    <h3>1) Build your profile</h3>
+                    <p>Upload a resume or answer a short questionnaire. We store your sender profile so you don’t repeat work every session.</p>
+                </div>
+                <div class="tile">
+                    <h3>2) Find targets with evidence</h3>
+                    <p>Get a ranked list with match scores and sources. You can verify the evidence before reaching out.</p>
+                </div>
+                <div class="tile">
+                    <h3>3) Generate a first email</h3>
+                    <p>Structured output with one clear ask and an opt‑out. Personalization comes from evidence, not empty compliments.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Example</h2>
+            <div class="example">
+                <div class="tile">
+                    <h3>Recommendation output</h3>
+                    <p class="mono">match_score: 0.86
+match_reason: “Research overlaps in X; your project Y matches their recent work.”
+evidence:
+  - https://example.com/paper
+  - https://example.com/lab
+uncertainty: “Title may be outdated; verify current role.”</p>
+                </div>
+                <div class="tile">
+                    <h3>Email output</h3>
+                    <p class="mono">Subject: Quick question about &lt;topic&gt;
+
+Hi &lt;Name&gt; — I’m reaching out because &lt;why them (evidence)&gt;.
+
+In short, I’m &lt;who you are&gt; and I’m working on &lt;what you’re doing&gt;. I think I could help by &lt;value&gt;.
+
+Would you be open to a 15‑minute chat next week? If easier, I can send 2–3 times and work around your schedule.
+
+If now isn’t a good time, no worries at all — thanks for reading.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="privacy">
+            <h2>Privacy</h2>
+            <div class="grid">
+                <div class="tile">
+                    <h3>What we store</h3>
+                    <p>Per‑user sender profile + preferences to reduce repeated inputs. If you join the waitlist, we store your email for access updates.</p>
+                </div>
+                <div class="tile">
+                    <h3>What we don’t do</h3>
+                    <p>No fake “mutual connections”, no invented experiences. When information is uncertain, we label it as uncertain.</p>
+                </div>
+                <div class="tile">
+                    <h3>Access control</h3>
+                    <p>During private beta, new access is gated by invite codes. Once you’re in, you shouldn’t need to re‑enter the code every time.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="foot">
+            <div>© Connact.ai · Private beta</div>
+            <div style="margin-top: 6px;">Need access? Use the “Get access” box above or go to <a href="/access">/access</a>.</div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const inviteOk = {{ 'true' if invite_ok else 'false' }};
+            const inviteInput = document.getElementById('invite_code');
+            const waitlistInput = document.getElementById('waitlist_email');
+            if (!inviteOk && inviteInput) {
+                inviteInput.focus();
+            } else if (waitlistInput) {
+                waitlistInput.focus();
+            }
+        })();
+    </script>
+</body>
+</html>

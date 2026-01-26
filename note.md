@@ -23,6 +23,7 @@
 - Invite-only 账号体系：Email/Password（邮箱验证）+ Google OAuth
 - 每个用户有自己的 sender profile / preferences，并会持久化到 SQLite（跨会话复用）
 - 新增 `/access`：邀请码一次验证（浏览器 session 记忆）+ waitlist（只收集邮箱并落库）
+- 新增 Landing Page（`/`）：未登录展示产品介绍 + 入口（邀请码/Waitlist）
 - 用户首次成功登录/注册后写入 `users.beta_access`，避免后续反复输入邀请码
 
 ### v2.0 - 智能向导式 Web 界面 🎉
@@ -101,6 +102,7 @@
 
 - 新增 invite-only 账号系统：Email/Password（邮箱验证）+ Google OAuth；用户 sender profile / 偏好会持久化并在下次登录自动复用。
 - 新增内测入口 `/access`：邀请码一次验证 + waitlist 邮箱收集；并通过 `users.beta_access` 让已入内测用户后续登录无需反复输入邀请码。
+- 新增 landing page（`/`）：未登录用户先看到产品介绍和 access box（邀请码/Waitlist）。
 - 新增「全局模式切换」浮动入口：无论在向导哪个步骤，都能随时切换 Quick Start / Professional。切换会重置当前流程并自动进入对应起点（Quick 直接进入 Step 1，Professional 进入轨道选择）。
 - Step 5 邮件展示改为可编辑：拆分 Subject / Body，并提供类似 ChatGPT 的内嵌 Copy 按钮（分别复制主题与正文）。
 - Step 5 自定义语气（Custom）输入框加大，方便写更长的改写指令。

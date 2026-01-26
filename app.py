@@ -4,6 +4,8 @@ import os
 import tempfile
 from pathlib import Path
 from functools import wraps
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from typing import Optional
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 
@@ -112,13 +114,46 @@ def login_required(f):
     return decorated_function
 
 
+def _safe_redirect_url(url: Optional[str]) -> Optional[str]:
+    url = (url or "").strip()
+    if not url or not url.startswith("/"):
+        return None
+    parts = urlsplit(url)
+    if parts.scheme or parts.netloc:
+        return None
+    return url
+
+
+def _redirect_url_with_params(
+    url: str,
+    *,
+    message: Optional[str] = None,
+    error: Optional[str] = None,
+) -> str:
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query))
+    if message is not None:
+        query["message"] = message
+    if error is not None:
+        query["error"] = error
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 @app.route('/')
 def index():
     """Render the main page."""
     if not session.get('user_id'):
-        if (auth_service.invite_only or auth_service.invite_required_for_login) and not session.get("beta_invite_ok"):
-            return redirect(url_for("access"))
-        return redirect(url_for('login'))
+        error = request.args.get("error")
+        message = request.args.get("message")
+        return render_template(
+            "landing.html",
+            google_login_enabled=GOOGLE_LOGIN_ENABLED,
+            error=error,
+            message=message,
+            invite_only=auth_service.invite_only,
+            invite_required_for_login=auth_service.invite_required_for_login,
+            invite_ok=bool(session.get("beta_invite_ok")),
+        )
     # Use v2 template by default
     if APP_VERSION == 'v3':
         return render_template(
@@ -163,11 +198,14 @@ def access():
             invite_ok=bool(session.get("beta_invite_ok")),
         )
 
+    next_url: Optional[str] = None
     if request.is_json:
         data = request.get_json() or {}
         invite_code = (data.get("invite_code", "") or "").strip()
+        next_url = (data.get("next") or data.get("next_url") or "")
     else:
         invite_code = (request.form.get("invite_code", "") or "").strip()
+        next_url = request.form.get("next") or request.args.get("next")
 
     try:
         auth_service.validate_invite_code(invite_code)
@@ -180,17 +218,23 @@ def access():
     except AuthError as e:
         if request.is_json:
             return jsonify({"error": str(e)}), 400
+        safe_next = _safe_redirect_url(next_url)
+        if safe_next:
+            return redirect(_redirect_url_with_params(safe_next, error=str(e)))
         return redirect(url_for("access", error=str(e)))
 
 
 @app.route("/waitlist", methods=["POST"])
 def waitlist():
     """Join waitlist by leaving an email address."""
+    next_url: Optional[str] = None
     if request.is_json:
         data = request.get_json() or {}
         email = (data.get("email", "") or "").strip()
+        next_url = (data.get("next") or data.get("next_url") or "")
     else:
         email = (request.form.get("email", "") or "").strip()
+        next_url = request.form.get("next") or request.args.get("next")
 
     try:
         created = auth_service.add_waitlist_email(
@@ -201,10 +245,16 @@ def waitlist():
         message = "Thanks! You’re on the waitlist." if created else "You’re already on the waitlist."
         if request.is_json:
             return jsonify({"success": True, "created": created})
+        safe_next = _safe_redirect_url(next_url)
+        if safe_next:
+            return redirect(_redirect_url_with_params(safe_next, message=message))
         return redirect(url_for("access", message=message))
     except AuthError as e:
         if request.is_json:
             return jsonify({"error": str(e)}), 400
+        safe_next = _safe_redirect_url(next_url)
+        if safe_next:
+            return redirect(_redirect_url_with_params(safe_next, error=str(e)))
         return redirect(url_for("access", error=str(e)))
 
 

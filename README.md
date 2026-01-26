@@ -177,7 +177,7 @@ Quick reading:
 
 1. Visit [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
 2. Log in with **Google** or **Email + Password**
-   - Private beta: you’ll land on `/access` to enter an invite code (or join the waitlist)
+   - Private beta: enter an invite code on the landing page (`/`) (or `/access`) to unlock access, or join the waitlist
    - Invite code is remembered after first successful login (you won’t be asked again on the same browser)
    - Email signups require email verification before login
 3. **Choose your mode:**
