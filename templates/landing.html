@@ -393,6 +393,66 @@
             line-height: 1.6;
         }
 
+        .roadmap {
+            display: grid;
+            gap: 14px;
+        }
+
+        .roadmap-step {
+            display: grid;
+            grid-template-columns: 52px 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .roadmap-step:hover {
+            background: var(--panel-hover);
+        }
+
+        .roadmap-step:hover .step-bubble {
+            box-shadow: 0 15px 40px var(--accent-glow), 0 0 24px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+
+        .step-bubble {
+            width: 44px;
+            height: 44px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            color: #fff;
+            background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+            box-shadow: 0 10px 28px var(--accent-glow);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            transition: all 0.25s ease;
+        }
+
+        .step-title {
+            font-size: 16px;
+            color: var(--text-bright);
+            margin-top: 2px;
+        }
+
+        .step-subtitle {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .step-list {
+            margin-top: 10px;
+            padding-left: 18px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
+        .step-list li {
+            margin: 6px 0;
+        }
+
         .example-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -522,19 +582,66 @@
         </div>
 
         <div class="section" id="how">
-            <div class="section-title">How it works</div>
-            <div class="grid">
-                <div class="panel feature-card">
-                    <h3>1) Build your profile</h3>
-                    <p>Upload a resume or answer a short questionnaire to create a structured sender profile.</p>
+            <div class="section-title">Workflow roadmap (5 steps)</div>
+            <div class="roadmap">
+                <div class="panel roadmap-step">
+                    <div class="step-bubble">1</div>
+                    <div>
+                        <div class="step-title">Purpose</div>
+                        <div class="step-subtitle">Define what you’re trying to achieve and the domain.</div>
+                        <ul class="step-list">
+                            <li>Choose a purpose + field, then pick Quick or Professional mode.</li>
+                            <li>Output: a clear goal that guides targeting and email tone.</li>
+                        </ul>
+                    </div>
                 </div>
-                <div class="panel feature-card">
-                    <h3>2) Pick targets</h3>
-                    <p>Use AI recommendations or input targets directly. You’ll see the evidence before sending.</p>
+
+                <div class="panel roadmap-step">
+                    <div class="step-bubble">2</div>
+                    <div>
+                        <div class="step-title">Your Profile</div>
+                        <div class="step-subtitle">Turn your background into structured, reusable context.</div>
+                        <ul class="step-list">
+                            <li>Upload a resume, add links/notes, or answer quick questions.</li>
+                            <li>Output: a saved sender profile you can reuse across sessions.</li>
+                        </ul>
+                    </div>
                 </div>
-                <div class="panel feature-card">
-                    <h3>3) Generate & refine</h3>
-                    <p>Generate an email, then iterate tone/length without rewriting from scratch.</p>
+
+                <div class="panel roadmap-step">
+                    <div class="step-bubble">3</div>
+                    <div>
+                        <div class="step-title">Find Targets</div>
+                        <div class="step-subtitle">Build a shortlist with evidence before you reach out.</div>
+                        <ul class="step-list">
+                            <li>Add targets manually, upload a target document, or get AI recommendations with sources.</li>
+                            <li>Output: ranked candidates with match reasoning + evidence + uncertainty.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="panel roadmap-step">
+                    <div class="step-bubble">4</div>
+                    <div>
+                        <div class="step-title">Template</div>
+                        <div class="step-subtitle">Control style, constraints, and what’s allowed to be claimed.</div>
+                        <ul class="step-list">
+                            <li>Specify your ask, value, constraints, and optional template text.</li>
+                            <li>Output: tight instructions that reduce fluff and hallucinations.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="panel roadmap-step">
+                    <div class="step-bubble">5</div>
+                    <div>
+                        <div class="step-title">Generate</div>
+                        <div class="step-subtitle">Generate the first email, then iterate quickly.</div>
+                        <ul class="step-list">
+                            <li>Enrich receiver context from web/docs, then generate subject + body.</li>
+                            <li>Output: a send-ready email you can regenerate by style (more concise/friendly/professional).</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>

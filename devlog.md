@@ -7,6 +7,7 @@
 - UI：`Join waitlist` 按钮改为与 `Unlock access` 同色（更一致）
 - 新增 Landing Page（`/`）：未登录展示产品介绍 + 入口（邀请码/Waitlist），登录后仍进入向导
 - Landing Page 视觉风格升级：与 `index_v2` Dreamcore 视觉一致（暗色玻璃拟态 + glow）
+- Landing Page 增补 roadmap：明确向导 5 个步骤（Purpose / Profile / Targets / Template / Generate）
 - 邀请码只需输入一次：
   - 浏览器侧用 `session["beta_invite_ok"]` 记忆
   - 用户首次成功登录/注册后，写入 `users.beta_access`，后续登录可不再反复输入邀请码
