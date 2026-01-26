@@ -392,8 +392,12 @@ def _call_llm_with_usage(
         Tuple of (response text, TokenUsage)
     """
     if USE_OPENAI_AS_PRIMARY:
-        # Use OpenAI
-        actual_model = model or OPENAI_DEFAULT_MODEL
+        # Use OpenAI - ignore Gemini model names and use OpenAI default
+        # This handles cases where DEFAULT_MODEL (gemini-*) is passed as default
+        if model and model.startswith("gemini"):
+            actual_model = OPENAI_DEFAULT_MODEL
+        else:
+            actual_model = model or OPENAI_DEFAULT_MODEL
         if json_mode:
             return _call_openai_json_with_usage(prompt, model=actual_model, step=step)
         else:
