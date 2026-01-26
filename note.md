@@ -123,7 +123,6 @@
 - Step 4（生成邮件）：新增可选「Email instructions」输入（goal、单一 ask、可提供的 value、语气长度语言 constraints、hard rules 禁区、可引用 evidence），用于约束生成并减少虚构细节。
 - Web enrichment：`/api/search-receiver` 返回 `raw_text` + `sources`，生成邮件时会把这些来源带入 prompt，提升引用的可追溯性。
 - Email 生成：保留找人阶段的候选信息（如 `position/linkedin_url/evidence/sources`），并与 web profile 做 merge（不再覆盖），同时写入 `receiver.context`，避免开场出现 “you work in Finance” 这类泛化句。
-- OpenAI 调用兼容性：开发者模式可选模型时，针对 GPT-5 base / o-series 这类不支持自定义采样参数的模型，在调用侧显式省略 `temperature` 等不兼容参数（不做运行时“自动学习”）。
 
 ---
 

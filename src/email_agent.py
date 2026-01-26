@@ -32,9 +32,7 @@ from config import (
     OPENAI_EMAIL_MODEL,
     USE_OPENAI_AS_PRIMARY,
     OPENAI_DEFAULT_MODEL,
-    DEFAULT_STEP_MODELS,
 )
-from src.openai_compat import filter_openai_chat_completions_kwargs
 
 # Prompt 数据收集 (可选)
 try:
@@ -43,50 +41,6 @@ try:
 except ImportError:
     PROMPT_COLLECTOR_AVAILABLE = False
     prompt_collector = None
-
-@dataclass
-class TokenUsage:
-    """Track token usage for a single LLM call."""
-    input_tokens: int = 0
-    output_tokens: int = 0
-    model: str = ""
-    step: str = ""
-
-    def to_dict(self) -> dict:
-        return {
-            "input_tokens": self.input_tokens,
-            "output_tokens": self.output_tokens,
-            "model": self.model,
-            "step": self.step,
-        }
-
-
-# Module-level token usage tracking for developer mode
-_token_usage_log: list[TokenUsage] = []
-_track_token_usage: bool = False
-
-
-def start_token_tracking() -> None:
-    """Start tracking token usage (call at beginning of API request)."""
-    global _token_usage_log, _track_token_usage
-    _token_usage_log = []
-    _track_token_usage = True
-
-
-def stop_token_tracking() -> list[dict]:
-    """Stop tracking and return accumulated usage."""
-    global _token_usage_log, _track_token_usage
-    _track_token_usage = False
-    result = [u.to_dict() for u in _token_usage_log]
-    _token_usage_log = []
-    return result
-
-
-def _log_token_usage(usage: TokenUsage) -> None:
-    """Log token usage if tracking is enabled."""
-    if _track_token_usage:
-        _token_usage_log.append(usage)
-
 
 @dataclass
 class ProfileBase:
@@ -371,56 +325,39 @@ def _call_gemini(prompt: str, *, model: str = DEFAULT_MODEL, json_mode: bool = F
 def _call_llm(prompt: str, *, json_mode: bool = False, model: str | None = None) -> str:
     """
     Unified LLM call function that routes to OpenAI or Gemini based on configuration.
-
+    
     Args:
         prompt: The prompt to send to the LLM
         json_mode: Whether to request JSON response
         model: Optional model override (if None, uses default based on provider)
-
+        
     Returns:
         The LLM response text
     """
-    content, _ = _call_llm_with_usage(prompt, json_mode=json_mode, model=model)
-    return content
-
-
-def _call_llm_with_usage(
-    prompt: str, *, json_mode: bool = False, model: str | None = None, step: str = ""
-) -> tuple[str, TokenUsage]:
-    """
-    Unified LLM call function with token usage tracking.
-
-    Returns:
-        Tuple of (response text, TokenUsage)
-    """
     if USE_OPENAI_AS_PRIMARY:
-        # Use OpenAI - determine the right model based on step and config
-        # Priority: explicit non-Gemini model > DEFAULT_STEP_MODELS[step] > OPENAI_DEFAULT_MODEL
-        if model and not model.startswith("gemini"):
-            # Explicit OpenAI model provided, use it
-            actual_model = model
-        elif step and step in DEFAULT_STEP_MODELS:
-            # Use step-specific model from config
-            actual_model = DEFAULT_STEP_MODELS[step]
-        else:
-            # Fallback to default
-            actual_model = OPENAI_DEFAULT_MODEL
+        # Use OpenAI
+        actual_model = model or OPENAI_DEFAULT_MODEL
         if json_mode:
-            return _call_openai_json_with_usage(prompt, model=actual_model, step=step)
+            return _call_openai_json(prompt, model=actual_model)
         else:
             # For non-JSON mode, use chat with a generic system prompt
-            return _call_openai_chat_with_usage(
-                system_content="You are a helpful assistant.",
-                user_content=prompt,
+            client = _get_openai_client()
+            response = client.chat.completions.create(
                 model=actual_model,
-                temperature=0,
-                step=step,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.7,
             )
+            content = response.choices[0].message.content
+            if not content:
+                raise RuntimeError("OpenAI response did not contain any content")
+            return content
     else:
-        # Use Gemini (no usage tracking for Gemini)
+        # Use Gemini
         actual_model = model or DEFAULT_MODEL
-        content = _call_gemini(prompt, model=actual_model, json_mode=json_mode)
-        return content, TokenUsage(model=actual_model, step=step)
+        return _call_gemini(prompt, model=actual_model, json_mode=json_mode)
 
 
 def _extract_json_from_text(text: str) -> str:
@@ -548,39 +485,7 @@ def _get_openai_client() -> OpenAI:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable is required for OpenAI models")
-    timeout_raw = (os.environ.get("OPENAI_TIMEOUT_SECONDS") or "").strip()
-    if timeout_raw:
-        try:
-            timeout = float(timeout_raw)
-        except ValueError:
-            timeout = 60.0
-        return OpenAI(api_key=api_key, timeout=timeout)
     return OpenAI(api_key=api_key)
-
-def _openai_chat_completions_create(
-    client: OpenAI,
-    create_kwargs: dict[str, Any],
-) -> Any:
-    """
-    Call `client.chat.completions.create` after removing known-unsupported params
-    for the given model (no runtime auto-learning).
-    """
-    filtered_kwargs = filter_openai_chat_completions_kwargs(create_kwargs)
-    return client.chat.completions.create(**filtered_kwargs)
-
-
-def _ensure_strict_json(text: str) -> str:
-    """Ensure the returned string is valid JSON (best-effort extraction from wrappers)."""
-    cleaned = (text or "").strip()
-    if not cleaned:
-        return cleaned
-    try:
-        json.loads(cleaned)
-        return cleaned
-    except json.JSONDecodeError:
-        extracted = _extract_json_from_text(cleaned)
-        json.loads(extracted)
-        return extracted
 
 
 def _call_openai_chat(
@@ -592,91 +497,47 @@ def _call_openai_chat(
 ) -> str:
     """
     Call OpenAI chat completion for email generation.
-
+    
     Args:
         system_content: System message content
-        user_content: User message content
+        user_content: User message content  
         model: OpenAI model to use (default: gpt-4o)
         temperature: Sampling temperature
-
+        
     Returns:
         Generated text response
     """
-    content, _ = _call_openai_chat_with_usage(system_content, user_content, model=model, temperature=temperature)
-    return content
-
-
-def _call_openai_chat_with_usage(
-    system_content: str,
-    user_content: str,
-    *,
-    model: str = OPENAI_EMAIL_MODEL,
-    temperature: float = 0.7,
-    step: str = "",
-) -> tuple[str, TokenUsage]:
-    """
-    Call OpenAI chat completion and return content with token usage.
-    """
     client = _get_openai_client()
-    response = _openai_chat_completions_create(
-        client,
-        {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_content},
-            ],
-            "temperature": temperature,
-        },
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user_content},
+        ],
+        temperature=temperature,
     )
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("OpenAI response did not contain any content")
-
-    usage = TokenUsage(
-        input_tokens=response.usage.prompt_tokens if response.usage else 0,
-        output_tokens=response.usage.completion_tokens if response.usage else 0,
-        model=model,
-        step=step,
-    )
-    _log_token_usage(usage)
-    return content, usage
+    return content
 
 
 def _call_openai_json(prompt: str, *, model: str) -> str:
     """Call OpenAI chat completion and return the response text."""
-    content, _ = _call_openai_json_with_usage(prompt, model=model)
-    return content
-
-
-def _call_openai_json_with_usage(prompt: str, *, model: str, step: str = "") -> tuple[str, TokenUsage]:
-    """Call OpenAI chat completion and return content with token usage."""
     client = _get_openai_client()
-    response = _openai_chat_completions_create(
-        client,
-        {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0,
-            "response_format": {"type": "json_object"},
-        },
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.4,
+        response_format={"type": "json_object"},
     )
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("OpenAI response did not contain any content")
-    content = _ensure_strict_json(content)
-
-    usage = TokenUsage(
-        input_tokens=response.usage.prompt_tokens if response.usage else 0,
-        output_tokens=response.usage.completion_tokens if response.usage else 0,
-        model=model,
-        step=step,
-    )
-    _log_token_usage(usage)
-    return content, usage
+    return content
 
 
 def _call_openai_json_with_web_search(prompt: str, *, model: str) -> str:
@@ -684,31 +545,28 @@ def _call_openai_json_with_web_search(prompt: str, *, model: str) -> str:
     Call OpenAI chat completion with built-in web_search tool support.
     """
     client = _get_openai_client()
-    response = _openai_chat_completions_create(
-        client,
-        {
-            "model": model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a concise research assistant. "
-                        "Use the web_search tool to gather real names and facts before answering. "
-                        "Respond with strict JSON only."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ],
-            "tools": [{"type": "web_search"}],
-            "tool_choice": "auto",
-            "temperature": 0,
-            "response_format": {"type": "json_object"},
-        },
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a concise research assistant. "
+                    "Use the web_search tool to gather real names and facts before answering. "
+                    "Respond with strict JSON only."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        tools=[{"type": "web_search"}],
+        tool_choice="auto",
+        temperature=0.4,
+        response_format={"type": "json_object"},
     )
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("OpenAI response did not contain any content")
-    return _ensure_strict_json(content)
+    return content
 
 
 def extract_profile_from_text(
@@ -718,31 +576,14 @@ def extract_profile_from_text(
     if not cleaned_text:
         raise ValueError("Resume text must be a non-empty string")
 
-    # Avoid timeouts / excessive tokens on very long resumes (PDF OCR noise etc.).
-    max_chars_raw = (os.environ.get("PROFILE_EXTRACTION_MAX_CHARS") or "").strip()
-    try:
-        max_chars = int(max_chars_raw) if max_chars_raw else 20000
-    except ValueError:
-        max_chars = 20000
-
-    resume_for_llm = cleaned_text
-    if max_chars > 0 and len(resume_for_llm) > max_chars:
-        head_len = int(max_chars * 0.75)
-        tail_len = max_chars - head_len
-        resume_for_llm = (
-            resume_for_llm[:head_len].rstrip()
-            + "\n...\n"
-            + resume_for_llm[-tail_len:].lstrip()
-        )
-
     prompt = (
         "Extract a structured profile from the provided resume text. "
         "Return strict JSON with the keys: name (string), education (list of strings), "
         "experiences (list of strings), skills (list of strings), projects (list of strings).\n\n"
-        f"Resume text:\n{resume_for_llm}\n\nReturn JSON only."
+        f"Resume text:\n{cleaned_text}\n\nReturn JSON only."
     )
 
-    content, _ = _call_llm_with_usage(prompt, json_mode=True, model=model, step="profile_extraction")
+    content = _call_llm(prompt, json_mode=True)
     
     try:
         profile_data = json.loads(content)
@@ -917,18 +758,17 @@ def generate_email(
     if use_openai:
         # 使用 OpenAI GPT-4o
         actual_model = model or OPENAI_EMAIL_MODEL
-        result, _ = _call_openai_chat_with_usage(
+        result = _call_openai_chat(
             system_content=system_content,
             user_content=user_content,
             model=actual_model,
-            temperature=0.3,
-            step="generate_email"
+            temperature=0.7
         )
     else:
         # 使用 Gemini (fallback)
         actual_model = model or DEFAULT_MODEL
         prompt = f"System instruction: {system_content}\n\nUser request:\n{user_content}"
-        result, _ = _call_llm_with_usage(prompt, model=actual_model, step="generate_email")
+        result = _call_llm(prompt, model=actual_model)
     
     result = result.strip()
     
@@ -983,8 +823,8 @@ Return a JSON array with this exact structure:
 
 Return JSON only, no other text."""
 
-    content, _ = _call_llm_with_usage(prompt, json_mode=True, model=model, step="questionnaire")
-
+    content = _call_llm(prompt, json_mode=True)
+    
     try:
         questions = json.loads(content)
         return questions
@@ -1288,8 +1128,8 @@ Return a JSON object with:
 Infer reasonable details from the answers. Be professional and concise.
 Return JSON only."""
 
-    content, _ = _call_llm_with_usage(prompt, json_mode=True, model=model, step="answer_to_profile")
-
+    content = _call_llm(prompt, json_mode=True)
+    
     try:
         return json.loads(content)
     except json.JSONDecodeError:
@@ -2445,7 +2285,7 @@ Focus on:
 Return JSON only."""
 
     try:
-        content, _ = _call_llm_with_usage(prompt, json_mode=True, model=model, step="find_recommendations")
+        content = _call_llm(prompt, json_mode=True)
         result = json.loads(content)
         scored_list = result.get("scored_candidates", [])
         
@@ -3060,19 +2900,18 @@ Return only the adjusted email. No explanations."""
 
     # 根据配置选择模型
     use_openai = USE_OPENAI_FOR_EMAIL
-
+    
     if use_openai:
         actual_model = model or OPENAI_EMAIL_MODEL
-        result, _ = _call_openai_chat_with_usage(
+        result = _call_openai_chat(
             system_content=system_prompt,
             user_content=user_prompt,
             model=actual_model,
-            temperature=0.3,
-            step="rewrite_email"
+            temperature=0.7
         )
     else:
         actual_model = model or DEFAULT_MODEL
         prompt = f"System instruction: {system_prompt}\n\nUser request:\n{user_prompt}"
-        result, _ = _call_llm_with_usage(prompt, model=actual_model, step="rewrite_email")
-
+        result = _call_llm(prompt, model=actual_model)
+    
     return result.strip()

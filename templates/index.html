@@ -382,89 +382,6 @@
                 grid-template-columns: 1fr;
             }
         }
-
-        /* Developer Mode Styles */
-        .developer-panel {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .developer-panel.active {
-            display: block;
-        }
-
-        .developer-panel-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .developer-badge {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .developer-panel-title {
-            color: #a0a0a0;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .model-selector-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .model-selector-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .model-selector-group label {
-            color: #888;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-
-        .model-selector-group select {
-            background: #2a2a4a;
-            color: #fff;
-            border: 1px solid #444;
-            border-radius: 6px;
-            padding: 6px 10px;
-            font-size: 12px;
-            cursor: pointer;
-            min-width: 140px;
-        }
-
-        .model-selector-group select:hover {
-            border-color: #667eea;
-        }
-
-        .model-selector-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-        }
-
-        .model-price {
-            color: #666;
-            font-size: 11px;
-            margin-left: 4px;
-        }
     </style>
 </head>
 <body>
@@ -473,43 +390,7 @@
             <h1>🤝 Connact.ai</h1>
             <a href="/logout" class="btn-logout">🚪 Logout</a>
         </div>
-
-        <!-- Developer Mode Panel -->
-        <div class="developer-panel" id="developerPanel">
-            <div class="developer-panel-header">
-                <span class="developer-badge">Developer Mode</span>
-                <span class="developer-panel-title">Select models for each step</span>
-            </div>
-            <div class="model-selector-row">
-                <div class="model-selector-group">
-                    <label>📄 Profile Extract:</label>
-                    <select id="modelProfileExtraction"></select>
-                </div>
-                <div class="model-selector-group">
-                    <label>❓ Questionnaire:</label>
-                    <select id="modelQuestionnaire"></select>
-                </div>
-                <div class="model-selector-group">
-                    <label>📝 Answer→Profile:</label>
-                    <select id="modelAnswerToProfile"></select>
-                </div>
-            </div>
-            <div class="model-selector-row">
-                <div class="model-selector-group">
-                    <label>🔍 Find Targets:</label>
-                    <select id="modelFindRecommendations"></select>
-                </div>
-                <div class="model-selector-group">
-                    <label>✉️ Generate Email:</label>
-                    <select id="modelGenerateEmail"></select>
-                </div>
-                <div class="model-selector-group">
-                    <label>🔄 Rewrite Email:</label>
-                    <select id="modelRewriteEmail"></select>
-                </div>
-            </div>
-        </div>
-
+        
         <div class="main-content">
             <!-- Left Panel - Sender -->
             <div class="panel">
@@ -625,74 +506,7 @@
         // Global state
         let senderData = null;
         let receiverData = null;
-        let isDeveloperMode = false;
-        let availableModels = {};
-        let defaultStepModels = {};
-
-        // Initialize: check developer mode
-        async function initDeveloperMode() {
-            try {
-                const response = await fetch('/api/me');
-                const data = await response.json();
-
-                if (data.success && data.user && data.user.developer_mode) {
-                    isDeveloperMode = true;
-                    availableModels = data.available_models || {};
-                    defaultStepModels = data.default_step_models || {};
-
-                    // Populate model selectors
-                    populateModelSelectors();
-
-                    // Show developer panel
-                    document.getElementById('developerPanel').classList.add('active');
-                }
-            } catch (error) {
-                console.log('Developer mode check failed:', error);
-            }
-        }
-
-        function populateModelSelectors() {
-            const selectors = {
-                'modelProfileExtraction': 'profile_extraction',
-                'modelQuestionnaire': 'questionnaire',
-                'modelAnswerToProfile': 'answer_to_profile',
-                'modelFindRecommendations': 'find_recommendations',
-                'modelGenerateEmail': 'generate_email',
-                'modelRewriteEmail': 'rewrite_email'
-            };
-
-            for (const [selectId, stepKey] of Object.entries(selectors)) {
-                const select = document.getElementById(selectId);
-                if (!select) continue;
-
-                select.innerHTML = '';
-
-                // Add default option
-                const defaultModel = defaultStepModels[stepKey] || '';
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = '';
-                defaultOpt.textContent = `Default (${defaultModel})`;
-                select.appendChild(defaultOpt);
-
-                // Add available models
-                for (const [modelId, modelInfo] of Object.entries(availableModels)) {
-                    const opt = document.createElement('option');
-                    opt.value = modelId;
-                    opt.textContent = `${modelInfo.name} (${modelInfo.price})`;
-                    select.appendChild(opt);
-                }
-            }
-        }
-
-        function getSelectedModel(selectId) {
-            if (!isDeveloperMode) return null;
-            const select = document.getElementById(selectId);
-            return select ? select.value || null : null;
-        }
-
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', initDeveloperMode);
-
+        
         // File upload handling
         const uploadArea = document.getElementById('uploadArea');
         const pdfInput = document.getElementById('pdfInput');
@@ -726,21 +540,15 @@
         
         async function handlePdfUpload(file) {
             fileName.textContent = file.name;
-
+            
             const formData = new FormData();
             formData.append('pdf', file);
             formData.append('session_id', 'user_session');
-
-            // Developer mode: add model selection
-            const selectedModel = getSelectedModel('modelProfileExtraction');
-            if (selectedModel) {
-                formData.append('model', selectedModel);
-            }
-
+            
             showLoading('senderLoading');
             hideError('senderError');
             document.getElementById('senderProfile').style.display = 'none';
-
+            
             try {
                 const response = await fetch('/api/upload-sender-pdf', {
                     method: 'POST',
@@ -888,19 +696,10 @@
             document.getElementById('generateBtn').disabled = true;
             
             try {
-                // Build request body
-                const requestBody = { sender, receiver, goal };
-
-                // Developer mode: add model selection
-                const selectedModel = getSelectedModel('modelGenerateEmail');
-                if (selectedModel) {
-                    requestBody.model = selectedModel;
-                }
-
                 const response = await fetch('/api/generate-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify({ sender, receiver, goal })
                 });
                 
                 const data = await response.json();

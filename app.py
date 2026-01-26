@@ -2,7 +2,6 @@
 
 import os
 import tempfile
-from datetime import datetime
 from pathlib import Path
 from functools import wraps
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -28,8 +27,6 @@ from src.services.auth_service import (
     SignupDisabledError,
 )
 
-from config import AVAILABLE_MODELS, DEFAULT_STEP_MODELS, DEVELOPER_INVITE_CODES
-
 from src.email_agent import (
     SenderProfile,
     ReceiverProfile,
@@ -42,8 +39,6 @@ from src.email_agent import (
     find_target_recommendations,
     regenerate_email_with_style,
     enrich_receiver_with_deep_search,
-    start_token_tracking,
-    stop_token_tracking,
 )
 from src.web_scraper import extract_person_profile_from_web
 
@@ -335,10 +330,6 @@ def login():
         if auth_service.invite_required_for_login and not auth_service.user_has_beta_access(user.id) and invite_ok:
             auth_service.grant_beta_access(user.id)
 
-        # Upgrade to developer mode if using developer invite code
-        if invite_code and invite_code in DEVELOPER_INVITE_CODES and not auth_service.user_has_developer_mode(user.id):
-            auth_service.grant_developer_mode(user.id)
-
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or email
         session["user_name"] = user.display_name or ""
@@ -605,10 +596,6 @@ def google_callback():
                 session["beta_invite_ok"] = True
                 session.permanent = True
 
-        # Upgrade to developer mode if using developer invite code
-        if invite_code and invite_code in DEVELOPER_INVITE_CODES and not auth_service.user_has_developer_mode(user.id):
-            auth_service.grant_developer_mode(user.id)
-
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or (email or "")
         session["user_name"] = user.display_name or (name or "")
@@ -661,36 +648,16 @@ def api_me():
     user = auth_service.get_user(user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
-
-    response = {
-        "success": True,
-        "user": {
-            "id": user.id,
-            "email": user.primary_email,
-            "name": user.display_name,
-            "picture": user.avatar_url,
-            "last_login_at": user.last_login_at,
-            "developer_mode": bool(user.developer_mode),
-        },
-    }
-
-    # 开发者模式下返回可选模型列表
-    if user.developer_mode:
-        response["available_models"] = AVAILABLE_MODELS
-        response["default_step_models"] = DEFAULT_STEP_MODELS
-
-    return jsonify(response)
-
-
-@app.route("/api/health")
-def api_health():
-    """Lightweight health check for debugging deployments."""
     return jsonify(
         {
-            "status": "ok",
-            "time_utc": datetime.utcnow().isoformat() + "Z",
-            "app_version": APP_VERSION,
-            "render_git_commit": (os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("GIT_COMMIT") or "").strip(),
+            "success": True,
+            "user": {
+                "id": user.id,
+                "email": user.primary_email,
+                "name": user.display_name,
+                "picture": user.avatar_url,
+                "last_login_at": user.last_login_at,
+            },
         }
     )
 
@@ -763,24 +730,14 @@ def upload_sender_pdf():
     """Upload and parse sender PDF resume."""
     if 'pdf' not in request.files:
         return jsonify({'error': 'No PDF file uploaded'}), 400
-
+    
     pdf_file = request.files['pdf']
     if pdf_file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
-
+    
     if not pdf_file.filename.lower().endswith('.pdf'):
         return jsonify({'error': 'File must be a PDF'}), 400
-
-    # 开发者模式：获取可选的模型参数
-    model = None
-    user_id = session.get("user_id", "")
-    is_developer = user_id and auth_service.user_has_developer_mode(user_id)
-    if is_developer:
-        requested_model = request.form.get('model')
-        if requested_model and requested_model in AVAILABLE_MODELS:
-            model = requested_model
-        start_token_tracking()
-
+    
     try:
         # Get session ID
         session_id = request.form.get('session_id', 'default')
@@ -796,8 +753,7 @@ def upload_sender_pdf():
         # Save to temp file and extract profile
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
             pdf_file.save(tmp.name)
-            extract_kwargs = {"model": model} if model else {}
-            profile = extract_profile_from_pdf(Path(tmp.name), **extract_kwargs)
+            profile = extract_profile_from_pdf(Path(tmp.name))
             os.unlink(tmp.name)  # Clean up temp file
         
         # Cache the extracted profile
@@ -829,17 +785,12 @@ def upload_sender_pdf():
                 },
             )
         
-        response = {
+        return jsonify({
             'success': True,
             'profile': profile_dict
-        }
-        if is_developer:
-            response['token_usage'] = stop_token_tracking()
-        return jsonify(response)
-
+        })
+    
     except Exception as e:
-        if is_developer:
-            stop_token_tracking()
         return jsonify({'error': str(e)}), 500
 
 
@@ -888,23 +839,13 @@ def api_generate_email():
     """Generate cold email based on sender and receiver profiles."""
     data = request.get_json()
     template = data.get('template') or None
-
+    
     # 是否启用深度搜索（默认启用）
     enable_deep_search = data.get('enable_deep_search', True)
-
+    
     # 获取数据收集 session_id（优先从请求获取，其次从 session）
     session_id = data.get('session_id') or session.get('prompt_session_id')
-
-    # 开发者模式：获取可选的模型参数
-    model = None
-    user_id = session.get("user_id", "")
-    is_developer = user_id and auth_service.user_has_developer_mode(user_id)
-    if is_developer:
-        requested_model = data.get('model')
-        if requested_model and requested_model in AVAILABLE_MODELS:
-            model = requested_model
-        start_token_tracking()  # 开始追踪 token 使用
-
+    
     try:
         # Get sender profile
         sender_data = data.get('sender', {})
@@ -985,8 +926,8 @@ def api_generate_email():
         if not goal:
             return jsonify({'error': 'Goal is required'}), 400
         
-        # Generate email (optionally template-guided, with optional model for developer mode)
-        email_text = generate_email(sender, receiver, goal, template=template, session_id=session_id, model=model)
+        # Generate email (optionally template-guided)
+        email_text = generate_email(sender, receiver, goal, template=template, session_id=session_id)
         
         # 结束数据收集会话并保存
         saved_path = None
@@ -994,20 +935,14 @@ def api_generate_email():
             saved_path = end_prompt_session(session_id)
             session.pop('prompt_session_id', None)  # 清理 session
         
-        response = {
+        return jsonify({
             'success': True,
             'email': email_text,
             'data_saved': saved_path is not None,
             'deep_search': deep_search_result,
-        }
-        # 开发者模式：返回 token 使用统计
-        if is_developer:
-            response['token_usage'] = stop_token_tracking()
-        return jsonify(response)
-
+        })
+    
     except Exception as e:
-        if is_developer:
-            stop_token_tracking()  # 清理
         return jsonify({'error': str(e)}), 500
 
 
@@ -1016,36 +951,20 @@ def api_generate_email():
 def api_generate_questionnaire():
     """Generate questionnaire questions based on purpose and field."""
     data = request.get_json()
-
+    
     purpose = data.get('purpose', '').strip()
     field = data.get('field', '').strip()
-
+    
     if not purpose or not field:
         return jsonify({'error': 'Purpose and field are required'}), 400
-
-    # 开发者模式：获取可选的模型参数
-    model = None
-    user_id = session.get("user_id", "")
-    is_developer = user_id and auth_service.user_has_developer_mode(user_id)
-    if is_developer:
-        requested_model = data.get('model')
-        if requested_model and requested_model in AVAILABLE_MODELS:
-            model = requested_model
-        start_token_tracking()
-
+    
     try:
-        questionnaire_kwargs = {"model": model} if model else {}
-        questions = generate_questionnaire(purpose, field, **questionnaire_kwargs)
-        response = {
+        questions = generate_questionnaire(purpose, field)
+        return jsonify({
             'success': True,
             'questions': questions
-        }
-        if is_developer:
-            response['token_usage'] = stop_token_tracking()
-        return jsonify(response)
+        })
     except Exception as e:
-        if is_developer:
-            stop_token_tracking()
         return jsonify({'error': str(e)}), 500
 
 
@@ -1108,27 +1027,16 @@ def api_next_target_question():
 def api_profile_from_questionnaire():
     """Build sender profile from questionnaire answers."""
     data = request.get_json()
-
+    
     purpose = data.get('purpose', '').strip()
     field = data.get('field', '').strip()
     answers = data.get('answers', [])
-
+    
     if not answers:
         return jsonify({'error': 'Answers are required'}), 400
-
-    # 开发者模式：获取可选的模型参数
-    model = None
-    user_id = session.get("user_id", "")
-    is_developer = user_id and auth_service.user_has_developer_mode(user_id)
-    if is_developer:
-        requested_model = data.get('model')
-        if requested_model and requested_model in AVAILABLE_MODELS:
-            model = requested_model
-        start_token_tracking()
-
+    
     try:
-        build_kwargs = {"model": model} if model else {}
-        profile = build_profile_from_answers(purpose, field, answers, **build_kwargs)
+        profile = build_profile_from_answers(purpose, field, answers)
         profile_dict = {
             'name': profile.get('name', 'User'),
             'raw_text': profile.get('summary', ''),
@@ -1139,20 +1047,15 @@ def api_profile_from_questionnaire():
         }
 
         # Persist to the logged-in user's profile (for future sessions)
-        uid = session.get("user_id", "")
-        if uid:
-            auth_service.update_user_profile(user_id=uid, sender_profile=profile_dict)
+        user_id = session.get("user_id", "")
+        if user_id:
+            auth_service.update_user_profile(user_id=user_id, sender_profile=profile_dict)
 
-        response = {
+        return jsonify({
             'success': True,
             'profile': profile_dict
-        }
-        if is_developer:
-            response['token_usage'] = stop_token_tracking()
-        return jsonify(response)
+        })
     except Exception as e:
-        if is_developer:
-            stop_token_tracking()
         return jsonify({'error': str(e)}), 500
 
 
@@ -1161,33 +1064,24 @@ def api_profile_from_questionnaire():
 def api_find_recommendations():
     """Find recommended target contacts based on user profile and goals."""
     data = request.get_json()
-
+    
     purpose = data.get('purpose', '').strip()
     field = data.get('field', '').strip()
     sender_profile = data.get('sender_profile', {})
     preferences = data.get('preferences', {}) or {}
-
+    
     if not purpose or not field:
         return jsonify({'error': 'Purpose and field are required'}), 400
 
-    # 开发者模式：获取可选的模型参数
-    model = None
-    user_id = session.get("user_id", "")
-    is_developer = user_id and auth_service.user_has_developer_mode(user_id)
-    if is_developer:
-        requested_model = data.get('model')
-        if requested_model and requested_model in AVAILABLE_MODELS:
-            model = requested_model
-        start_token_tracking()
-
     # Persist latest preferences to user profile (best-effort)
+    user_id = session.get("user_id", "")
     if user_id and isinstance(preferences, dict):
         auth_service.update_user_profile(user_id=user_id, preferences=preferences)
-
+    
     # 开始数据收集会话
-    prompt_session_id = None
+    session_id = None
     if PROMPT_COLLECTOR_ENABLED:
-        prompt_session_id = start_prompt_session(user_info={
+        session_id = start_prompt_session(user_info={
             "purpose": purpose,
             "field": field,
             "user_id": user_id,
@@ -1197,41 +1091,29 @@ def api_find_recommendations():
             "preferences": preferences,  # 用户偏好
         })
         # 存储 session_id 供后续 generate_email 使用
-        session['prompt_session_id'] = prompt_session_id
-
+        session['prompt_session_id'] = session_id
+    
     try:
-        # 构建调用参数
-        find_kwargs = {
-            "preferences": preferences,
-            "session_id": prompt_session_id,
-        }
-        if model:
-            find_kwargs["model"] = model
-
         recommendations = find_target_recommendations(
             purpose,
             field,
             sender_profile,
-            **find_kwargs,
+            preferences=preferences,
+            session_id=session_id,
         )
-
+        
         # ===== 找人成功后立即保存 =====
         saved_path = None
-        if PROMPT_COLLECTOR_ENABLED and prompt_session_id and recommendations:
-            saved_path = save_find_target_results(prompt_session_id, recommendations)
-
-        response = {
+        if PROMPT_COLLECTOR_ENABLED and session_id and recommendations:
+            saved_path = save_find_target_results(session_id, recommendations)
+        
+        return jsonify({
             'success': True,
             'recommendations': recommendations,
-            'session_id': prompt_session_id,  # 返回给前端，供后续调用
+            'session_id': session_id,  # 返回给前端，供后续调用
             'data_saved': saved_path is not None,  # 告知前端数据已保存
-        }
-        if is_developer:
-            response['token_usage'] = stop_token_tracking()
-        return jsonify(response)
+        })
     except Exception as e:
-        if is_developer:
-            stop_token_tracking()
         return jsonify({'error': str(e)}), 500
 
 
@@ -1295,45 +1177,29 @@ def upload_receiver_doc():
 def api_regenerate_email():
     """Regenerate email with a different style."""
     data = request.get_json()
-
+    
     original_email = data.get('original_email', '').strip()
     style_instruction = data.get('style_instruction', '').strip()
     sender_data = data.get('sender', {})
     receiver_data = data.get('receiver', {})
-
+    
     if not original_email:
         return jsonify({'error': 'Original email is required'}), 400
     if not style_instruction:
         return jsonify({'error': 'Style instruction is required'}), 400
-
-    # 开发者模式：获取可选的模型参数
-    model = None
-    user_id = session.get("user_id", "")
-    is_developer = user_id and auth_service.user_has_developer_mode(user_id)
-    if is_developer:
-        requested_model = data.get('model')
-        if requested_model and requested_model in AVAILABLE_MODELS:
-            model = requested_model
-        start_token_tracking()
-
+    
     try:
         new_email = regenerate_email_with_style(
             original_email=original_email,
             style_instruction=style_instruction,
             sender_info=sender_data,
             receiver_info=receiver_data,
-            model=model,
         )
-        response = {
+        return jsonify({
             'success': True,
             'email': new_email
-        }
-        if is_developer:
-            response['token_usage'] = stop_token_tracking()
-        return jsonify(response)
+        })
     except Exception as e:
-        if is_developer:
-            stop_token_tracking()
         return jsonify({'error': str(e)}), 500
 
 

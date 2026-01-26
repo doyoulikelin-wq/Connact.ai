@@ -1890,83 +1890,6 @@
                 transform: translateY(-20px);
             }
         }
-
-        /* Developer Mode Panel */
-        .developer-panel {
-            display: none;
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(244, 114, 182, 0.1) 100%);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            padding: 14px 20px;
-            margin-bottom: 20px;
-        }
-
-        .developer-panel.active {
-            display: block;
-        }
-
-        .developer-panel-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .developer-badge {
-            background: linear-gradient(135deg, var(--magenta) 0%, var(--accent) 100%);
-            color: white;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .developer-panel-title {
-            color: var(--muted);
-            font-size: 13px;
-        }
-
-        .developer-selector-row {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-
-        .developer-selector-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .developer-selector-group label {
-            color: var(--muted);
-            font-size: 12px;
-            white-space: nowrap;
-        }
-
-        .developer-selector-group select {
-            background: var(--panel);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 6px 12px;
-            font-size: 12px;
-            cursor: pointer;
-            min-width: 150px;
-            font-family: inherit;
-        }
-
-        .developer-selector-group select:hover {
-            border-color: var(--accent);
-        }
-
-        .developer-selector-group select:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 2px var(--accent-glow);
-        }
     </style>
 </head>
 <body>
@@ -1992,42 +1915,6 @@
                 </div>
                 {% endif %}
                 <a href="/logout" class="btn-logout">Logout</a>
-            </div>
-        </div>
-
-        <!-- Developer Mode Panel -->
-        <div class="developer-panel" id="developerPanel">
-            <div class="developer-panel-header">
-                <span class="developer-badge">DEV MODE</span>
-                <span class="developer-panel-title">Select models for each step</span>
-            </div>
-            <div class="developer-selector-row">
-                <div class="developer-selector-group">
-                    <label>📄 Profile Extract</label>
-                    <select id="devModelProfile"></select>
-                </div>
-                <div class="developer-selector-group">
-                    <label>❓ Questionnaire</label>
-                    <select id="devModelQuestionnaire"></select>
-                </div>
-                <div class="developer-selector-group">
-                    <label>📝 Answer→Profile</label>
-                    <select id="devModelAnswerToProfile"></select>
-                </div>
-            </div>
-            <div class="developer-selector-row">
-                <div class="developer-selector-group">
-                    <label>🔍 Find Targets</label>
-                    <select id="devModelRecommend"></select>
-                </div>
-                <div class="developer-selector-group">
-                    <label>✉️ Generate Email</label>
-                    <select id="devModelEmail"></select>
-                </div>
-                <div class="developer-selector-group">
-                    <label>🔄 Rewrite Email</label>
-                    <select id="devModelRewrite"></select>
-                </div>
             </div>
         </div>
 
@@ -3042,21 +2929,7 @@ I&apos;m {{sender_name}}, currently ...
             generationMode: null,  // 'smart' or 'template'
             regenerateStyle: null,
             manualTargetProfile: null,  // Profile from uploaded document
-            currentModalTarget: null,  // Target being viewed in modal
-            // Developer mode
-            isDeveloperMode: false,
-            availableModels: {},
-            defaultStepModels: {},
-            selectedModels: {
-                profile_extraction: '',
-                questionnaire: '',
-                answer_to_profile: '',
-                find_recommendations: '',
-                generate_email: '',
-                rewrite_email: ''
-            },
-            // Token usage tracking (developer mode)
-            tokenUsageLog: []
+            currentModalTarget: null  // Target being viewed in modal
         };
 
         // Purpose field mapping for better prompts
@@ -3292,7 +3165,6 @@ I&apos;m {{sender_name}}, currently ...
             Object.assign(state, getFreshState(mode));
             resetFormsAndPanels(mode);
             resetRecommendationState();
-            clearTokenUsage();  // Clear token usage for new session
             updateModeSwitcherUI(mode);
 
             const modeSelection = document.getElementById('mode-selection');
@@ -3366,210 +3238,8 @@ I&apos;m {{sender_name}}, currently ...
             if (overlay) overlay.classList.add('visible');
         }
 
-        // Developer Mode Functions
-        async function parseJsonResponse(response) {
-            const status = response.status;
-            const statusText = response.statusText || '';
-            const contentType = (response.headers.get('content-type') || '').toLowerCase();
-            const rawText = await response.text();
-            const trimmed = (rawText || '').trim();
-
-            const looksJson = contentType.includes('application/json') || trimmed.startsWith('{') || trimmed.startsWith('[');
-            if (looksJson) {
-                try {
-                    return trimmed ? JSON.parse(trimmed) : {};
-                } catch (e) {
-                    const snippet = trimmed.replace(/\\s+/g, ' ').slice(0, 200);
-                    throw new Error(`HTTP ${status} ${statusText}: Invalid JSON response: ${snippet}`);
-                }
-            }
-
-            const snippet = trimmed.replace(/\\s+/g, ' ').slice(0, 200);
-            throw new Error(`HTTP ${status} ${statusText}: Server returned non-JSON response: ${snippet}`);
-        }
-
-        async function initDeveloperMode() {
-            try {
-                const response = await fetch('/api/me');
-                const data = await parseJsonResponse(response);
-
-                if (data.success && data.user && data.user.developer_mode) {
-                    state.isDeveloperMode = true;
-                    state.availableModels = data.available_models || {};
-                    state.defaultStepModels = data.default_step_models || {};
-
-                    // Show developer panel
-                    const panel = document.getElementById('developerPanel');
-                    if (panel) {
-                        panel.classList.add('active');
-                        populateDeveloperSelectors();
-                    }
-                }
-            } catch (error) {
-                console.log('Developer mode check failed:', error);
-            }
-        }
-
-        function populateDeveloperSelectors() {
-            const selectors = {
-                'devModelProfile': 'profile_extraction',
-                'devModelQuestionnaire': 'questionnaire',
-                'devModelAnswerToProfile': 'answer_to_profile',
-                'devModelRecommend': 'find_recommendations',
-                'devModelEmail': 'generate_email',
-                'devModelRewrite': 'rewrite_email'
-            };
-
-            for (const [selectId, stepKey] of Object.entries(selectors)) {
-                const select = document.getElementById(selectId);
-                if (!select) continue;
-
-                select.innerHTML = '';
-
-                // Add default option
-                const defaultModel = state.defaultStepModels[stepKey] || '';
-                const defaultOpt = document.createElement('option');
-                defaultOpt.value = '';
-                defaultOpt.textContent = `Default (${defaultModel})`;
-                select.appendChild(defaultOpt);
-
-                // Add available models
-                for (const [modelId, modelInfo] of Object.entries(state.availableModels)) {
-                    const opt = document.createElement('option');
-                    opt.value = modelId;
-                    opt.textContent = `${modelInfo.name} (${modelInfo.price})`;
-                    select.appendChild(opt);
-                }
-
-                // Listen for changes
-                select.addEventListener('change', function() {
-                    state.selectedModels[stepKey] = this.value;
-                });
-            }
-        }
-
-        function getSelectedModel(stepKey) {
-            if (!state.isDeveloperMode) return null;
-            return state.selectedModels[stepKey] || null;
-        }
-
-        // Token usage tracking functions
-        function addTokenUsage(usageList) {
-            if (!state.isDeveloperMode || !usageList) return;
-            if (Array.isArray(usageList)) {
-                state.tokenUsageLog.push(...usageList);
-            }
-        }
-
-        function clearTokenUsage() {
-            state.tokenUsageLog = [];
-        }
-
-        // Model pricing (per 1M tokens)
-        // GPT-5系列自带adaptive thinking，Thinking变体生成额外内部tokens
-        const MODEL_PRICING = {
-            // Economy
-            'gpt-4o-mini': { input: 0.15, output: 0.60 },
-            'gpt-5-nano': { input: 0.05, output: 0.40 },
-            'gpt-5-mini': { input: 0.25, output: 2.00 },
-            // Standard
-            'gpt-4o': { input: 2.50, output: 10.00 },
-            'gpt-4.1': { input: 2.00, output: 8.00 },
-            'gpt-5': { input: 1.25, output: 10.00 },
-            'gpt-5.1': { input: 1.50, output: 12.00 },
-            // Premium
-            'gpt-5.2': { input: 1.75, output: 14.00 },
-            'gpt-5.2-pro': { input: 15.00, output: 120.00 },
-            // Thinking (same base price, generates more output tokens)
-            'gpt-5.1-thinking': { input: 1.50, output: 12.00 },
-            'gpt-5.2-thinking': { input: 1.75, output: 14.00 },
-            // Legacy reasoning
-            'o3-mini': { input: 1.10, output: 4.40 },
-            'o3': { input: 10.00, output: 40.00 },
-            'o1': { input: 15.00, output: 60.00 },
-        };
-
-        function calculateTokenCost(usage) {
-            const pricing = MODEL_PRICING[usage.model] || { input: 1.00, output: 4.00 };
-            const inputCost = (usage.input_tokens / 1000000) * pricing.input;
-            const outputCost = (usage.output_tokens / 1000000) * pricing.output;
-            return inputCost + outputCost;
-        }
-
-        function showTokenUsageSummary() {
-            if (!state.isDeveloperMode || state.tokenUsageLog.length === 0) return;
-
-            let totalInput = 0;
-            let totalOutput = 0;
-            let totalCost = 0;
-
-            const stepSummary = {};
-            state.tokenUsageLog.forEach(u => {
-                totalInput += u.input_tokens || 0;
-                totalOutput += u.output_tokens || 0;
-                const cost = calculateTokenCost(u);
-                totalCost += cost;
-
-                const step = u.step || 'unknown';
-                if (!stepSummary[step]) {
-                    stepSummary[step] = { input: 0, output: 0, cost: 0, model: u.model };
-                }
-                stepSummary[step].input += u.input_tokens || 0;
-                stepSummary[step].output += u.output_tokens || 0;
-                stepSummary[step].cost += cost;
-            });
-
-            // Build summary HTML
-            let summaryHtml = `
-                <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 20px;">
-                    <h3 style="color: var(--accent); margin-bottom: 15px;">📊 Token Usage Summary</h3>
-                    <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-                        <tr style="border-bottom: 1px solid var(--border);">
-                            <th style="text-align: left; padding: 8px;">Step</th>
-                            <th style="text-align: right; padding: 8px;">Model</th>
-                            <th style="text-align: right; padding: 8px;">Input</th>
-                            <th style="text-align: right; padding: 8px;">Output</th>
-                            <th style="text-align: right; padding: 8px;">Cost</th>
-                        </tr>`;
-
-            for (const [step, data] of Object.entries(stepSummary)) {
-                summaryHtml += `
-                        <tr style="border-bottom: 1px solid var(--border);">
-                            <td style="padding: 8px;">${step}</td>
-                            <td style="text-align: right; padding: 8px; color: var(--muted);">${data.model}</td>
-                            <td style="text-align: right; padding: 8px;">${data.input.toLocaleString()}</td>
-                            <td style="text-align: right; padding: 8px;">${data.output.toLocaleString()}</td>
-                            <td style="text-align: right; padding: 8px;">$${data.cost.toFixed(4)}</td>
-                        </tr>`;
-            }
-
-            summaryHtml += `
-                        <tr style="font-weight: bold; background: rgba(139, 92, 246, 0.1);">
-                            <td style="padding: 8px;">Total</td>
-                            <td style="padding: 8px;"></td>
-                            <td style="text-align: right; padding: 8px;">${totalInput.toLocaleString()}</td>
-                            <td style="text-align: right; padding: 8px;">${totalOutput.toLocaleString()}</td>
-                            <td style="text-align: right; padding: 8px; color: var(--accent);">$${totalCost.toFixed(4)}</td>
-                        </tr>
-                    </table>
-                </div>`;
-
-            // Insert after email result
-            const emailResult = document.getElementById('email-result');
-            if (emailResult) {
-                let usageDiv = document.getElementById('token-usage-summary');
-                if (!usageDiv) {
-                    usageDiv = document.createElement('div');
-                    usageDiv.id = 'token-usage-summary';
-                    emailResult.parentNode.insertBefore(usageDiv, emailResult.nextSibling);
-                }
-                usageDiv.innerHTML = summaryHtml;
-            }
-        }
-
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            initDeveloperMode();  // Check developer mode first
             setupGlobalModeSwitcher();
             setupModeSelection();
             setupProfessionalMode();
@@ -3781,35 +3451,28 @@ I&apos;m {{sender_name}}, currently ...
             const loading = document.getElementById('pro-upload-loading');
             const success = document.getElementById('pro-resume-success');
             const nextBtn = document.getElementById('btn-resume-next');
-
+            
             loading.classList.remove('hidden');
             success.classList.add('hidden');
-
+            
             const formData = new FormData();
             formData.append('pdf', file);
             formData.append('session_id', state.sessionId);
-
-            // Developer mode: add model selection
-            const selectedModel = getSelectedModel('profile_extraction');
-            if (selectedModel) {
-                formData.append('model', selectedModel);
-            }
-
+            
             try {
                 const response = await fetch('/api/upload-sender-pdf', {
                     method: 'POST',
                     body: formData
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 
                 if (data.success) {
                     state.senderProfile = data.profile;
-                    addTokenUsage(data.token_usage);  // Track token usage
                     loading.classList.add('hidden');
                     success.classList.remove('hidden');
                     nextBtn.disabled = false;
-
+                    
                     // Show resume summary
                     const summary = document.getElementById('pro-resume-summary');
                     summary.innerHTML = `
@@ -4232,7 +3895,7 @@ I&apos;m {{sender_name}}, currently ...
                     })
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 loading.classList.remove('hidden');
                 
                 if (data.success) {
@@ -4375,7 +4038,7 @@ I&apos;m {{sender_name}}, currently ...
                         })
                     });
                     
-                    const data = await parseJsonResponse(response);
+                    const data = await response.json();
                     loading.classList.add('hidden');
                     
                     if (data.success) {
@@ -5320,50 +4983,41 @@ I&apos;m {{sender_name}}, currently ...
                 const prefExtra = state.proPreferenceHistory.length > 0
                     ? state.proPreferenceHistory.map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`).join('\n\n')
                     : '';
-
-                // Build request body
-                const requestBody = {
-                    purpose: state.proTrack === 'academic' ? 'Academic research and PhD opportunities' : 'Finance career opportunities',
-                    field: state.proTrack === 'academic' ? 'Academic Research' : 'Finance',
-                    sender_profile: state.senderProfile,
-                    preferences: {
-                        ...(state.proTrack === 'finance' && state.financePreferences ? state.financePreferences : {}),
-                        track: state.proTrack,
-                        extra: prefExtra,
-                        search_intent: [
-                            String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.search_intent : '') || '').trim(),
-                            String((state.targetSearchIntent || '') || '').trim()
-                        ].filter(Boolean).join('\n\n'),
-                        must_have: (state.targetMustHave || '').trim(),
-                        must_not: (state.targetMustNot || '').trim(),
-                        location: [
-                            String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.location : '') || '').trim(),
-                            String((state.targetLocation || '') || '').trim()
-                        ].filter(Boolean).join('; '),
-                        contactability: (() => {
-                            const override = String((state.targetContactability || '') || '').trim();
-                            const tree = String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.contactability : '') || '').trim();
-                            if (override && override !== 'balanced') return override;
-                            return tree || override || 'balanced';
-                        })(),
-                        examples: (state.targetExamples || '').trim(),
-                        evidence: (state.targetEvidence || '').trim(),
-                    }
-                };
-
-                // Developer mode: add model selection
-                const selectedModel = getSelectedModel('find_recommendations');
-                if (selectedModel) {
-                    requestBody.model = selectedModel;
-                }
-
+                
                 const response = await fetch('/api/find-recommendations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify({
+                        purpose: state.proTrack === 'academic' ? 'Academic research and PhD opportunities' : 'Finance career opportunities',
+                        field: state.proTrack === 'academic' ? 'Academic Research' : 'Finance',
+                        sender_profile: state.senderProfile,
+                        preferences: {
+                            ...(state.proTrack === 'finance' && state.financePreferences ? state.financePreferences : {}),
+                            track: state.proTrack,
+                            extra: prefExtra,
+                            search_intent: [
+                                String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.search_intent : '') || '').trim(),
+                                String((state.targetSearchIntent || '') || '').trim()
+                            ].filter(Boolean).join('\n\n'),
+                            must_have: (state.targetMustHave || '').trim(),
+                            must_not: (state.targetMustNot || '').trim(),
+                            location: [
+                                String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.location : '') || '').trim(),
+                                String((state.targetLocation || '') || '').trim()
+                            ].filter(Boolean).join('; '),
+                            contactability: (() => {
+                                const override = String((state.targetContactability || '') || '').trim();
+                                const tree = String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.contactability : '') || '').trim();
+                                if (override && override !== 'balanced') return override;
+                                return tree || override || 'balanced';
+                            })(),
+                            examples: (state.targetExamples || '').trim(),
+                            evidence: (state.targetEvidence || '').trim(),
+                        }
+                    })
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 
                 // Stop loading animation
                 if (proLoadingInterval) clearInterval(proLoadingInterval);
@@ -5566,31 +5220,24 @@ I&apos;m {{sender_name}}, currently ...
         async function uploadResume(file) {
             const loading = document.getElementById('upload-loading');
             const success = document.getElementById('resume-success');
-
+            
             loading.classList.add('visible');
             success.classList.add('hidden');
-
+            
             const formData = new FormData();
             formData.append('pdf', file);
             formData.append('session_id', state.sessionId);
-
-            // Developer mode: add model selection
-            const selectedModel = getSelectedModel('profile_extraction');
-            if (selectedModel) {
-                formData.append('model', selectedModel);
-            }
-
+            
             try {
                 const response = await fetch('/api/upload-sender-pdf', {
                     method: 'POST',
                     body: formData
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 
                 if (data.success) {
                     state.senderProfile = data.profile;
-                    addTokenUsage(data.token_usage);  // Track token usage
                     loading.classList.remove('visible');
                     success.classList.remove('hidden');
                     updateQuickStartQuestionnaireVisibility();
@@ -5636,7 +5283,7 @@ I&apos;m {{sender_name}}, currently ...
                     body: formData
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 
                 if (data.success) {
                     state.manualTargetProfile = data.profile;
@@ -5826,22 +5473,15 @@ I&apos;m {{sender_name}}, currently ...
                 // Quick Start: generate a full set of questions once
                 if (state.mode === 'quick') {
                     if (!Array.isArray(state.questionnaireQuestions) || state.questionnaireQuestions.length === 0) {
-                        // Developer mode: add model selection
-                        const questionnaireBody = {
-                            purpose: purposeText,
-                            field: fieldText
-                        };
-                        const qModel = getSelectedModel('questionnaire');
-                        if (qModel) {
-                            questionnaireBody.model = qModel;
-                        }
-
                         const response = await fetch('/api/generate-questionnaire', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(questionnaireBody)
+                            body: JSON.stringify({
+                                purpose: purposeText,
+                                field: fieldText
+                            })
                         });
-                        const data = await parseJsonResponse(response);
+                        const data = await response.json();
                         if (data.success) {
                             state.questionnaireQuestions = Array.isArray(data.questions) ? data.questions : [];
                             state.questionnaireIndex = state.questionnaireHistory.length;
@@ -5873,7 +5513,7 @@ I&apos;m {{sender_name}}, currently ...
                     })
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 
                 if (data.success) {
                     loading.classList.remove('visible');
@@ -6141,7 +5781,7 @@ I&apos;m {{sender_name}}, currently ...
                             max_questions: 5
                         })
                     });
-                    const data = await parseJsonResponse(response);
+                    const data = await response.json();
                     loading.classList.remove('visible');
                     if (data.success) {
                         renderNextQuestion(data);
@@ -6200,7 +5840,7 @@ I&apos;m {{sender_name}}, currently ...
                         max_questions: 5
                     })
                 });
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 loading.classList.remove('visible');
                 if (data.success) {
                     renderNextTargetQuestion(data);
@@ -6337,7 +5977,7 @@ I&apos;m {{sender_name}}, currently ...
                             max_questions: 5
                         })
                     });
-                    const data = await parseJsonResponse(response);
+                    const data = await response.json();
                     loading.classList.remove('visible');
                     if (data.success) {
                         renderNextTargetQuestion(data);
@@ -6444,41 +6084,33 @@ I&apos;m {{sender_name}}, currently ...
                     ? prefHistory.map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`).join('\n\n')
                     : '';
                 
-                // Developer mode: add model selection
-                const requestBody = {
-                    purpose: purposeText,
-                    field: fieldText,
-                    sender_profile: state.senderProfile,
-                    preferences: {
-                        extra: prefExtra,
-                        search_intent: (state.targetSearchIntent || '').trim(),
-                        must_have: (state.targetMustHave || '').trim(),
-                        must_not: (state.targetMustNot || '').trim(),
-                        location: (state.targetLocation || '').trim(),
-                        contactability: (state.targetContactability || 'balanced').trim(),
-                        examples: (state.targetExamples || '').trim(),
-                        evidence: (state.targetEvidence || '').trim(),
-                    }
-                };
-                const selectedModel = getSelectedModel('find_recommendations');
-                if (selectedModel) {
-                    requestBody.model = selectedModel;
-                }
-
                 const response = await fetch('/api/find-recommendations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify({
+                        purpose: purposeText,
+                        field: fieldText,
+                        sender_profile: state.senderProfile,
+                        preferences: {
+                            extra: prefExtra,
+                            search_intent: (state.targetSearchIntent || '').trim(),
+                            must_have: (state.targetMustHave || '').trim(),
+                            must_not: (state.targetMustNot || '').trim(),
+                            location: (state.targetLocation || '').trim(),
+                            contactability: (state.targetContactability || 'balanced').trim(),
+                            examples: (state.targetExamples || '').trim(),
+                            evidence: (state.targetEvidence || '').trim(),
+                        }
+                    })
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 
                 if (data.success) {
                     stopSearchLoadingAnimation();
                     loading.classList.remove('visible');
                     actions.style.display = 'flex';
                     state.recommendations = data.recommendations;
-                    addTokenUsage(data.token_usage);  // Track token usage
                     renderRecommendations(data.recommendations);
                 } else {
                     throw new Error(data.error || 'Failed to find recommendations');
@@ -6796,24 +6428,17 @@ I&apos;m {{sender_name}}, currently ...
                     .map(qa => qa.answer)
                     .filter(a => a && a.trim());
                 
-                // Developer mode: add model selection
-                const profileBody = {
-                    purpose: getPurposeText(),
-                    field: getFieldText(),
-                    answers: answers
-                };
-                const pModel = getSelectedModel('answer_to_profile');
-                if (pModel) {
-                    profileBody.model = pModel;
-                }
-
                 const response = await fetch('/api/profile-from-questionnaire', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(profileBody)
+                    body: JSON.stringify({
+                        purpose: getPurposeText(),
+                        field: getFieldText(),
+                        answers: answers
+                    })
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 if (data.success) {
                     state.senderProfile = data.profile;
                 }
@@ -7104,19 +6729,13 @@ I&apos;m {{sender_name}}, currently ...
                         bodyPayload.template = templateText;
                     }
 
-                    // Developer mode: add model selection
-                    const selectedModel = getSelectedModel('generate_email');
-                    if (selectedModel) {
-                        bodyPayload.model = selectedModel;
-                    }
-
                     const response = await fetch('/api/generate-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(bodyPayload)
                     });
                     
-                    const data = await parseJsonResponse(response);
+                    const data = await response.json();
                     
                     if (data.success) {
                         state.generatedEmails.push({
@@ -7124,8 +6743,6 @@ I&apos;m {{sender_name}}, currently ...
                             receiverProfile: receiverProfile,
                             email: data.email
                         });
-                        // Track token usage (developer mode)
-                        addTokenUsage(data.token_usage);
                     } else {
                         state.generatedEmails.push({
                             target: target,
@@ -7134,20 +6751,17 @@ I&apos;m {{sender_name}}, currently ...
                         });
                     }
                 }
-
+                
                 loading.classList.remove('visible');
                 result.classList.remove('hidden');
-
+                
                 // Show navigation if multiple emails
                 if (state.generatedEmails.length > 1) {
                     nav.classList.remove('hidden');
                     document.getElementById('total-emails').textContent = state.generatedEmails.length;
                 }
-
+                
                 displayCurrentEmail();
-
-                // Show token usage summary (developer mode)
-                showTokenUsageSummary();
                 
             } catch (error) {
                 loading.classList.remove('visible');
@@ -7397,25 +7011,18 @@ I&apos;m {{sender_name}}, currently ...
             result.classList.add('hidden');
             
             try {
-                // Developer mode: add model selection
-                const regenBody = {
-                    original_email: originalEmail,
-                    style_instruction: styleInstruction,
-                    sender: state.senderProfile,
-                    receiver: current.target
-                };
-                const regenModel = getSelectedModel('rewrite_email');
-                if (regenModel) {
-                    regenBody.model = regenModel;
-                }
-
                 const response = await fetch('/api/regenerate-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(regenBody)
+                    body: JSON.stringify({
+                        original_email: originalEmail,
+                        style_instruction: styleInstruction,
+                        sender: state.senderProfile,
+                        receiver: current.target
+                    })
                 });
                 
-                const data = await parseJsonResponse(response);
+                const data = await response.json();
                 
                 if (data.success) {
                     // Store both versions
@@ -7423,15 +7030,12 @@ I&apos;m {{sender_name}}, currently ...
                     state.generatedEmails[state.currentEmailIndex].regeneratedEmail = data.email;
                     state.generatedEmails[state.currentEmailIndex].email = data.email;
                     state.generatedEmails[state.currentEmailIndex].selectedVersion = 'regenerated';
-
-                    addTokenUsage(data.token_usage);  // Track token usage
+                    
                     loading.classList.remove('visible');
                     result.classList.remove('hidden');
-
+                    
                     // Show compare view
                     showCompareView(originalEmail, data.email);
-                    // Update usage summary
-                    showTokenUsageSummary();
                 } else {
                     throw new Error(data.error || 'Failed to regenerate email');
                 }

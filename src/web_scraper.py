@@ -8,17 +8,12 @@ import re
 from dataclasses import dataclass
 from urllib.parse import quote_plus
 
-# Optional Gemini dependency (keep import-time light for tests/CI)
-try:
-    import google.generativeai as genai  # type: ignore
-except ModuleNotFoundError:  # pragma: no cover
-    genai = None  # type: ignore
+import google.generativeai as genai
 import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
 
 from config import DEFAULT_MODEL, USE_OPENAI_AS_PRIMARY, OPENAI_DEFAULT_MODEL
-from src.openai_compat import filter_openai_chat_completions_kwargs
 
 
 @dataclass
@@ -204,10 +199,6 @@ class WebScraper:
 
 def _configure_gemini() -> None:
     """Configure Gemini API with the API key from environment."""
-    if genai is None:
-        raise ValueError(
-            "google-generativeai is not installed. Install dependencies with `python -m pip install -r requirements.txt`."
-        )
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError(
@@ -221,84 +212,25 @@ def _get_openai_client() -> OpenAI:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable is required")
-    timeout_raw = (os.environ.get("OPENAI_TIMEOUT_SECONDS") or "").strip()
-    if timeout_raw:
-        try:
-            timeout = float(timeout_raw)
-        except ValueError:
-            timeout = 60.0
-        return OpenAI(api_key=api_key, timeout=timeout)
     return OpenAI(api_key=api_key)
-
-def _openai_chat_completions_create(client: OpenAI, create_kwargs: dict) -> object:
-    filtered_kwargs = filter_openai_chat_completions_kwargs(create_kwargs)
-    return client.chat.completions.create(**filtered_kwargs)
-
-
-def _extract_json_from_text(text: str) -> str:
-    """Extract JSON from text that may contain markdown code blocks or extra wrapper text."""
-    json_block_pattern = r"```(?:json)?\\s*\\n?([\\s\\S]*?)\\n?```"
-    matches = re.findall(json_block_pattern, text)
-    if matches:
-        for match in matches:
-            candidate = match.strip()
-            try:
-                json.loads(candidate)
-                return candidate
-            except json.JSONDecodeError:
-                continue
-
-    brace_start = text.find("{")
-    if brace_start != -1:
-        depth = 0
-        for i, char in enumerate(text[brace_start:], brace_start):
-            if char == "{":
-                depth += 1
-            elif char == "}":
-                depth -= 1
-                if depth == 0:
-                    candidate = text[brace_start : i + 1]
-                    try:
-                        json.loads(candidate)
-                        return candidate
-                    except json.JSONDecodeError:
-                        continue
-
-    return text
-
-
-def _ensure_strict_json(text: str) -> str:
-    cleaned = (text or "").strip()
-    if not cleaned:
-        return cleaned
-    try:
-        json.loads(cleaned)
-        return cleaned
-    except json.JSONDecodeError:
-        extracted = _extract_json_from_text(cleaned)
-        json.loads(extracted)
-        return extracted
 
 
 def _call_openai_json(prompt: str, *, model: str = OPENAI_DEFAULT_MODEL) -> str:
     """Call OpenAI chat completion and return the response text."""
     client = _get_openai_client()
-    response = _openai_chat_completions_create(
-        client,
-        {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.4,
-            "response_format": {"type": "json_object"},
-        },
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "You are a concise assistant that returns strict JSON only."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.4,
+        response_format={"type": "json_object"},
     )
     content = response.choices[0].message.content
     if not content:
         raise RuntimeError("OpenAI response did not contain any content")
-    return _ensure_strict_json(content)
+    return content
 
 
 def extract_person_profile_from_web(
