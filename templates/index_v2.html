@@ -1890,6 +1890,83 @@
                 transform: translateY(-20px);
             }
         }
+
+        /* Developer Mode Panel */
+        .developer-panel {
+            display: none;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(244, 114, 182, 0.1) 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 14px 20px;
+            margin-bottom: 20px;
+        }
+
+        .developer-panel.active {
+            display: block;
+        }
+
+        .developer-panel-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .developer-badge {
+            background: linear-gradient(135deg, var(--magenta) 0%, var(--accent) 100%);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .developer-panel-title {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .developer-selector-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .developer-selector-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .developer-selector-group label {
+            color: var(--muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .developer-selector-group select {
+            background: var(--panel);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            min-width: 150px;
+            font-family: inherit;
+        }
+
+        .developer-selector-group select:hover {
+            border-color: var(--accent);
+        }
+
+        .developer-selector-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
     </style>
 </head>
 <body>
@@ -1915,6 +1992,28 @@
                 </div>
                 {% endif %}
                 <a href="/logout" class="btn-logout">Logout</a>
+            </div>
+        </div>
+
+        <!-- Developer Mode Panel -->
+        <div class="developer-panel" id="developerPanel">
+            <div class="developer-panel-header">
+                <span class="developer-badge">DEV MODE</span>
+                <span class="developer-panel-title">Select models for each step</span>
+            </div>
+            <div class="developer-selector-row">
+                <div class="developer-selector-group">
+                    <label>📄 Profile</label>
+                    <select id="devModelProfile"></select>
+                </div>
+                <div class="developer-selector-group">
+                    <label>🔍 Find</label>
+                    <select id="devModelRecommend"></select>
+                </div>
+                <div class="developer-selector-group">
+                    <label>✉️ Email</label>
+                    <select id="devModelEmail"></select>
+                </div>
             </div>
         </div>
 
@@ -2929,7 +3028,18 @@ I&apos;m {{sender_name}}, currently ...
             generationMode: null,  // 'smart' or 'template'
             regenerateStyle: null,
             manualTargetProfile: null,  // Profile from uploaded document
-            currentModalTarget: null  // Target being viewed in modal
+            currentModalTarget: null,  // Target being viewed in modal
+            // Developer mode
+            isDeveloperMode: false,
+            availableModels: {},
+            defaultStepModels: {},
+            selectedModels: {
+                profile_extraction: '',
+                questionnaire: '',
+                find_recommendations: '',
+                generate_email: '',
+                rewrite_email: ''
+            }
         };
 
         // Purpose field mapping for better prompts
@@ -3238,8 +3348,72 @@ I&apos;m {{sender_name}}, currently ...
             if (overlay) overlay.classList.add('visible');
         }
 
+        // Developer Mode Functions
+        async function initDeveloperMode() {
+            try {
+                const response = await fetch('/api/me');
+                const data = await response.json();
+
+                if (data.success && data.user && data.user.developer_mode) {
+                    state.isDeveloperMode = true;
+                    state.availableModels = data.available_models || {};
+                    state.defaultStepModels = data.default_step_models || {};
+
+                    // Show developer panel
+                    const panel = document.getElementById('developerPanel');
+                    if (panel) {
+                        panel.classList.add('active');
+                        populateDeveloperSelectors();
+                    }
+                }
+            } catch (error) {
+                console.log('Developer mode check failed:', error);
+            }
+        }
+
+        function populateDeveloperSelectors() {
+            const selectors = {
+                'devModelProfile': 'profile_extraction',
+                'devModelRecommend': 'find_recommendations',
+                'devModelEmail': 'generate_email'
+            };
+
+            for (const [selectId, stepKey] of Object.entries(selectors)) {
+                const select = document.getElementById(selectId);
+                if (!select) continue;
+
+                select.innerHTML = '';
+
+                // Add default option
+                const defaultModel = state.defaultStepModels[stepKey] || '';
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = `Default (${defaultModel})`;
+                select.appendChild(defaultOpt);
+
+                // Add available models
+                for (const [modelId, modelInfo] of Object.entries(state.availableModels)) {
+                    const opt = document.createElement('option');
+                    opt.value = modelId;
+                    opt.textContent = `${modelInfo.name} (${modelInfo.price})`;
+                    select.appendChild(opt);
+                }
+
+                // Listen for changes
+                select.addEventListener('change', function() {
+                    state.selectedModels[stepKey] = this.value;
+                });
+            }
+        }
+
+        function getSelectedModel(stepKey) {
+            if (!state.isDeveloperMode) return null;
+            return state.selectedModels[stepKey] || null;
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            initDeveloperMode();  // Check developer mode first
             setupGlobalModeSwitcher();
             setupModeSelection();
             setupProfessionalMode();
@@ -3451,14 +3625,20 @@ I&apos;m {{sender_name}}, currently ...
             const loading = document.getElementById('pro-upload-loading');
             const success = document.getElementById('pro-resume-success');
             const nextBtn = document.getElementById('btn-resume-next');
-            
+
             loading.classList.remove('hidden');
             success.classList.add('hidden');
-            
+
             const formData = new FormData();
             formData.append('pdf', file);
             formData.append('session_id', state.sessionId);
-            
+
+            // Developer mode: add model selection
+            const selectedModel = getSelectedModel('profile_extraction');
+            if (selectedModel) {
+                formData.append('model', selectedModel);
+            }
+
             try {
                 const response = await fetch('/api/upload-sender-pdf', {
                     method: 'POST',
@@ -4983,38 +5163,47 @@ I&apos;m {{sender_name}}, currently ...
                 const prefExtra = state.proPreferenceHistory.length > 0
                     ? state.proPreferenceHistory.map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`).join('\n\n')
                     : '';
-                
+
+                // Build request body
+                const requestBody = {
+                    purpose: state.proTrack === 'academic' ? 'Academic research and PhD opportunities' : 'Finance career opportunities',
+                    field: state.proTrack === 'academic' ? 'Academic Research' : 'Finance',
+                    sender_profile: state.senderProfile,
+                    preferences: {
+                        ...(state.proTrack === 'finance' && state.financePreferences ? state.financePreferences : {}),
+                        track: state.proTrack,
+                        extra: prefExtra,
+                        search_intent: [
+                            String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.search_intent : '') || '').trim(),
+                            String((state.targetSearchIntent || '') || '').trim()
+                        ].filter(Boolean).join('\n\n'),
+                        must_have: (state.targetMustHave || '').trim(),
+                        must_not: (state.targetMustNot || '').trim(),
+                        location: [
+                            String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.location : '') || '').trim(),
+                            String((state.targetLocation || '') || '').trim()
+                        ].filter(Boolean).join('; '),
+                        contactability: (() => {
+                            const override = String((state.targetContactability || '') || '').trim();
+                            const tree = String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.contactability : '') || '').trim();
+                            if (override && override !== 'balanced') return override;
+                            return tree || override || 'balanced';
+                        })(),
+                        examples: (state.targetExamples || '').trim(),
+                        evidence: (state.targetEvidence || '').trim(),
+                    }
+                };
+
+                // Developer mode: add model selection
+                const selectedModel = getSelectedModel('find_recommendations');
+                if (selectedModel) {
+                    requestBody.model = selectedModel;
+                }
+
                 const response = await fetch('/api/find-recommendations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        purpose: state.proTrack === 'academic' ? 'Academic research and PhD opportunities' : 'Finance career opportunities',
-                        field: state.proTrack === 'academic' ? 'Academic Research' : 'Finance',
-                        sender_profile: state.senderProfile,
-                        preferences: {
-                            ...(state.proTrack === 'finance' && state.financePreferences ? state.financePreferences : {}),
-                            track: state.proTrack,
-                            extra: prefExtra,
-                            search_intent: [
-                                String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.search_intent : '') || '').trim(),
-                                String((state.targetSearchIntent || '') || '').trim()
-                            ].filter(Boolean).join('\n\n'),
-                            must_have: (state.targetMustHave || '').trim(),
-                            must_not: (state.targetMustNot || '').trim(),
-                            location: [
-                                String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.location : '') || '').trim(),
-                                String((state.targetLocation || '') || '').trim()
-                            ].filter(Boolean).join('; '),
-                            contactability: (() => {
-                                const override = String((state.targetContactability || '') || '').trim();
-                                const tree = String((state.proTrack === 'finance' && state.financePreferences ? state.financePreferences.contactability : '') || '').trim();
-                                if (override && override !== 'balanced') return override;
-                                return tree || override || 'balanced';
-                            })(),
-                            examples: (state.targetExamples || '').trim(),
-                            evidence: (state.targetEvidence || '').trim(),
-                        }
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 const data = await response.json();
@@ -5220,14 +5409,20 @@ I&apos;m {{sender_name}}, currently ...
         async function uploadResume(file) {
             const loading = document.getElementById('upload-loading');
             const success = document.getElementById('resume-success');
-            
+
             loading.classList.add('visible');
             success.classList.add('hidden');
-            
+
             const formData = new FormData();
             formData.append('pdf', file);
             formData.append('session_id', state.sessionId);
-            
+
+            // Developer mode: add model selection
+            const selectedModel = getSelectedModel('profile_extraction');
+            if (selectedModel) {
+                formData.append('model', selectedModel);
+            }
+
             try {
                 const response = await fetch('/api/upload-sender-pdf', {
                     method: 'POST',
@@ -5473,13 +5668,20 @@ I&apos;m {{sender_name}}, currently ...
                 // Quick Start: generate a full set of questions once
                 if (state.mode === 'quick') {
                     if (!Array.isArray(state.questionnaireQuestions) || state.questionnaireQuestions.length === 0) {
+                        // Developer mode: add model selection
+                        const questionnaireBody = {
+                            purpose: purposeText,
+                            field: fieldText
+                        };
+                        const qModel = getSelectedModel('questionnaire');
+                        if (qModel) {
+                            questionnaireBody.model = qModel;
+                        }
+
                         const response = await fetch('/api/generate-questionnaire', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                purpose: purposeText,
-                                field: fieldText
-                            })
+                            body: JSON.stringify(questionnaireBody)
                         });
                         const data = await response.json();
                         if (data.success) {
@@ -6084,24 +6286,31 @@ I&apos;m {{sender_name}}, currently ...
                     ? prefHistory.map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`).join('\n\n')
                     : '';
                 
+                // Developer mode: add model selection
+                const requestBody = {
+                    purpose: purposeText,
+                    field: fieldText,
+                    sender_profile: state.senderProfile,
+                    preferences: {
+                        extra: prefExtra,
+                        search_intent: (state.targetSearchIntent || '').trim(),
+                        must_have: (state.targetMustHave || '').trim(),
+                        must_not: (state.targetMustNot || '').trim(),
+                        location: (state.targetLocation || '').trim(),
+                        contactability: (state.targetContactability || 'balanced').trim(),
+                        examples: (state.targetExamples || '').trim(),
+                        evidence: (state.targetEvidence || '').trim(),
+                    }
+                };
+                const selectedModel = getSelectedModel('find_recommendations');
+                if (selectedModel) {
+                    requestBody.model = selectedModel;
+                }
+
                 const response = await fetch('/api/find-recommendations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        purpose: purposeText,
-                        field: fieldText,
-                        sender_profile: state.senderProfile,
-                        preferences: {
-                            extra: prefExtra,
-                            search_intent: (state.targetSearchIntent || '').trim(),
-                            must_have: (state.targetMustHave || '').trim(),
-                            must_not: (state.targetMustNot || '').trim(),
-                            location: (state.targetLocation || '').trim(),
-                            contactability: (state.targetContactability || 'balanced').trim(),
-                            examples: (state.targetExamples || '').trim(),
-                            evidence: (state.targetEvidence || '').trim(),
-                        }
-                    })
+                    body: JSON.stringify(requestBody)
                 });
                 
                 const data = await response.json();
@@ -6428,14 +6637,21 @@ I&apos;m {{sender_name}}, currently ...
                     .map(qa => qa.answer)
                     .filter(a => a && a.trim());
                 
+                // Developer mode: add model selection
+                const profileBody = {
+                    purpose: getPurposeText(),
+                    field: getFieldText(),
+                    answers: answers
+                };
+                const pModel = getSelectedModel('answer_to_profile');
+                if (pModel) {
+                    profileBody.model = pModel;
+                }
+
                 const response = await fetch('/api/profile-from-questionnaire', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        purpose: getPurposeText(),
-                        field: getFieldText(),
-                        answers: answers
-                    })
+                    body: JSON.stringify(profileBody)
                 });
                 
                 const data = await response.json();
@@ -6729,6 +6945,12 @@ I&apos;m {{sender_name}}, currently ...
                         bodyPayload.template = templateText;
                     }
 
+                    // Developer mode: add model selection
+                    const selectedModel = getSelectedModel('generate_email');
+                    if (selectedModel) {
+                        bodyPayload.model = selectedModel;
+                    }
+
                     const response = await fetch('/api/generate-email', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -7011,15 +7233,22 @@ I&apos;m {{sender_name}}, currently ...
             result.classList.add('hidden');
             
             try {
+                // Developer mode: add model selection
+                const regenBody = {
+                    original_email: originalEmail,
+                    style_instruction: styleInstruction,
+                    sender: state.senderProfile,
+                    receiver: current.target
+                };
+                const regenModel = getSelectedModel('rewrite_email');
+                if (regenModel) {
+                    regenBody.model = regenModel;
+                }
+
                 const response = await fetch('/api/regenerate-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        original_email: originalEmail,
-                        style_instruction: styleInstruction,
-                        sender: state.senderProfile,
-                        receiver: current.target
-                    })
+                    body: JSON.stringify(regenBody)
                 });
                 
                 const data = await response.json();
