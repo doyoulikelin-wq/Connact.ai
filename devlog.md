@@ -4,18 +4,22 @@
 
 ### Changes
 - 修复开发者模式选择 `gpt-5-nano` / `o1` 系列等模型时上传简历报错（OpenAI 400：这些模型不支持 `temperature=0`，只能用默认值）
-- OpenAI 调用增加兼容重试：遇到 unsupported param/value 时自动去掉对应参数（包含 `temperature` / `response_format` 等），并按模型缓存避免重复 400
+- OpenAI 调用增加显式兼容映射（不做运行时“自动学习”）：对 GPT-5 base（`gpt-5*` 但不含 `gpt-5.1`/`gpt-5.2`）和 o-series（`o1*`/`o3*`/`o4*`）自动省略不支持的参数（如 `temperature`）
 - JSON 输出增加兜底：从 code block / wrapper text 中提取 JSON，降低解析失败概率
 - 新增单元测试覆盖 OpenAI 兼容逻辑
+- Render 部署：`gunicorn` 默认 `--timeout 30` 太短，LLM 调用容易被杀掉导致前端收到 HTML（`Unexpected token '<'`）。已把 `Procfile` timeout 提到 120 秒
+- 简历解析：对超长 resume text 做截断（避免 token 过大导致超时），并支持 `OPENAI_TIMEOUT_SECONDS` 配置 OpenAI 请求超时
 
 ### Notes / Risks
 - 这些模型将使用默认 temperature（通常为 1），输出可能比 `temperature=0` 更不稳定
 
 ### Modified Files
+- `Procfile`
 - `src/email_agent.py`
+- `src/openai_compat.py`
 - `src/web_scraper.py`
 - `src/services/llm_service.py`
-- `tests/test_openai_fallback.py`
+- `tests/test_openai_compat.py`
 - `README.md`
 - `devlog.md`
 

@@ -34,6 +34,7 @@ from config import (
     OPENAI_DEFAULT_MODEL,
     DEFAULT_STEP_MODELS,
 )
+from src.openai_compat import filter_openai_chat_completions_kwargs
 
 # Prompt 数据收集 (可选)
 try:
@@ -547,91 +548,25 @@ def _get_openai_client() -> OpenAI:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable is required for OpenAI models")
+    timeout_raw = (os.environ.get("OPENAI_TIMEOUT_SECONDS") or "").strip()
+    if timeout_raw:
+        try:
+            timeout = float(timeout_raw)
+        except ValueError:
+            timeout = 60.0
+        return OpenAI(api_key=api_key, timeout=timeout)
     return OpenAI(api_key=api_key)
 
-
-def _extract_openai_error_info(exc: Exception) -> dict[str, Any] | None:
-    """
-    Best-effort extraction of OpenAI API error info from exceptions.
-
-    OpenAI python SDK errors often expose a `.body` dict containing:
-      {"error": {"message": "...", "param": "...", "code": "..."}}
-    """
-    body = getattr(exc, "body", None)
-    if isinstance(body, dict):
-        err = body.get("error")
-        if isinstance(err, dict):
-            return err
-        return body
-
-    response = getattr(exc, "response", None)
-    if response is not None:
-        try:
-            data = response.json()
-        except Exception:
-            data = None
-        if isinstance(data, dict):
-            err = data.get("error")
-            if isinstance(err, dict):
-                return err
-            return data
-
-    return None
-
-
-def _get_openai_unsupported_param(exc: Exception) -> str | None:
-    """Return the top-level request param rejected by OpenAI, if available."""
-    info = _extract_openai_error_info(exc) or {}
-    param = info.get("param") if isinstance(info, dict) else None
-    code = info.get("code") if isinstance(info, dict) else None
-    if isinstance(param, str) and code in {"unsupported_value", "unsupported_parameter"}:
-        return param.split(".", 1)[0]
-
-    import re
-
-    message = str(info.get("message") if isinstance(info, dict) else "") or str(exc)
-    match = re.search(r"Unsupported value: '([^']+)'", message)
-    if match:
-        return match.group(1).split(".", 1)[0]
-    return None
-
-
-_OPENAI_UNSUPPORTED_PARAMS_BY_MODEL: dict[str, set[str]] = {}
-
-
-def _openai_chat_completions_create_with_fallback(
+def _openai_chat_completions_create(
     client: OpenAI,
     create_kwargs: dict[str, Any],
 ) -> Any:
     """
-    Call `client.chat.completions.create` with retries for model-specific unsupported params.
-
-    Some OpenAI models (e.g. reasoning models) only accept default temperature and will
-    400 if `temperature` is provided with non-default values.
+    Call `client.chat.completions.create` after removing known-unsupported params
+    for the given model (no runtime auto-learning).
     """
-    attempt_kwargs = dict(create_kwargs)
-    model = str(attempt_kwargs.get("model") or "")
-
-    known_unsupported = _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.get(model)
-    if known_unsupported:
-        for param in known_unsupported:
-            attempt_kwargs.pop(param, None)
-
-    for _attempt in range(6):
-        try:
-            return client.chat.completions.create(**attempt_kwargs)
-        except Exception as exc:
-            unsupported_param = _get_openai_unsupported_param(exc)
-            if unsupported_param and unsupported_param in attempt_kwargs and unsupported_param not in {"model", "messages"}:
-                attempt_kwargs.pop(unsupported_param, None)
-                if model:
-                    _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.setdefault(model, set()).add(unsupported_param)
-                print(f"[OpenAI compat] model={model} dropped unsupported param={unsupported_param}")
-                continue
-            raise
-
-    # Defensive: should never reach here
-    return client.chat.completions.create(**attempt_kwargs)
+    filtered_kwargs = filter_openai_chat_completions_kwargs(create_kwargs)
+    return client.chat.completions.create(**filtered_kwargs)
 
 
 def _ensure_strict_json(text: str) -> str:
@@ -683,7 +618,7 @@ def _call_openai_chat_with_usage(
     Call OpenAI chat completion and return content with token usage.
     """
     client = _get_openai_client()
-    response = _openai_chat_completions_create_with_fallback(
+    response = _openai_chat_completions_create(
         client,
         {
             "model": model,
@@ -717,7 +652,7 @@ def _call_openai_json(prompt: str, *, model: str) -> str:
 def _call_openai_json_with_usage(prompt: str, *, model: str, step: str = "") -> tuple[str, TokenUsage]:
     """Call OpenAI chat completion and return content with token usage."""
     client = _get_openai_client()
-    response = _openai_chat_completions_create_with_fallback(
+    response = _openai_chat_completions_create(
         client,
         {
             "model": model,
@@ -749,7 +684,7 @@ def _call_openai_json_with_web_search(prompt: str, *, model: str) -> str:
     Call OpenAI chat completion with built-in web_search tool support.
     """
     client = _get_openai_client()
-    response = _openai_chat_completions_create_with_fallback(
+    response = _openai_chat_completions_create(
         client,
         {
             "model": model,
@@ -783,11 +718,28 @@ def extract_profile_from_text(
     if not cleaned_text:
         raise ValueError("Resume text must be a non-empty string")
 
+    # Avoid timeouts / excessive tokens on very long resumes (PDF OCR noise etc.).
+    max_chars_raw = (os.environ.get("PROFILE_EXTRACTION_MAX_CHARS") or "").strip()
+    try:
+        max_chars = int(max_chars_raw) if max_chars_raw else 20000
+    except ValueError:
+        max_chars = 20000
+
+    resume_for_llm = cleaned_text
+    if max_chars > 0 and len(resume_for_llm) > max_chars:
+        head_len = int(max_chars * 0.75)
+        tail_len = max_chars - head_len
+        resume_for_llm = (
+            resume_for_llm[:head_len].rstrip()
+            + "\n...\n"
+            + resume_for_llm[-tail_len:].lstrip()
+        )
+
     prompt = (
         "Extract a structured profile from the provided resume text. "
         "Return strict JSON with the keys: name (string), education (list of strings), "
         "experiences (list of strings), skills (list of strings), projects (list of strings).\n\n"
-        f"Resume text:\n{cleaned_text}\n\nReturn JSON only."
+        f"Resume text:\n{resume_for_llm}\n\nReturn JSON only."
     )
 
     content, _ = _call_llm_with_usage(prompt, json_mode=True, model=model, step="profile_extraction")

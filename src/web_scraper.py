@@ -8,12 +8,17 @@ import re
 from dataclasses import dataclass
 from urllib.parse import quote_plus
 
-import google.generativeai as genai
+# Optional Gemini dependency (keep import-time light for tests/CI)
+try:
+    import google.generativeai as genai  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    genai = None  # type: ignore
 import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
 
 from config import DEFAULT_MODEL, USE_OPENAI_AS_PRIMARY, OPENAI_DEFAULT_MODEL
+from src.openai_compat import filter_openai_chat_completions_kwargs
 
 
 @dataclass
@@ -199,6 +204,10 @@ class WebScraper:
 
 def _configure_gemini() -> None:
     """Configure Gemini API with the API key from environment."""
+    if genai is None:
+        raise ValueError(
+            "google-generativeai is not installed. Install dependencies with `python -m pip install -r requirements.txt`."
+        )
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError(
@@ -212,71 +221,18 @@ def _get_openai_client() -> OpenAI:
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("OPENAI_API_KEY environment variable is required")
+    timeout_raw = (os.environ.get("OPENAI_TIMEOUT_SECONDS") or "").strip()
+    if timeout_raw:
+        try:
+            timeout = float(timeout_raw)
+        except ValueError:
+            timeout = 60.0
+        return OpenAI(api_key=api_key, timeout=timeout)
     return OpenAI(api_key=api_key)
 
-
-def _extract_openai_error_info(exc: Exception) -> dict | None:
-    body = getattr(exc, "body", None)
-    if isinstance(body, dict):
-        err = body.get("error")
-        if isinstance(err, dict):
-            return err
-        return body
-
-    response = getattr(exc, "response", None)
-    if response is not None:
-        try:
-            data = response.json()
-        except Exception:
-            data = None
-        if isinstance(data, dict):
-            err = data.get("error")
-            if isinstance(err, dict):
-                return err
-            return data
-
-    return None
-
-
-def _get_openai_unsupported_param(exc: Exception) -> str | None:
-    info = _extract_openai_error_info(exc) or {}
-    param = info.get("param") if isinstance(info, dict) else None
-    code = info.get("code") if isinstance(info, dict) else None
-    if isinstance(param, str) and code in {"unsupported_value", "unsupported_parameter"}:
-        return param.split(".", 1)[0]
-
-    message = str(info.get("message") if isinstance(info, dict) else "") or str(exc)
-    match = re.search(r"Unsupported value: '([^']+)'", message)
-    if match:
-        return match.group(1).split(".", 1)[0]
-    return None
-
-
-_OPENAI_UNSUPPORTED_PARAMS_BY_MODEL: dict[str, set[str]] = {}
-
-
-def _openai_chat_completions_create_with_fallback(client: OpenAI, create_kwargs: dict) -> object:
-    attempt_kwargs = dict(create_kwargs)
-    model = str(attempt_kwargs.get("model") or "")
-
-    known_unsupported = _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.get(model)
-    if known_unsupported:
-        for param in known_unsupported:
-            attempt_kwargs.pop(param, None)
-
-    for _attempt in range(6):
-        try:
-            return client.chat.completions.create(**attempt_kwargs)
-        except Exception as exc:
-            unsupported_param = _get_openai_unsupported_param(exc)
-            if unsupported_param and unsupported_param in attempt_kwargs and unsupported_param not in {"model", "messages"}:
-                attempt_kwargs.pop(unsupported_param, None)
-                if model:
-                    _OPENAI_UNSUPPORTED_PARAMS_BY_MODEL.setdefault(model, set()).add(unsupported_param)
-                print(f"[OpenAI compat] model={model} dropped unsupported param={unsupported_param}")
-                continue
-            raise
-    return client.chat.completions.create(**attempt_kwargs)
+def _openai_chat_completions_create(client: OpenAI, create_kwargs: dict) -> object:
+    filtered_kwargs = filter_openai_chat_completions_kwargs(create_kwargs)
+    return client.chat.completions.create(**filtered_kwargs)
 
 
 def _extract_json_from_text(text: str) -> str:
@@ -327,7 +283,7 @@ def _ensure_strict_json(text: str) -> str:
 def _call_openai_json(prompt: str, *, model: str = OPENAI_DEFAULT_MODEL) -> str:
     """Call OpenAI chat completion and return the response text."""
     client = _get_openai_client()
-    response = _openai_chat_completions_create_with_fallback(
+    response = _openai_chat_completions_create(
         client,
         {
             "model": model,
