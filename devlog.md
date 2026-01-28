@@ -1025,7 +1025,7 @@ response = gemini_model.generate_content(prompt)
   - Session-based authentication (removed in 2026-01-26, replaced by per-user accounts)
 
 - **Render Deployment**
-  - Live at https://coldemail-agent.onrender.com/
+  - Live at https://connact-ai.onrender.com/
   - Gunicorn production server
   - Environment variable configuration
 

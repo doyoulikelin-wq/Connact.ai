@@ -17,7 +17,7 @@
 ## 项目架构概览
 
 ```
-Coldemail-agent/
+Connact.ai/
 ├── app.py                    # 🔒 Flask 路由层 (禁止直接修改)
 ├── config.py                 # 🔒 全局配置 (禁止直接修改)
 ├── src/
@@ -51,11 +51,11 @@ Coldemail-agent/
 # 在 GitHub 上点击 Fork 按钮
 
 # Clone 你的 Fork
-git clone https://github.com/<YOUR_USERNAME>/Coldemail-agent.git
-cd Coldemail-agent
+git clone https://github.com/<YOUR_USERNAME>/Connact.ai.git
+cd Connact.ai
 
 # 添加上游仓库
-git remote add upstream https://github.com/yangziao56/Coldemail-agent.git
+git remote add upstream https://github.com/doyoulikelin-wq/Connact.ai.git
 ```
 
 ### 2. 环境配置

@@ -1,7 +1,7 @@
-# Cold Email Generator
+# Connact.ai
 ## AI-Powered Personalized Outreach Tool
 
-Live Demo: https://coldemail-agent.onrender.com/
+Live Demo: https://connact-ai.onrender.com/
 
 ---
 
@@ -64,7 +64,7 @@ Regenerate with professional, friendly, or custom tones
 
 # Experience It Yourself
 
-## 🌐 https://coldemail-agent.onrender.com/
+## 🌐 https://connact-ai.onrender.com/
 
 **Login:** Google or Email/Password (invite-only)
 

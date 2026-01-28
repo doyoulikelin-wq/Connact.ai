@@ -1,4 +1,4 @@
-# notes.md — Cold Email Generator
+# notes.md — Connact.ai
 
 ## 0. 项目目标（一句话）
 
@@ -47,7 +47,7 @@
 4. **Step 4: 生成邮件 + Regenerate**
    - 风格调整选项：更专业 / 更亲近 / 更简洁 / 更详细 / 自定义
 
-**线上地址**: https://coldemail-agent.onrender.com/
+**线上地址**: https://connact-ai.onrender.com/
 
 ### v2.1 - 目标偏好问卷 & Field 下沉到 Step 3
 - Step 1 只保留 purpose，移除 field 选择

@@ -70,7 +70,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'coldemail-secret-key-2024')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'connact-ai-secret-key-2024')
 
 # Allow OAuth over HTTP for local development (NEVER use in production!)
 if os.environ.get("FLASK_ENV", "").lower() != "production" and os.environ.get("OAUTHLIB_INSECURE_TRANSPORT") is None:

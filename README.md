@@ -1,4 +1,4 @@
-# Cold Email Generator
+# Connact.ai
 
 An intelligent cold email generation tool with a step-by-step wizard interface.
 
@@ -84,7 +84,7 @@ Quick reading:
 - Search people (`POST /api/find-recommendations`): uses boxes `purpose and field`, optional `professional track`, sender info (`sender profile from resume` or `sender profile from answers` or `sender profile link and notes`), plus targeting inputs (`target preferences from questions` and optional `ideal target description keywords location reply vs prestige examples evidence`).
 - Generate email (`POST /api/generate-email`): uses boxes `purpose and field`, sender info, receiver profile (`receiver profile from document` or `receiver profile from web with sources`), plus recommendation-stage receiver facts when available (e.g. `position/linkedin_url/evidence/sources`, merged into receiver context), and optional `target profile link and notes`, `email goal ask value constraints hard rules evidence`, and `template text`.
 
-🌐 **Live Demo**: [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
+🌐 **Live Demo**: [https://connact-ai.onrender.com/](https://connact-ai.onrender.com/)
 
 ## Features
 
@@ -175,7 +175,7 @@ Quick reading:
 
 ### Web Interface (Recommended)
 
-1. Visit [https://coldemail-agent.onrender.com/](https://coldemail-agent.onrender.com/)
+1. Visit [https://connact-ai.onrender.com/](https://connact-ai.onrender.com/)
 2. Log in with **Google** or **Email + Password**
    - Private beta: enter an invite code on the landing page (`/`) (or `/access`) to unlock access, or join the waitlist
    - Invite code is remembered after first successful login (you won’t be asked again on the same browser)
