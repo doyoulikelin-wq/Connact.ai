@@ -51,6 +51,22 @@ except ImportError:
     error_notifier = None
     notify_error = None
 
+# User data service (contacts, emails, credits)
+try:
+    from src.services.user_data_service import user_data_service
+    USER_DATA_ENABLED = True
+except ImportError:
+    USER_DATA_ENABLED = False
+    user_data_service = None
+
+# Apollo.io service (email lookup)
+try:
+    from src.services.apollo_service import lookup_contact_email
+    APOLLO_ENABLED = True
+except ImportError:
+    APOLLO_ENABLED = False
+    lookup_contact_email = None
+
 # Prompt 数据收集
 try:
     from src.services.prompt_collector import (
@@ -1394,6 +1410,231 @@ def api_save_targets():
             'path': path,
             'count': len(targets)
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== User Dashboard & Data APIs ====================
+
+@app.route('/api/user/dashboard', methods=['GET'])
+@login_required
+def api_user_dashboard():
+    """Get user's dashboard data including contacts, emails, and credits."""
+    user_id = session.get('user_id')
+    try:
+        dashboard = user_data_service.get_user_dashboard(user_id)
+        return jsonify(dashboard)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/contacts', methods=['GET'])
+@login_required
+def api_user_contacts():
+    """Get user's saved contacts."""
+    user_id = session.get('user_id')
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    
+    try:
+        contacts = user_data_service.get_user_contacts(user_id, limit=limit, offset=offset)
+        return jsonify({
+            'contacts': [c.to_dict() for c in contacts],
+            'count': len(contacts),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/contacts', methods=['POST'])
+@login_required
+def api_save_contact():
+    """Save a contact for the user."""
+    user_id = session.get('user_id')
+    data = request.get_json()
+    
+    if not data or not data.get('name'):
+        return jsonify({'error': 'Contact name is required'}), 400
+    
+    try:
+        contact = user_data_service.save_contact(user_id, data)
+        return jsonify({
+            'success': True,
+            'contact': contact.to_dict(),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/contacts/<contact_id>', methods=['DELETE'])
+@login_required
+def api_delete_contact(contact_id):
+    """Delete a saved contact."""
+    user_id = session.get('user_id')
+    
+    try:
+        success = user_data_service.delete_contact(contact_id, user_id)
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Contact not found or not owned by user'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/emails', methods=['GET'])
+@login_required
+def api_user_emails():
+    """Get user's saved emails."""
+    user_id = session.get('user_id')
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    
+    try:
+        emails = user_data_service.get_user_emails(user_id, limit=limit, offset=offset)
+        return jsonify({
+            'emails': [e.to_dict() for e in emails],
+            'count': len(emails),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/emails', methods=['POST'])
+@login_required
+def api_save_email():
+    """Save a generated email for the user."""
+    user_id = session.get('user_id')
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Email data is required'}), 400
+    
+    contact_name = data.get('contact_name', '')
+    subject = data.get('subject', '')
+    body = data.get('body', '')
+    
+    if not contact_name or not body:
+        return jsonify({'error': 'Contact name and email body are required'}), 400
+    
+    try:
+        email = user_data_service.save_email(
+            user_id=user_id,
+            contact_name=contact_name,
+            contact_position=data.get('contact_position', ''),
+            subject=subject,
+            body=body,
+            goal=data.get('goal', ''),
+            contact_id=data.get('contact_id'),
+            template_used=data.get('template_used'),
+        )
+        return jsonify({
+            'success': True,
+            'email': email.to_dict(),
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/emails/<email_id>', methods=['DELETE'])
+@login_required
+def api_delete_email(email_id):
+    """Delete a saved email."""
+    user_id = session.get('user_id')
+    
+    try:
+        success = user_data_service.delete_email(email_id, user_id)
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': 'Email not found or not owned by user'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user/credits', methods=['GET'])
+@login_required
+def api_user_credits():
+    """Get user's Apollo credits."""
+    user_id = session.get('user_id')
+    
+    try:
+        credits = user_data_service.get_user_credits(user_id)
+        return jsonify(credits.to_dict())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Apollo Email Lookup API ====================
+
+@app.route('/api/apollo/unlock-email', methods=['POST'])
+@login_required
+def api_apollo_unlock_email():
+    """
+    Unlock a contact's email using Apollo.io.
+    Consumes 1 credit per successful lookup.
+    """
+    user_id = session.get('user_id')
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'Request data is required'}), 400
+    
+    contact_id = data.get('contact_id')
+    name = data.get('name', '')
+    linkedin_url = data.get('linkedin_url', '')
+    company = data.get('company', '')
+    
+    if not name and not linkedin_url:
+        return jsonify({'error': 'Name or LinkedIn URL is required'}), 400
+    
+    try:
+        # Check user credits first
+        credits = user_data_service.get_user_credits(user_id)
+        if credits.apollo_credits <= 0:
+            return jsonify({
+                'success': False,
+                'error': 'No credits remaining. You have used all your email lookup credits.',
+                'credits_remaining': 0,
+            }), 402  # Payment Required
+        
+        # Look up email using Apollo
+        result = lookup_contact_email(
+            name=name,
+            linkedin_url=linkedin_url,
+            company=company,
+        )
+        
+        if result.success and result.email:
+            # Deduct credit only on successful lookup
+            success, remaining = user_data_service.use_credit(user_id)
+            
+            # Update contact if we have a contact_id
+            if contact_id:
+                user_data_service.update_contact_email(contact_id, result.email)
+            
+            return jsonify({
+                'success': True,
+                'email': result.email,
+                'email_status': result.email_status,
+                'credits_remaining': remaining,
+                'enriched_data': {
+                    'first_name': result.first_name,
+                    'last_name': result.last_name,
+                    'title': result.title,
+                    'organization': result.organization,
+                    'city': result.city,
+                    'country': result.country,
+                },
+            })
+        else:
+            # No credit deducted if lookup fails
+            return jsonify({
+                'success': False,
+                'error': result.error or 'Email not found',
+                'credits_remaining': credits.apollo_credits,
+            })
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

@@ -1,5 +1,40 @@
 # Development Log
 
+## 2026-02-03: User Dashboard + Apollo.io Email Unlock
+
+### Changes
+- 新增用户个人主页（Dashboard）：展示保存的联系人、生成的邮件历史、Apollo Credits
+- 新增 Apollo.io 集成：通过 People Enrichment API 查找联系人真实邮箱
+- 每用户默认 5 个 Apollo Credits，只在成功找到邮箱时扣除
+- 生成邮件后显示"Unlock Email"按钮，一键解锁联系人邮箱
+- 邮件自动保存到用户历史记录
+- Dashboard 按钮替代原 Mode 选择顶部栏（Quick/Professional 按钮保留）
+
+### New Files
+- `src/services/user_data_service.py`：用户数据存储服务（SQLite）
+  - 表：`user_contacts`、`user_emails`、`user_credits`
+  - 功能：联系人 CRUD、邮件 CRUD、Credits 管理
+- `src/services/apollo_service.py`：Apollo.io API 集成
+  - People Enrichment API (`/v1/people/match`)
+  - 支持 LinkedIn URL 或 姓名+公司 查找邮箱
+
+### Modified Files
+- `app.py`：新增 10+ API 路由
+  - GET/POST/DELETE `/api/user/contacts`
+  - GET/POST/DELETE `/api/user/emails`
+  - GET `/api/user/credits`
+  - GET `/api/user/dashboard`
+  - POST `/api/apollo/unlock-email`
+- `templates/index_v2.html`：
+  - 新增 Dashboard 面板 + CSS 样式
+  - 新增 Unlock Email 按钮 + JavaScript 逻辑
+  - 邮件自动保存功能
+
+### Environment Variables
+- `APOLLO_API_KEY`：Apollo.io API 密钥（已配置）
+
+---
+
 ## 2026-02-03: Auth 页面视觉统一到 Dreamcore
 
 ### Changes
