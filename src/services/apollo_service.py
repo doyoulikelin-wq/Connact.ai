@@ -17,7 +17,7 @@ import requests
 
 # Apollo API configuration
 APOLLO_API_BASE = "https://api.apollo.io/api/v1"
-APOLLO_API_KEY = os.environ.get("APOLLO_API_KEY", "zE5e5LIohNr5PDIcEYnntQ")
+APOLLO_API_KEY = os.environ.get("APOLLO_API_KEY", "")
 
 
 @dataclass

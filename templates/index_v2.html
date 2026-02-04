@@ -149,6 +149,11 @@
             color: inherit;
             text-decoration: none;
             text-shadow: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 28px;
+            font-weight: 700;
         }
 
         .app-logo:hover {
@@ -159,6 +164,16 @@
             outline: none;
             box-shadow: var(--focus-ring);
             border-radius: 12px;
+        }
+
+        .app-logo .logo-caret {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 -2px;
+        }
+
+        .app-logo .logo-caret svg {
+            display: block;
         }
 
         /* Floating LCD Panel - Mode Switcher */
@@ -220,7 +235,6 @@
             background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
             color: #fff;
             border-color: transparent;
-            margin-right: 8px;
         }
 
         .mode-pill.dashboard-pill:hover {
@@ -229,36 +243,177 @@
             box-shadow: 0 8px 25px rgba(34, 211, 238, 0.3);
         }
 
+        .mode-pill.logout-pill {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .mode-pill.logout-pill:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.2);
+        }
+
+        .credits-display {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .credits-icon {
+            font-size: 16px;
+        }
+
+        .credits-count {
+            color: #fbbf24;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .credits-label {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .mode-pill.logout-pill {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .mode-pill.logout-pill:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.2);
+        }
+
+        .credits-display {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .credits-icon {
+            font-size: 16px;
+        }
+
+        .credits-count {
+            color: #fbbf24;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .credits-label {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
         /* Unlock Email Button */
         .btn-unlock-email {
+            position: relative;
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
             color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 13px;
+            border: 2px solid transparent;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             margin-left: 15px;
-            transition: all 0.3s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             font-family: inherit;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
         }
 
         .btn-unlock-email:hover {
             background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+            border-color: rgba(251, 191, 36, 0.5);
+        }
+
+        .btn-unlock-email:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
         }
 
         .btn-unlock-email:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
         }
 
         .btn-unlock-email.unlocked {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             cursor: default;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-unlock-email.unlocked:hover {
+            transform: none;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Tooltip for credit display */
+        .btn-unlock-email[data-credits]::before {
+            content: attr(data-credits) ' credits remaining';
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%) translateY(-5px);
+            background: rgba(17, 24, 39, 0.95);
+            color: #fbbf24;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+
+        .btn-unlock-email[data-credits]::after {
+            content: '';
+            position: absolute;
+            bottom: calc(100% + 2px);
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: rgba(17, 24, 39, 0.95);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+        }
+
+        .btn-unlock-email[data-credits]:hover::before,
+        .btn-unlock-email[data-credits]:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .btn-unlock-email.unlocked::before,
+        .btn-unlock-email.unlocked::after {
+            display: none;
         }
 
         /* User Dashboard Styles */
@@ -2106,26 +2261,34 @@
     <div class="toast-container" id="toast-container"></div>
 
     <div class="mode-switcher" id="global-mode-switcher">
-        <button class="mode-pill dashboard-pill" id="btn-my-dashboard">🏠 My Dashboard</button>
-        <span class="mode-switcher-label">Mode</span>
-        <button class="mode-pill" data-mode="quick">⚡ Quick</button>
-        <button class="mode-pill" data-mode="professional">💼 Professional</button>
+        <button class="mode-pill dashboard-pill" id="btn-my-dashboard">🏠 Dashboard</button>
+        <div class="credits-display" id="credits-display">
+            <span class="credits-icon">⚡</span>
+            <span class="credits-count" id="header-credits">5</span>
+            <span class="credits-label">credits</span>
+        </div>
+        <button class="mode-pill logout-pill" id="btn-logout">🚪 Logout</button>
     </div>
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1><a class="app-logo" href="/" title="Back to home">🤝 Connact.ai</a></h1>
-            <div style="display: flex; align-items: center; gap: 12px;">
-                {% if user_name or user_email %}
-                <div class="user-chip" title="{{ user_email or '' }}">
-                    {% if user_picture %}
-                    <img src="{{ user_picture }}" alt="User">
-                    {% endif %}
-                    <span>{{ user_name or user_email }}</span>
-                </div>
-                {% endif %}
-                <a href="/logout" class="btn-logout">Logout</a>
-            </div>
+            <h1>
+                <a class="app-logo" href="/" title="Back to home">
+                    <span>Conn</span>
+                    <span class="logo-caret" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                            <defs>
+                                <linearGradient id="caretGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#00F2FF" />
+                                    <stop offset="100%" stop-color="#0072FF" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M4 19L12 5L20 19" stroke="url(#caretGradient)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                    <span>ct.ai</span>
+                </a>
+            </h1>
         </div>
 
         <!-- Progress Steps (hidden until mode selected) -->
@@ -2205,8 +2368,8 @@
             </div>
         </div>
 
-        <!-- Mode Selection (shown first) -->
-        <div class="panel" id="mode-selection">
+        <!-- Mode Selection (hidden - auto Professional mode) -->
+        <div class="panel hidden" id="mode-selection">
             <h2><span class="icon">🚀</span> Choose Your Mode</h2>
             <p class="panel-description">Select how you'd like to create your cold emails. You can always switch modes later.</p>
             
@@ -3468,6 +3631,14 @@ I&apos;m {{sender_name}}, currently ...
                 });
             }
 
+            // Logout button
+            const logoutBtn = document.getElementById('btn-logout');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function() {
+                    window.location.href = '/logout';
+                });
+            }
+
             // Back to create button (in dashboard)
             const backToCreateBtn = document.getElementById('btn-back-to-create');
             if (backToCreateBtn) {
@@ -3475,6 +3646,9 @@ I&apos;m {{sender_name}}, currently ...
                     hideDashboard();
                 });
             }
+
+            // Load credits on page load
+            loadUserCredits();
 
             updateModeSwitcherUI(state.mode);
         }
@@ -3694,9 +3868,9 @@ I&apos;m {{sender_name}}, currently ...
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         name: currentTarget.name,
-                        organization: currentTarget.organization || currentTarget.current_affiliation,
-                        linkedin_url: currentTarget.linkedin,
-                        title: currentTarget.title || currentTarget.current_position
+                        company: currentTarget.organization || currentTarget.current_affiliation || currentTarget.affiliation || '',
+                        linkedin_url: currentTarget.linkedin || currentTarget.linkedin_url || '',
+                        title: currentTarget.title || currentTarget.current_position || currentTarget.position || ''
                     })
                 });
 
@@ -3707,11 +3881,17 @@ I&apos;m {{sender_name}}, currently ...
                     document.getElementById('email-target-email').textContent = result.email;
                     btn.innerHTML = '✅ Email Unlocked';
                     btn.classList.add('unlocked');
+                    btn.removeAttribute('data-credits');
                     
                     // Update credits display
-                    document.getElementById('stat-credits').textContent = result.credits_remaining;
+                    const creditsRemaining = result.credits_remaining;
+                    document.getElementById('stat-credits').textContent = creditsRemaining;
+                    document.getElementById('header-credits').textContent = creditsRemaining;
                     
-                    showToast(`Email found! (${result.credits_remaining} credits remaining)`, 'success');
+                    // Update all unlock buttons with new credit count
+                    updateUnlockButtonCredits(creditsRemaining);
+                    
+                    showToast(`Email found! (${creditsRemaining} credits remaining)`, 'success');
 
                     // Save contact with email
                     await saveContactWithEmail(currentTarget, result.email);
@@ -3745,6 +3925,31 @@ I&apos;m {{sender_name}}, currently ...
             } catch (err) {
                 console.error('Failed to save contact:', err);
             }
+        }
+
+        function updateUnlockButtonCredits(credits) {
+            const unlockBtns = document.querySelectorAll('.btn-unlock-email:not(.unlocked)');
+            unlockBtns.forEach(btn => {
+                btn.setAttribute('data-credits', credits);
+            });
+        }
+
+        async function loadUserCredits() {
+            try {
+                const response = await fetch('/api/user/credits');
+                if (response.ok) {
+                    const data = await response.json();
+                    const credits = data.apollo_credits || 5;
+                    // Update both header and dashboard
+                    document.getElementById('stat-credits').textContent = credits;
+                    document.getElementById('header-credits').textContent = credits;
+                    updateUnlockButtonCredits(credits);
+                    return credits;
+                }
+            } catch (err) {
+                console.error('Failed to load credits:', err);
+            }
+            return 5;
         }
 
         // ========= END DASHBOARD & APOLLO FUNCTIONS =========
@@ -3805,6 +4010,9 @@ I&apos;m {{sender_name}}, currently ...
             setupTargetDocUpload();
             setupPreferenceForm();
             setupUnlockEmailButton();
+            
+            // Auto-start with Professional mode (skip mode selection)
+            startModeFlow('professional', { confirmSwitch: false });
         });
 
         // Setup unlock email button
@@ -7359,11 +7567,14 @@ I&apos;m {{sender_name}}, currently ...
                     unlockBtn.innerHTML = '✅ Email Unlocked';
                     unlockBtn.classList.add('unlocked');
                     unlockBtn.disabled = true;
+                    unlockBtn.removeAttribute('data-credits');
                 } else {
                     emailDisplay.textContent = 'Not unlocked';
                     unlockBtn.innerHTML = '🔓 Unlock Email (1 credit)';
                     unlockBtn.classList.remove('unlocked');
                     unlockBtn.disabled = false;
+                    // Load and set current credits
+                    loadUserCredits();
                 }
             }
             
