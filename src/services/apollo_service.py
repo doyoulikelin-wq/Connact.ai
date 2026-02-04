@@ -80,25 +80,55 @@ class ApolloService:
         headers = {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",
-            "X-Api-Key": self.api_key,
+            "accept": "application/json",
+            "X-Api-Key": self.api_key,  # API key must be in X-Api-Key header
         }
+
+        # Debug logging
+        print(f"[Apollo] Request to {endpoint}")
+        print(f"[Apollo] URL: {url}")
+        print(f"[Apollo] API Key present: {bool(self.api_key)}")
+        print(f"[Apollo] API Key length: {len(self.api_key) if self.api_key else 0}")
+        if data:
+            print(f"[Apollo] Request data: {data}")
 
         try:
             if method.upper() == "GET":
                 response = requests.get(url, headers=headers, params=params, timeout=30)
             else:
-                response = requests.post(url, headers=headers, json=data, timeout=30)
+                response = requests.post(url, headers=headers, params=params, json=data, timeout=30)
 
             response.raise_for_status()
             return response.json()
 
         except requests.exceptions.HTTPError as e:
-            status = e.response.status_code if e.response else 500
-            try:
-                error_data = e.response.json() if e.response else {}
-                error_msg = error_data.get("error", str(e))
-            except Exception:
-                error_msg = str(e)
+            status = e.response.status_code if e.response is not None else 500
+            error_msg = str(e)
+            
+            print(f"[Apollo] HTTP Error Status: {status}")
+            print(f"[Apollo] Error object: {e}")
+            
+            if e.response is not None:
+                try:
+                    print(f"[Apollo] Response headers: {dict(e.response.headers)}")
+                except Exception as header_err:
+                    print(f"[Apollo] Could not get headers: {header_err}")
+                
+                try:
+                    response_text = e.response.text
+                    print(f"[Apollo] Response text: {response_text}")
+                    
+                    # Try to parse as JSON
+                    try:
+                        error_data = e.response.json()
+                        error_msg = error_data.get("error") or error_data.get("message") or str(error_data)
+                        print(f"[Apollo] Error response JSON: {error_data}")
+                    except Exception:
+                        error_msg = response_text or str(e)
+                        print(f"[Apollo] Response is not JSON")
+                except Exception as text_err:
+                    print(f"[Apollo] Could not get response text: {text_err}")
+            
             raise ApolloServiceError(f"Apollo API error ({status}): {error_msg}")
 
         except requests.exceptions.RequestException as e:
@@ -193,6 +223,8 @@ class ApolloService:
             )
 
         try:
+            # Use People Match API (available on free plan)
+            # mixed_people/search requires paid plan
             result = self._make_request("POST", "people/match", data=data)
             person = result.get("person", {})
 

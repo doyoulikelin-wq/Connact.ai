@@ -1,5 +1,61 @@
 # Development Log
 
+## 2026-02-05: Apollo.io 集成完成 + UI 优化 + 免费计划限制发现
+
+### Summary
+完成了 Apollo.io API 集成开发和测试，但发现 Apollo 免费计划**不支持**邮件查找功能（`people/match` 和 `mixed_people/search` 端点均需付费）。已完成所有代码实现、UI 改进和测试工具，待升级 Apollo 计划后即可启用。
+
+### Changes
+1. **Apollo.io API 集成调试**
+   - 修正认证方式：API Key 必须通过 `X-Api-Key` header 传递
+   - 尝试 `mixed_people/search` 端点（Search API）→ 免费计划禁止
+   - 回退到 `people/match` 端点（Match API）→ 免费计划同样禁止
+   - 确认可用端点：`organizations/search`、`auth/health`
+
+2. **UI 优化**
+   - Logo 更新：所有页面（除 landing）统一为 "Conn ^ ct.ai" 渐变 SVG 风格
+   - 删除 Mode 选择步骤，自动进入 Professional 模式
+   - 浮动导航改为：Dashboard 按钮 + Credits 显示 + Logout 按钮
+   - Credits 实时同步到所有 UI 元素
+
+3. **测试工具**
+   - 新增 `test_apollo_quick.py`：快速测试邮件查找功能（无需网页操作）
+   - 新增 `test_apollo_free_api.py`：测试 Apollo 各端点在免费计划下的可用性
+
+### Modified Files
+- `src/services/apollo_service.py`：
+  - 修正 API 认证方式（X-Api-Key header）
+  - 改进错误处理和调试日志
+  - 尝试多个 API 端点（search → match）
+- `templates/index_v2.html`：
+  - Logo SVG 渐变效果
+  - 隐藏 mode-selection 面板
+  - 更新浮动导航 UI
+  - 自动启动 Professional 模式
+
+### New Files
+- `test_apollo_quick.py`：快速测试脚本（3 个测试用例）
+- `test_apollo_free_api.py`：Apollo API 端点可用性测试
+
+### API 限制发现
+**Apollo.io 免费计划限制：**
+- ❌ `api/v1/people/match`：需要付费计划
+- ❌ `api/v1/mixed_people/search`：需要付费计划
+- ✅ `api/v1/organizations/search`：免费可用
+- ✅ `api/v1/auth/health`：免费可用
+
+**结论：** 免费计划无法使用邮件查找功能，需升级到付费计划才能解锁联系人邮箱。
+
+### Next Steps
+1. 升级 Apollo.io 到付费计划（推荐 Basic Plan）
+2. 或暂时隐藏"Unlock Email"按钮，显示"需要升级计划"提示
+3. 或考虑集成其他 email finder 服务（Hunter.io、RocketReach 等）
+
+### Environment Variables
+- `APOLLO_API_KEY=zE5e5LIohNr5PDIcEYnntQ`（已配置，免费计划）
+
+---
+
 ## 2026-02-03: User Dashboard + Apollo.io Email Unlock
 
 ### Changes
