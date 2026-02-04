@@ -1,5 +1,34 @@
 # Development Log
 
+## 2026-02-05: 企业微信错误通知集成
+
+### Summary
+发现并修复了一个重要问题：`error_notifier.py` 服务已经存在但从未被调用，导致所有 Apollo API 错误和其他异常都没有发送企业微信通知。现已全面集成错误通知系统。
+
+### Changes
+- **全局错误处理器**：添加 Flask `@app.errorhandler(500)` 捕获所有 500 错误
+- **Apollo API 专用错误通知**：在 `/api/apollo/unlock-email` 端点添加详细的错误上下文通知
+- **错误上下文增强**：
+  - 用户 ID
+  - 请求路径
+  - Apollo 请求参数（name, linkedin_url, company, contact_id）
+  - HTTP 方法和请求数据
+
+### Modified Files
+- `app.py`：
+  - 添加全局 500 错误处理器（line ~133）
+  - 在 Apollo unlock API 的 except block 中添加错误通知（line ~1638）
+
+### Environment Variables Required
+- `WECHAT_WEBHOOK_URL`：企业微信机器人 webhook（必须配置才能启用通知）
+
+### Next Steps
+- 在 Render 生产环境设置 `WECHAT_WEBHOOK_URL` 环境变量
+- 测试错误通知功能（触发一个 Apollo API 错误）
+- 可选：为其他关键 API 端点添加专用错误通知
+
+---
+
 ## 2026-02-05: Apollo.io 集成完成 + UI 优化 + 免费计划限制发现
 
 ### Summary

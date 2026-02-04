@@ -130,6 +130,24 @@ APP_VERSION = os.environ.get('APP_VERSION', 'v2')
 LANDING_VERSION = os.environ.get("LANDING_VERSION", "dark").strip().lower()
 
 
+# Global error handler for 500 errors
+@app.errorhandler(500)
+def handle_500_error(e):
+    """Handle all 500 Internal Server Errors and notify WeChat."""
+    if ERROR_NOTIFICATION_ENABLED and error_notifier:
+        error_notifier.notify_error(
+            error=e,
+            context={
+                'method': request.method,
+                'path': request.path,
+                'data': request.get_json(silent=True),
+            },
+            user_id=session.get('user_id'),
+            request_path=request.path,
+        )
+    return jsonify({'error': 'Internal server error'}), 500
+
+
 def login_required(f):
     """Decorator to require login for API endpoints."""
     @wraps(f)
@@ -1636,6 +1654,19 @@ def api_apollo_unlock_email():
             })
     
     except Exception as e:
+        # Notify error to WeChat Work
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={
+                    'name': name,
+                    'linkedin_url': linkedin_url,
+                    'company': company,
+                    'contact_id': contact_id,
+                },
+                user_id=user_id,
+                request_path='/api/apollo/unlock-email',
+            )
         return jsonify({'error': str(e)}), 500
 
 
