@@ -36,6 +36,10 @@ try:
 except ValueError:
     EMAIL_VERIFY_TTL_HOURS = 24
 
+# ============== 企业微信错误通知 ==============
+# WeChat Work webhook URL for error notifications
+WECHAT_WEBHOOK_URL = os.environ.get("WECHAT_WEBHOOK_URL", "")
+
 # ============== 邮件生成模型配置 ==============
 # 全局开关：使用 OpenAI 作为所有 LLM 调用的后端（默认 true，因为 Gemini 配额用尽）
 USE_OPENAI_AS_PRIMARY = os.environ.get("USE_OPENAI_AS_PRIMARY", "true").lower() in ("1", "true", "yes")

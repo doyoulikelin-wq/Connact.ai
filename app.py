@@ -42,6 +42,15 @@ from src.email_agent import (
 )
 from src.web_scraper import extract_person_profile_from_web
 
+# Error notification
+try:
+    from src.services.error_notifier import error_notifier, notify_error
+    ERROR_NOTIFICATION_ENABLED = True
+except ImportError:
+    ERROR_NOTIFICATION_ENABLED = False
+    error_notifier = None
+    notify_error = None
+
 # Prompt 数据收集
 try:
     from src.services.prompt_collector import (
@@ -139,6 +148,60 @@ def _redirect_url_with_params(
         query["error"] = error
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
+
+# ============== Error Handlers ==============
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    """Global exception handler - catches all unhandled errors."""
+    if ERROR_NOTIFICATION_ENABLED:
+        try:
+            user_id = session.get('user_id')
+            request_path = request.path if request else None
+            context = {
+                "method": request.method if request else None,
+                "args": dict(request.args) if request and request.args else None,
+                "form_keys": list(request.form.keys()) if request and request.form else None,
+            }
+            notify_error(error, context=context, user_id=user_id, request_path=request_path)
+        except Exception as notify_err:
+            # Don't let notification errors crash the app
+            print(f"Error notification failed: {notify_err}")
+    
+    # Return JSON for API endpoints, HTML for pages
+    if request.path.startswith('/api/'):
+        return jsonify({
+            'error': str(error),
+            'type': type(error).__name__
+        }), 500
+    else:
+        return render_template('error.html', error=str(error)), 500
+
+
+@app.errorhandler(404)
+def handle_404(error):
+    """Handle 404 errors."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Endpoint not found'}), 404
+    return render_template('error.html', error='Page not found'), 404
+
+
+@app.errorhandler(500)
+def handle_500(error):
+    """Handle 500 errors."""
+    if ERROR_NOTIFICATION_ENABLED:
+        try:
+            user_id = session.get('user_id')
+            notify_error(error, context={"endpoint": request.path}, user_id=user_id, request_path=request.path)
+        except:
+            pass
+    
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error'}), 500
+    return render_template('error.html', error='Internal server error'), 500
+
+
+# ============== Routes ==============
 
 @app.route('/')
 def index():
