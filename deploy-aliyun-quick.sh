@@ -1,11 +1,11 @@
 #!/bin/bash
-# ConnactAI 阿里云一键部署脚本
+# Connact.ai 阿里云一键部署脚本
 # 使用方法：在阿里云服务器上执行此脚本
 
 set -e
 
 echo "=========================================="
-echo "🚀 ConnactAI 阿里云部署脚本"
+echo "🚀 Connact.ai 阿里云部署脚本"
 echo "=========================================="
 echo ""
 
@@ -42,13 +42,13 @@ fi
 # 4. 克隆代码
 echo -e "${GREEN}📥 步骤 4/10: 从 GitHub 克隆代码...${NC}"
 cd /home/connact
-if [ -d "ConnactAI" ]; then
+if [ -d "Connact.ai" ]; then
     echo -e "${YELLOW}⚠️  目录已存在，更新代码...${NC}"
-    cd ConnactAI
+    cd Connact.ai
     sudo -u connact git pull origin main
 else
-    sudo -u connact git clone https://github.com/doyoulikelin-wq/ConnactAI.git
-    cd ConnactAI
+    sudo -u connact git clone https://github.com/doyoulikelin-wq/Connact.ai.git
+    cd Connact.ai
     echo -e "${GREEN}✅ 代码克隆完成${NC}"
 fi
 
@@ -66,7 +66,7 @@ if [ ! -f ".env" ]; then
     SECRET_KEY=$(openssl rand -hex 32)
     cat > .env << EOF
 # ==========================================
-# ConnactAI 环境变量配置
+# Connact.ai 环境变量配置
 # ==========================================
 
 # API Keys（必填）
@@ -85,8 +85,8 @@ INVITE_CODE=beta2026
 # GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 # 数据存储
-DATA_DIR=/home/connact/ConnactAI/data
-DB_PATH=/home/connact/ConnactAI/data/app.db
+DATA_DIR=/home/connact/Connact.ai/data
+DB_PATH=/home/connact/Connact.ai/data/app.db
 
 # 日志级别
 LOG_LEVEL=INFO
@@ -101,24 +101,24 @@ fi
 
 # 7. 创建数据目录
 echo -e "${GREEN}📁 步骤 7/10: 创建数据目录...${NC}"
-mkdir -p /home/connact/ConnactAI/data
-mkdir -p /home/connact/ConnactAI/data/users
-mkdir -p /home/connact/ConnactAI/data/prompt_logs
-chown -R connact:connact /home/connact/ConnactAI/data
-chmod -R 755 /home/connact/ConnactAI/data
+mkdir -p /home/connact/Connact.ai/data
+mkdir -p /home/connact/Connact.ai/data/users
+mkdir -p /home/connact/Connact.ai/data/prompt_logs
+chown -R connact:connact /home/connact/Connact.ai/data
+chmod -R 755 /home/connact/Connact.ai/data
 
 # 8. 配置 Supervisor
 echo -e "${GREEN}⚙️  步骤 8/10: 配置 Supervisor（进程守护）...${NC}"
 cat > /etc/supervisor/conf.d/connact.conf << 'EOF'
 [program:connact]
-command=/home/connact/ConnactAI/venv/bin/gunicorn -w 4 -b 127.0.0.1:5000 --timeout 120 --access-logfile - --error-logfile - app:app
-directory=/home/connact/ConnactAI
+command=/home/connact/Connact.ai/venv/bin/gunicorn -w 4 -b 127.0.0.1:5000 --timeout 120 --access-logfile - --error-logfile - app:app
+directory=/home/connact/Connact.ai
 user=connact
 autostart=true
 autorestart=true
 stderr_logfile=/var/log/connact.err.log
 stdout_logfile=/var/log/connact.out.log
-environment=PATH="/home/connact/ConnactAI/venv/bin"
+environment=PATH="/home/connact/Connact.ai/venv/bin"
 EOF
 
 # 9. 配置 Nginx
@@ -149,7 +149,7 @@ server {
 
     # 静态文件缓存（如果有）
     location /static {
-        alias /home/connact/ConnactAI/static;
+        alias /home/connact/Connact.ai/static;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
@@ -193,7 +193,7 @@ PUBLIC_IP=$(curl -s ifconfig.me || echo "无法获取")
 echo -e "${GREEN}📋 下一步操作：${NC}"
 echo ""
 echo "1️⃣  配置 API Key（必须）："
-echo "   nano /home/connact/ConnactAI/.env"
+echo "   nano /home/connact/Connact.ai/.env"
 echo "   # 修改 GEMINI_API_KEY=实际的密钥"
 echo ""
 echo "2️⃣  重启应用："
@@ -224,17 +224,17 @@ echo -e "${GREEN}🔧 常用命令：${NC}"
 echo "   supervisorctl status             # 查看服务状态"
 echo "   supervisorctl restart connact    # 重启应用"
 echo "   systemctl restart nginx          # 重启 Nginx"
-echo "   /home/connact/ConnactAI/update.sh  # 更新代码（见下方）"
+echo "   /home/connact/Connact.ai/update.sh  # 更新代码（见下方）"
 echo ""
 
 # 创建更新脚本
 cat > /home/connact/update.sh << 'EOF'
 #!/bin/bash
-# ConnactAI 快速更新脚本
+# Connact.ai 快速更新脚本
 
-echo "🔄 开始更新 ConnactAI..."
+echo "🔄 开始更新 Connact.ai..."
 
-cd /home/connact/ConnactAI
+cd /home/connact/Connact.ai
 
 # 拉取最新代码
 echo "📥 拉取最新代码..."
