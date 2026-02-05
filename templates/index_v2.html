@@ -2449,7 +2449,7 @@
             </div>
             
             <div class="btn-group" style="justify-content: center; margin-top: 30px;">
-                <button class="btn btn-secondary" id="btn-track-back">← Back to Mode Selection</button>
+                <button class="btn btn-secondary" id="btn-track-back">← Back to Dashboard</button>
                 <button class="btn btn-primary" id="btn-track-next" disabled>Continue →</button>
             </div>
         </div>
@@ -3001,7 +3001,7 @@ I&apos;m {{sender_name}}, currently ...
 
         <!-- Step 5: Generate Email -->
         <div class="panel hidden" id="step-5">
-            <h2><span class="icon">✉️</span> Step 5: Your Cold Emails</h2>
+            <h2><span class="icon">✉️</span> Email History</h2>
             <p class="panel-description">Here are your personalized cold emails ready to send!</p>
 
             <!-- Email Navigation for Multiple Targets -->
@@ -3294,8 +3294,10 @@ I&apos;m {{sender_name}}, currently ...
         }
 
         // Server-provided persisted profile (per logged-in user)
+        /* eslint-disable */
         const INITIAL_SENDER_PROFILE = {{ initial_sender_profile | tojson }};
         const INITIAL_PREFERENCES = {{ initial_preferences | tojson }};
+        /* eslint-enable */
         
         // Global state
         const state = {
@@ -3689,7 +3691,8 @@ I&apos;m {{sender_name}}, currently ...
 
         function hideDashboard() {
             document.getElementById('user-dashboard-panel').classList.add('hidden');
-            document.getElementById('mode-selection').classList.remove('hidden');
+            // Directly start professional mode instead of showing mode selection
+            startModeFlow('professional', { confirmSwitch: false });
         }
 
         async function loadDashboardData() {
@@ -3705,17 +3708,17 @@ I&apos;m {{sender_name}}, currently ...
                 }
                 const data = await response.json();
                 
-                // Update stats
-                document.getElementById('stat-credits').textContent = data.credits?.remaining ?? 5;
-                document.getElementById('stat-contacts').textContent = data.contacts?.length ?? 0;
-                document.getElementById('stat-emails').textContent = data.emails?.length ?? 0;
-                document.getElementById('stat-unlocked').textContent = data.credits?.used ?? 0;
+                // Update stats (fix: use correct data paths from backend)
+                document.getElementById('stat-credits').textContent = data.credits?.apollo_credits ?? 5;
+                document.getElementById('stat-contacts').textContent = data.stats?.contacts_count ?? 0;
+                document.getElementById('stat-emails').textContent = data.stats?.emails_count ?? 0;
+                document.getElementById('stat-unlocked').textContent = data.stats?.unlocked_emails_count ?? 0;
                 
-                // Render contacts list
-                renderDashboardContacts(data.contacts || []);
+                // Render contacts list (fix: use recent_contacts from backend)
+                renderDashboardContacts(data.recent_contacts || []);
                 
-                // Render emails list
-                renderDashboardEmails(data.emails || []);
+                // Render emails list (fix: use recent_emails from backend)
+                renderDashboardEmails(data.recent_emails || []);
                 
             } catch (err) {
                 console.error('Dashboard load error:', err);
@@ -4081,13 +4084,14 @@ I&apos;m {{sender_name}}, currently ...
                 });
             });
             
-            // Track back button
+            // Track back button - return to dashboard
             document.getElementById('btn-track-back').addEventListener('click', function() {
                 document.getElementById('pro-track-selection').classList.add('hidden');
-                document.getElementById('mode-selection').classList.remove('hidden');
                 state.proTrack = null;
                 trackCards.forEach(c => c.classList.remove('selected'));
                 trackNextBtn.disabled = true;
+                // Show dashboard instead of mode selection
+                showDashboard();
             });
             
             // Track next button -> Resume upload
@@ -6848,6 +6852,50 @@ I&apos;m {{sender_name}}, currently ...
                     ? prefHistory.map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`).join('\n\n')
                     : '';
                 
+                const basePreferences = {
+                    extra: prefExtra,
+                    search_intent: (state.targetSearchIntent || '').trim(),
+                    must_have: (state.targetMustHave || '').trim(),
+                    must_not: (state.targetMustNot || '').trim(),
+                    location: (state.targetLocation || '').trim(),
+                    contactability: (state.targetContactability || 'balanced').trim(),
+                    examples: (state.targetExamples || '').trim(),
+                    evidence: (state.targetEvidence || '').trim(),
+                };
+
+                let mergedPreferences = { ...basePreferences };
+
+                if (state.proTrack) {
+                    mergedPreferences.track = state.proTrack;
+                }
+
+                if (state.proTrack === 'finance' && state.financePreferences) {
+                    const finance = state.financePreferences;
+                    const combinedSearchIntent = [
+                        String(finance.search_intent || '').trim(),
+                        String(basePreferences.search_intent || '').trim(),
+                    ].filter(Boolean).join('\n\n');
+                    const combinedLocation = [
+                        String(finance.location || '').trim(),
+                        String(basePreferences.location || '').trim(),
+                    ].filter(Boolean).join('; ');
+                    const combinedContactability = (() => {
+                        const override = String(basePreferences.contactability || '').trim();
+                        const tree = String(finance.contactability || '').trim();
+                        if (override && override !== 'balanced') return override;
+                        return tree || override || 'balanced';
+                    })();
+
+                    mergedPreferences = {
+                        ...finance,
+                        ...basePreferences,
+                        track: state.proTrack,
+                        search_intent: combinedSearchIntent,
+                        location: combinedLocation,
+                        contactability: combinedContactability,
+                    };
+                }
+
                 const response = await fetch('/api/find-recommendations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -6855,16 +6903,7 @@ I&apos;m {{sender_name}}, currently ...
                         purpose: purposeText,
                         field: fieldText,
                         sender_profile: state.senderProfile,
-                        preferences: {
-                            extra: prefExtra,
-                            search_intent: (state.targetSearchIntent || '').trim(),
-                            must_have: (state.targetMustHave || '').trim(),
-                            must_not: (state.targetMustNot || '').trim(),
-                            location: (state.targetLocation || '').trim(),
-                            contactability: (state.targetContactability || 'balanced').trim(),
-                            examples: (state.targetExamples || '').trim(),
-                            evidence: (state.targetEvidence || '').trim(),
-                        }
+                        preferences: mergedPreferences
                     })
                 });
                 
@@ -6917,12 +6956,37 @@ I&apos;m {{sender_name}}, currently ...
                     </a>`;
                 }
                 
+                // Extract title and company from position string
+                // position format: "title at company" or just "title"
+                let displayTitle = '';
+                let displayCompany = '';
+                if (rec.position) {
+                    const atIndex = rec.position.indexOf(' at ');
+                    if (atIndex > 0) {
+                        displayTitle = rec.position.substring(0, atIndex).trim();
+                        displayCompany = rec.position.substring(atIndex + 4).trim();
+                    } else {
+                        displayTitle = rec.position;
+                    }
+                }
+                
+                // Fallback to field if no position
+                if (!displayTitle && rec.field) {
+                    displayTitle = rec.field;
+                }
+                
+                // Build position display line with required format: "Title @ Company"
+                let positionDisplay = displayTitle || 'Position not specified';
+                if (displayCompany) {
+                    positionDisplay += ` @ ${displayCompany}`;
+                }
+                
                 item.innerHTML = `
                     <div class="rec-checkbox">${isSelected ? '✓' : ''}</div>
                     <div class="rec-avatar">${rec.name.charAt(0)}</div>
                     <div class="rec-info">
-                        <div class="rec-name">${rec.name} ${linkedinHtml}</div>
-                        <div class="rec-field">${rec.position || rec.field}</div>
+                        <div class="rec-name">${rec.name || 'Name not specified'} ${linkedinHtml}</div>
+                        <div class="rec-field">${positionDisplay}</div>
                     </div>
                     <button class="view-profile-btn" onclick="event.stopPropagation(); openProfileModal(${index})">📋 View</button>
                     <div class="rec-match ${matchClass}">${rec.match_score}% Match</div>

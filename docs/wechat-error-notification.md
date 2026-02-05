@@ -146,6 +146,159 @@ curl -X POST https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=你的key \
 2. **定期更换 webhook key**（在企业微信群设置中重新生成）
 3. **限制 webhook 的使用范围**（只在生产环境启用）
 
+## 错误捕获机制（2026-02-06 增强）
+
+### 三层防护体系
+
+系统采用三层错误捕获机制，确保所有错误都能被监控：
+
+1. **全局异常处理器** (`@app.errorhandler(Exception)`):
+   - 捕获所有未处理异常
+   - 自动提取请求上下文（method, path, args, API data）
+   - 过滤敏感信息（密码、token 等）
+   - 适用于所有 HTTP 请求
+
+2. **关键 API 端点显式通知**:
+   - `/api/upload-sender-pdf` - 文件上传错误
+   - `/api/generate-email` - 邮件生成错误
+   - `/api/find-recommendations` - 推荐查找错误
+   - `/api/apollo/unlock-email` - Apollo API 错误
+   - 更多端点持续完善中...
+
+3. **HTTP 错误处理器**:
+   - `@app.errorhandler(404)` - Not Found
+   - `@app.errorhandler(500)` - Internal Server Error
+
+### 上下文信息增强
+
+最新的错误通知包含更丰富的上下文：
+
+```python
+context = {
+    "method": "POST",
+    "path": "/api/find-recommendations",
+    "args": {"deep_search": "true"},
+    "form_keys": ["sender_profile"],
+    "api_data": {  # 仅包含安全字段
+        "purpose": "networking",
+        "field": "ai research",
+        "goal": "collaboration"
+    }
+}
+```
+
+**安全保护**: 自动过滤密码、token、API keys 等敏感信息。
+
+### 测试命令
+
+运行完整测试套件：
+
+```bash
+# 设置环境变量
+export WECHAT_WEBHOOK_URL='https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=YOUR_KEY'
+
+# 运行测试（会发送 4 条测试消息）
+python test_wechat_error_notification.py
+```
+
+测试包含：
+- ✅ 基础错误通知
+- ✅ API 错误场景模拟
+- ✅ 复杂堆栈跟踪
+- ✅ 信息通知
+
+## 生产环境最佳实践
+
+### 1. 分环境配置
+
+为不同环境使用不同的 webhook URL：
+
+- **开发环境**: 使用测试群（可关闭或使用低频告警）
+- **生产环境**: 使用正式告警群（7x24 监控）
+
+### 2. 响应流程
+
+收到错误通知后：
+
+```
+1. 查看错误类型和频率（单次 vs 批量）
+2. 检查用户 ID（是否影响多个用户）
+3. 查看请求路径（定位功能模块）
+4. 分析堆栈信息（技术诊断）
+5. 查看业务上下文（复现场景）
+6. 修复 + 部署 + 验证
+```
+
+### 3. 告警优化（可选）
+
+如遇到大量重复错误，可添加去重逻辑：
+
+```python
+# 在 src/services/error_notifier.py 中
+class ErrorNotifier:
+    def __init__(self):
+        self.recent_errors = {}  # {error_key: timestamp}
+        self.dedup_window = 300  # 5分钟去重窗口
+    
+    def notify_error(self, error, ...):
+        error_key = f"{type(error).__name__}:{str(error)[:50]}"
+        now = time.time()
+        
+        if error_key in self.recent_errors:
+            if now - self.recent_errors[error_key] < self.dedup_window:
+                return True  # 跳过重复通知
+        
+        self.recent_errors[error_key] = now
+        # ... 继续正常通知流程
+```
+
+## 开发文档
+
+### 添加新的错误通知点
+
+在需要监控的代码位置添加：
+
+```python
+from src.services.error_notifier import error_notifier
+from app import ERROR_NOTIFICATION_ENABLED
+
+@app.route('/api/your-endpoint', methods=['POST'])
+def your_api_endpoint():
+    try:
+        # 你的业务逻辑
+        result = do_something()
+        return jsonify(result), 200
+    except Exception as e:
+        # 发送错误通知
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={
+                    "operation": "your_operation",
+                    "input_param": request.json.get("param")
+                },
+                user_id=session.get('user_id'),
+                request_path='/api/your-endpoint'
+            )
+        # 返回错误响应
+        return jsonify({'error': str(e)}), 500
+```
+
+### 核心文件
+
+- `src/services/error_notifier.py` - 错误通知服务实现
+- `app.py` - 全局错误处理器和 API 路由
+- `test_wechat_error_notification.py` - 测试脚本
+- `docs/wechat-error-notification.md` - 本文档
+
+## 更新日志
+
+- **2026-02-06**: 增强全局异常处理器，添加 API 数据上下文和敏感信息过滤
+- **2026-02-06**: 为 `/api/upload-sender-pdf`, `/api/generate-email`, `/api/find-recommendations` 添加显式错误通知
+- **2026-02-06**: 创建统一测试脚本 `test_wechat_error_notification.py`
+- **Earlier**: 初始实现企业微信错误通知功能
+
 ## 参考文档
 
 - [企业微信群机器人配置说明](https://developer.work.weixin.qq.com/document/path/91770)
+- [项目开发日志](../devlog.md) - 查看最新更新

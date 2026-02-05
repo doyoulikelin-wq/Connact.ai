@@ -2525,6 +2525,7 @@ def find_target_recommendations(
     # ============================================================
     # PRIMARY: SerpAPI 直接搜索 LinkedIn 找真实的人
     # 不依赖 AI 生成名字，直接从搜索结果中提取真实存在的用户
+    # 注意：Apollo 只用于邮件查找（enrichment），不用于候选人搜索
     # ============================================================
     serpapi_key = os.environ.get("SERPAPI_KEY") or os.environ.get("SERP_API_KEY")
     if serpapi_key:

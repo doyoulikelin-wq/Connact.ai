@@ -308,6 +308,9 @@ class ApolloService:
         This endpoint does NOT consume credits and does NOT return emails.
         Use enrich_person() to get email addresses.
         
+        DEPRECATED: Use search_people_v2() instead (api_search endpoint).
+        This method uses the old 'mixed_people/search' endpoint.
+        
         Args:
             person_titles: Job titles to search for
             person_seniorities: Seniority levels (owner, founder, c_suite, vp, director, manager, senior, entry, intern)
@@ -347,6 +350,62 @@ class ApolloService:
             return result.get("people", [])
         except ApolloServiceError:
             return []
+    
+    def search_people_v2(
+        self,
+        *,
+        person_titles: Optional[list[str]] = None,
+        person_seniorities: Optional[list[str]] = None,
+        person_locations: Optional[list[str]] = None,
+        q_keywords: Optional[str] = None,
+        organization_ids: Optional[list[str]] = None,
+        page: int = 1,
+        per_page: int = 10,
+    ) -> tuple[list[dict], int]:
+        """
+        Search for people using the new API Search endpoint (recommended).
+        
+        This endpoint does NOT consume credits and does NOT return emails.
+        Use enrich_person() to get email addresses.
+        
+        Note: Basic Plan obfuscates last names (e.g., "Mo***l").
+        
+        Args:
+            person_titles: Job titles to search for
+            person_seniorities: Seniority levels (senior, director, vp, c_suite, etc.)
+            person_locations: Where people live (e.g., ["San Francisco Bay Area, CA"])
+            q_keywords: Keyword search (e.g., "machine learning LLM")
+            organization_ids: Apollo organization IDs to filter by
+            page: Page number (1-indexed)
+            per_page: Results per page (max 100)
+            
+        Returns:
+            Tuple of (people_list, total_count)
+        """
+        data: dict[str, Any] = {
+            "page": page,
+            "per_page": min(per_page, 100),
+        }
+
+        if person_titles:
+            data["person_titles"] = person_titles
+        if person_seniorities:
+            data["person_seniorities"] = person_seniorities
+        if person_locations:
+            data["person_locations"] = person_locations
+        if q_keywords:
+            data["q_keywords"] = q_keywords
+        if organization_ids:
+            data["organization_ids"] = organization_ids
+
+        try:
+            result = self._make_request("POST", "mixed_people/api_search", data=data)
+            people = result.get("people", [])
+            total = result.get("pagination", {}).get("total_entries", 0)
+            return people, total
+        except ApolloServiceError as e:
+            print(f"[Apollo] search_people_v2 failed: {e}")
+            return [], 0
 
     def lookup_email_by_linkedin(self, linkedin_url: str) -> ApolloEnrichmentResult:
         """

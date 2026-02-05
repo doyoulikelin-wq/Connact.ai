@@ -271,6 +271,46 @@ python -m src.cli \
   --goal "Request a 20-min chat"
 ```
 
+## Configuration
+
+### Environment Variables
+
+Required:
+- `GEMINI_API_KEY`: Google Gemini API key for AI generation
+
+Recommended (for best target recommendation quality):
+- `APOLLO_API_KEY`: Apollo.io API key for precise people search (Free tier: 75 credits/month)
+- `MOONSHOT_API_KEY`: Moonshot AI API key for LinkedIn URL lookup (Very low cost: ~$0.01/5 searches)
+
+Optional (for advanced features):
+- `SERPAPI_KEY`: SerpAPI key for web search fallback
+- `OPENAI_API_KEY`: OpenAI API key for optional features
+- `COLLECT_PROMPTS`: Enable/disable prompt data collection (default: true)
+- `WECHAT_WEBHOOK_URL`: WeChat webhook for error notifications
+
+### Target Recommendation Methods
+
+The system uses a cascading approach for finding candidates (in priority order):
+
+1. **Apollo + Moonshot** (Primary, Recommended)
+   - Precise job title/company/location filtering via Apollo (0 credits)
+   - Intelligent LinkedIn URL lookup via Moonshot (~$0.01/5 people)
+   - 100% URL success rate even with obfuscated names
+   - Cost: ~90% cheaper than Apollo Enrichment
+
+2. **SerpAPI** (Fallback 1)
+   - Direct LinkedIn search via Google
+   - Real profiles from search results
+   - Cost: per search
+
+3. **Gemini Search** (Fallback 2)
+   - Built-in Google Search grounding
+   - Real-time web verification
+   - No external dependencies
+
+4. **OpenAI Web Search** (Fallback 3, Experimental)
+5. **Web Scrape + Gemini** (Fallback 4, Basic)
+
 ## Tech Stack
 
 - **Backend**: Python, Flask, Google Gemini API

@@ -40,6 +40,17 @@ except ValueError:
 # WeChat Work webhook URL for error notifications
 WECHAT_WEBHOOK_URL = os.environ.get("WECHAT_WEBHOOK_URL", "")
 
+# ============== 管理员配置 ==============
+# Admin emails (comma-separated list)
+_admin_emails_raw = os.environ.get("ADMIN_EMAILS", "")
+ADMIN_EMAILS = [email.strip().lower() for email in _admin_emails_raw.split(",") if email.strip()]
+
+def is_admin(email: str) -> bool:
+    """Check if an email belongs to an admin user."""
+    if not email or not ADMIN_EMAILS:
+        return False
+    return email.lower() in ADMIN_EMAILS
+
 # ============== 邮件生成模型配置 ==============
 # 全局开关：使用 OpenAI 作为所有 LLM 调用的后端（默认 true，因为 Gemini 配额用尽）
 USE_OPENAI_AS_PRIMARY = os.environ.get("USE_OPENAI_AS_PRIMARY", "true").lower() in ("1", "true", "yes")

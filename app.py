@@ -9,6 +9,9 @@ from typing import Optional
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 
+# Configuration
+import config
+
 # Google OAuth
 try:
     from flask_dance.contrib.google import make_google_blueprint, google
@@ -130,30 +133,27 @@ APP_VERSION = os.environ.get('APP_VERSION', 'v2')
 LANDING_VERSION = os.environ.get("LANDING_VERSION", "dark").strip().lower()
 
 
-# Global error handler for 500 errors
-@app.errorhandler(500)
-def handle_500_error(e):
-    """Handle all 500 Internal Server Errors and notify WeChat."""
-    if ERROR_NOTIFICATION_ENABLED and error_notifier:
-        error_notifier.notify_error(
-            error=e,
-            context={
-                'method': request.method,
-                'path': request.path,
-                'data': request.get_json(silent=True),
-            },
-            user_id=session.get('user_id'),
-            request_path=request.path,
-        )
-    return jsonify({'error': 'Internal server error'}), 500
-
-
 def login_required(f):
     """Decorator to require login for API endpoints."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('user_id'):
             return jsonify({'error': 'Authentication required'}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def admin_required(f):
+    """Decorator to require admin privileges."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('user_id'):
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        user_email = session.get('user_email', '')
+        if not config.is_admin(user_email):
+            return jsonify({'error': 'Admin access required'}), 403
+        
         return f(*args, **kwargs)
     return decorated_function
 
@@ -188,28 +188,52 @@ def _redirect_url_with_params(
 @app.errorhandler(Exception)
 def handle_exception(error):
     """Global exception handler - catches all unhandled errors."""
-    if ERROR_NOTIFICATION_ENABLED:
+    # Always notify errors to WeChat Work
+    if ERROR_NOTIFICATION_ENABLED and error_notifier:
         try:
-            user_id = session.get('user_id')
-            request_path = request.path if request else None
+            user_id = session.get('user_id', 'anonymous')
+            request_path = request.path if request else 'unknown'
+            
+            # Extract request data safely
             context = {
                 "method": request.method if request else None,
+                "path": request_path,
                 "args": dict(request.args) if request and request.args else None,
                 "form_keys": list(request.form.keys()) if request and request.form else None,
             }
-            notify_error(error, context=context, user_id=user_id, request_path=request_path)
+            
+            # Try to get JSON data for API requests
+            if request and request.path.startswith('/api/'):
+                try:
+                    json_data = request.get_json(silent=True)
+                    if json_data:
+                        # Only include non-sensitive keys
+                        safe_keys = ['purpose', 'field', 'goal', 'name', 'session_id']
+                        context['api_data'] = {k: json_data.get(k) for k in safe_keys if k in json_data}
+                except:
+                    pass
+            
+            error_notifier.notify_error(
+                error=error,
+                context=context,
+                user_id=user_id,
+                request_path=request_path,
+            )
         except Exception as notify_err:
             # Don't let notification errors crash the app
-            print(f"Error notification failed: {notify_err}")
+            print(f"[ERROR] WeChat notification failed: {notify_err}")
     
     # Return JSON for API endpoints, HTML for pages
-    if request.path.startswith('/api/'):
+    if request and request.path.startswith('/api/'):
         return jsonify({
             'error': str(error),
             'type': type(error).__name__
         }), 500
     else:
-        return render_template('error.html', error=str(error)), 500
+        try:
+            return render_template('error.html', error=str(error)), 500
+        except:
+            return f"<h1>Error</h1><p>{str(error)}</p>", 500
 
 
 @app.errorhandler(404)
@@ -222,17 +246,9 @@ def handle_404(error):
 
 @app.errorhandler(500)
 def handle_500(error):
-    """Handle 500 errors."""
-    if ERROR_NOTIFICATION_ENABLED:
-        try:
-            user_id = session.get('user_id')
-            notify_error(error, context={"endpoint": request.path}, user_id=user_id, request_path=request.path)
-        except:
-            pass
-    
-    if request.path.startswith('/api/'):
-        return jsonify({'error': 'Internal server error'}), 500
-    return render_template('error.html', error='Internal server error'), 500
+    """Handle 500 errors - delegates to global exception handler."""
+    # Call the global exception handler for consistent error reporting
+    return handle_exception(error)
 
 
 # ============== Routes ==============
@@ -266,6 +282,12 @@ def index():
             next_url=safe_next,
             access_next_url=access_next_url,
         )
+    
+    # Redirect admin users to admin dashboard
+    user_email = session.get('user_email', '')
+    if config.is_admin(user_email):
+        return redirect(url_for('admin_dashboard'))
+    
     # Use v2 template by default
     if APP_VERSION == 'v3':
         return render_template(
@@ -819,6 +841,320 @@ def logout():
     return redirect(url_for('index'))
 
 
+# ====================================================================
+# Admin Routes - 管理员功能
+# ====================================================================
+
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    """Admin dashboard - only accessible to admin users."""
+    user_email = session.get('user_email', '')
+    
+    if not config.is_admin(user_email):
+        # Redirect non-admin users to regular dashboard
+        return redirect(url_for('v3'))
+    
+    return render_template('admin.html', 
+                         user_email=user_email,
+                         app_version=APP_VERSION)
+
+
+@app.route('/api/admin/users', methods=['GET'])
+@admin_required
+def api_admin_list_users():
+    """Get list of all users with credits info."""
+    try:
+        import sqlite3
+        conn = sqlite3.connect(config.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        
+        query = """
+        SELECT 
+            u.user_id,
+            u.email,
+            u.display_name,
+            u.is_verified,
+            u.created_at,
+            u.last_login_at,
+            COALESCE(c.apollo_credits, 5) as apollo_credits,
+            COALESCE(c.total_used, 0) as total_used,
+            c.last_used_at
+        FROM users u
+        LEFT JOIN user_credits c ON u.user_id = c.user_id
+        ORDER BY u.created_at DESC
+        """
+        
+        users = []
+        for row in conn.execute(query).fetchall():
+            users.append({
+                'user_id': row['user_id'],
+                'email': row['email'],
+                'display_name': row['display_name'],
+                'is_verified': bool(row['is_verified']),
+                'created_at': row['created_at'],
+                'last_login_at': row['last_login_at'],
+                'credits': {
+                    'apollo_credits': row['apollo_credits'],
+                    'total_used': row['total_used'],
+                    'last_used_at': row['last_used_at']
+                }
+            })
+        
+        conn.close()
+        return jsonify({'success': True, 'users': users})
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_list_users'},
+                user_id=session.get('user_id'),
+                request_path='/api/admin/users'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user/<user_id>/credits', methods=['GET'])
+@admin_required
+def api_admin_get_user_credits(user_id):
+    """Get detailed credits info for a specific user."""
+    try:
+        if not user_data_service:
+            return jsonify({'error': 'User data service not available'}), 500
+        
+        credits = user_data_service.get_user_credits(user_id)
+        return jsonify({
+            'success': True,
+            'credits': {
+                'apollo_credits': credits.apollo_credits,
+                'total_used': credits.total_used,
+                'last_used_at': credits.last_used_at
+            }
+        })
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_get_credits', 'target_user': user_id},
+                user_id=session.get('user_id'),
+                request_path=f'/api/admin/user/{user_id}/credits'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user/<user_id>/add-credits', methods=['POST'])
+@admin_required
+def api_admin_add_credits(user_id):
+    """Add credits to a user's account."""
+    try:
+        data = request.get_json() or {}
+        amount = data.get('amount', 0)
+        
+        if not isinstance(amount, int) or amount <= 0:
+            return jsonify({'error': 'Amount must be a positive integer'}), 400
+        
+        if not user_data_service:
+            return jsonify({'error': 'User data service not available'}), 500
+        
+        new_total = user_data_service.add_credits(user_id, amount)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Added {amount} credits',
+            'new_total': new_total
+        })
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_add_credits', 'target_user': user_id, 'amount': amount},
+                user_id=session.get('user_id'),
+                request_path=f'/api/admin/user/{user_id}/add-credits'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user/<user_id>/info', methods=['GET'])
+@admin_required
+def api_admin_user_info(user_id):
+    """Get detailed information about a user."""
+    try:
+        # Get user basic info
+        user = auth_service.get_user(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get credits
+        credits = None
+        if user_data_service:
+            credits = user_data_service.get_user_credits(user_id)
+        
+        # Get dashboard data (contacts, emails)
+        dashboard = None
+        if user_data_service:
+            dashboard = user_data_service.get_user_dashboard(user_id)
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'user_id': user.user_id,
+                'email': user.email,
+                'display_name': user.display_name,
+                'is_verified': user.is_verified,
+                'created_at': user.created_at,
+                'last_login_at': user.last_login_at
+            },
+            'credits': {
+                'apollo_credits': credits.apollo_credits if credits else 5,
+                'total_used': credits.total_used if credits else 0,
+                'last_used_at': credits.last_used_at if credits else None
+            } if credits else None,
+            'usage': {
+                'saved_contacts': len(dashboard.get('contacts', [])) if dashboard else 0,
+                'generated_emails': len(dashboard.get('emails', [])) if dashboard else 0
+            } if dashboard else None
+        })
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_user_info', 'target_user': user_id},
+                user_id=session.get('user_id'),
+                request_path=f'/api/admin/user/{user_id}/info'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/errors', methods=['GET'])
+@admin_required
+def api_admin_list_errors():
+    """Get list of all error logs."""
+    try:
+        import sqlite3
+        from datetime import datetime, timedelta
+        
+        # Get query parameters
+        limit = min(int(request.args.get('limit', 100)), 500)
+        offset = int(request.args.get('offset', 0))
+        show_resolved = request.args.get('show_resolved', 'false').lower() == 'true'
+        
+        conn = sqlite3.connect(config.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        
+        # Build query
+        where_clause = "" if show_resolved else "WHERE resolved_at IS NULL"
+        
+        query = f"""
+        SELECT 
+            id,
+            error_type,
+            error_message,
+            request_path,
+            user_id,
+            context,
+            created_at,
+            resolved_at,
+            resolved_by,
+            notes
+        FROM error_logs
+        {where_clause}
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+        """
+        
+        errors = []
+        for row in conn.execute(query, (limit, offset)).fetchall():
+            import json
+            errors.append({
+                'id': row['id'],
+                'error_type': row['error_type'],
+                'error_message': row['error_message'],
+                'request_path': row['request_path'],
+                'user_id': row['user_id'],
+                'context': json.loads(row['context']) if row['context'] else None,
+                'created_at': row['created_at'],
+                'resolved_at': row['resolved_at'],
+                'resolved_by': row['resolved_by'],
+                'notes': row['notes']
+            })
+        
+        # Get total count
+        count_query = f"SELECT COUNT(*) as total FROM error_logs {where_clause}"
+        total = conn.execute(count_query).fetchone()['total']
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'errors': errors,
+            'total': total,
+            'limit': limit,
+            'offset': offset
+        })
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_list_errors'},
+                user_id=session.get('user_id'),
+                request_path='/api/admin/errors'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/error/<int:error_id>/resolve', methods=['POST'])
+@admin_required
+def api_admin_resolve_error(error_id):
+    """Mark an error as resolved."""
+    try:
+        import sqlite3
+        from datetime import datetime
+        
+        data = request.get_json() or {}
+        notes = data.get('notes', '')
+        
+        conn = sqlite3.connect(config.DB_PATH)
+        cursor = conn.cursor()
+        
+        admin_email = session.get('user_email', '')
+        resolved_at = datetime.now().isoformat()
+        
+        cursor.execute("""
+            UPDATE error_logs
+            SET resolved_at = ?,
+                resolved_by = ?,
+                notes = ?
+            WHERE id = ?
+        """, (resolved_at, admin_email, notes, error_id))
+        
+        if cursor.rowcount == 0:
+            conn.close()
+            return jsonify({'error': 'Error log not found'}), 404
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Error marked as resolved'
+        })
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_resolve_error', 'error_id': error_id},
+                user_id=session.get('user_id'),
+                request_path=f'/api/admin/error/{error_id}/resolve'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route("/login/google")
 def google_login_start():
     """Start Google OAuth flow (stores optional invite code in session for new users)."""
@@ -994,6 +1330,13 @@ def upload_sender_pdf():
         })
     
     except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'filename': pdf_file.filename if 'pdf_file' in locals() else 'unknown'},
+                user_id=session.get('user_id'),
+                request_path='/api/upload-sender-pdf',
+            )
         return jsonify({'error': str(e)}), 500
 
 
@@ -1146,6 +1489,13 @@ def api_generate_email():
         })
     
     except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'has_deep_search': enable_deep_search},
+                user_id=session.get('user_id'),
+                request_path='/api/generate-email',
+            )
         return jsonify({'error': str(e)}), 500
 
 
@@ -1317,6 +1667,13 @@ def api_find_recommendations():
             'data_saved': saved_path is not None,  # 告知前端数据已保存
         })
     except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'purpose': purpose, 'field': field},
+                user_id=session.get('user_id'),
+                request_path='/api/find-recommendations',
+            )
         return jsonify({'error': str(e)}), 500
 
 

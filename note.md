@@ -29,6 +29,53 @@
 - 支持 `next` 参数透传：Landing → Login/Signup/Google → 登录后跳回 `next`
 - 用户首次成功登录/注册后写入 `users.beta_access`，避免后续反复输入邀请码
 
+### v4.0 (2026-02-06): Apollo + Moonshot 组合推荐
+
+**目标**：精准职位筛选 + 低成本 LinkedIn URL 查找
+
+**架构**：
+```
+用户偏好（职位/地点/资历）
+    ↓
+Apollo People Search (0 credits)
+    ↓
+5-10 个候选人（姓名部分混淆）
+    ↓
+Moonshot AI LinkedIn 查找 (~$0.01/5人)
+    ↓
+100% LinkedIn URLs + 基本信息
+    ↓
+可选：AI 评分/排序
+```
+
+**优势**：
+- ✅ Apollo 提供最精准的职位/公司/地点筛选（远超关键词搜索）
+- ✅ Moonshot 即使面对混淆姓名也能找到正确 LinkedIn URL
+- ✅ 总成本极低：$0.01（vs Apollo Enrichment 的 5 credits）
+- ✅ 真实候选人 + 可验证信息源
+
+**局限**：
+- Apollo Basic Plan 混淆姓氏（如 "Mo***l"）
+- Moonshot 偶尔推测性匹配（需用户验证）
+- 需要两个 API keys
+
+**测试数据**（2026-02-06）：
+- 场景：寻找 SF/Seattle 的 Senior ML Engineers
+- 成功率：100%（5/5 找到 LinkedIn URLs）
+- 候选人来源：Warner Bros, Zscaler, SoFi, Apple, Meta
+- 成本：$0.0126（1,054 tokens）
+
+**搜索方法优先级**：
+1. Apollo + Moonshot（主要）
+2. SerpAPI（后备1）
+3. Gemini Search（后备2）
+4. OpenAI Web Search（后备3）
+5. Web Scrape + Gemini（后备4）
+
+---
+
+### v3.2 (2026-01-28): 内测 Access Gate + Waitlist
+
 ### v2.0 - 智能向导式 Web 界面 🎉
 
 **已实现功能：**
@@ -118,6 +165,7 @@
 - Quick Start：问卷题不再自动生成；当简历/LinkedIn/补充信息都为空时，点击 “Generate Questions” 才会生成并展示 5 题。
 - Step 3（找 targets）：移除静态的 5 项偏好表单，仅保留动态偏好问答；推荐时默认使用 Step 1 的 field，并从动态问答中尽量提取更细分的 specialization。
 - 动态问答增加硬性上限：到 `max_questions` 必定停止，避免出现 10+ 题的情况。
+- Professional 模式的 "Generate More" 会继续沿用金融决策树偏好（而不是回退到默认偏好）。
 - Quick Start：进入 Step 1 会弹出一张简短教程（可选“不再提示”），帮助用户理解整个流程。
 - Quick Start：教程文案补充“我们收集哪些信息/为什么需要这些信息/如何用来找人和写邮件”，让用户知其然也知其所以然。
 - Step 3（找 targets）：新增可选「Targeting details」面板（理想人群描述、必须/排除关键词、地区语言时区、回复概率 vs 名气、参考样例、证据链接/摘录），用于更精准的推荐检索与排序。

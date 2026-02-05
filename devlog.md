@@ -1,5 +1,528 @@
 # Development Log
 
+## 2026-02-06: 管理员系统与错误去重机制
+
+### Summary
+**重大更新**：完整的管理员后台系统 + 企业微信错误通知去重机制，实现生产环境的完整监控和用户管理能力。
+
+### 新增功能
+
+#### 1. 错误去重机制 (`src/services/error_notifier.py`)
+
+**问题**：短时间内相同错误导致企业微信告警风暴
+
+**解决方案**：
+- 5分钟去重窗口（同一错误在5分钟内只通知一次）
+- 错误标识：`错误类型:错误信息前100字:请求路径`
+- 自动清理过期记录（最多保留 1000 条）
+- 所有错误仍保存到数据库（不丢失）
+
+**关键代码**：
+```python
+class ErrorNotifier:
+    def __init__(self):
+        self.recent_errors = {}  # {error_key: (timestamp, count)}
+        self.dedup_window = 300  # 5分钟
+        self.max_dedup_entries = 1000
+```
+
+#### 2. 错误日志数据库 (`error_logs` 表)
+
+**用途**：持久化存储所有错误，支持管理员查看和标记已解决
+
+**表结构**：
+```sql
+CREATE TABLE error_logs (
+    id INTEGER PRIMARY KEY,
+    error_type TEXT NOT NULL,
+    error_message TEXT NOT NULL,
+    request_path TEXT,
+    user_id TEXT,
+    context TEXT,              -- JSON 格式
+    stack_trace TEXT,          -- 完整堆栈
+    created_at TIMESTAMP,
+    resolved_at TIMESTAMP,     -- 解决时间
+    resolved_by TEXT,          -- 管理员邮箱
+    notes TEXT                 -- 解决备注
+)
+```
+
+**索引**：
+- `idx_error_logs_created` - 按时间排序
+- `idx_error_logs_resolved` - 筛选未解决错误
+
+#### 3. 管理员权限系统 (`config.py` + `app.py`)
+
+**配置方式**：
+```bash
+# 环境变量
+export ADMIN_EMAILS="admin1@example.com,admin2@example.com"
+```
+
+**权限检查**：
+```python
+# config.py
+def is_admin(email: str) -> bool:
+    return email.lower() in ADMIN_EMAILS
+
+# app.py - 装饰器
+@admin_required
+def api_admin_something():
+    ...
+```
+
+**自动跳转**：
+- 管理员登录后访问 `/` 自动跳转到 `/admin`
+- 非管理员访问 `/admin` 跳转到普通用户页面
+
+#### 4. 管理员后台界面 (`templates/admin.html`)
+
+**功能模块**：
+
+**A. 概览页面** 📊
+- 总用户数
+- 今日活跃用户
+- 未解决错误数量
+- 总 Credits 消耗统计
+
+**B. 用户管理** 👥
+- 查看所有用户列表
+  - 邮箱、显示名称
+  - 剩余/已使用 Credits
+  - 创建时间、最后登录
+- 查看用户详情
+  - 基本信息（ID、邮箱、验证状态）
+  - Credits 详情（剩余、已使用、最后使用时间）
+  - 使用统计（保存的联系人、生成的邮件）
+- 添加 Credits
+  - 输入数量（正整数）
+  - 实时更新余额
+
+**C. 错误日志** 🐛
+- 查看所有错误
+  - 错误类型、错误信息
+  - 请求路径、用户ID、发生时间
+  - 状态（已解决/未解决）
+  - 筛选：显示/隐藏已解决错误
+- 查看错误详情
+  - 完整错误信息
+  - 上下文数据（JSON）
+  - 完整堆栈跟踪
+- 标记为已解决
+  - 添加解决备注
+  - 记录解决人和时间
+
+**界面特点**：
+- 响应式设计（移动端友好）
+- 渐变色主题（紫色系）
+- 实时数据加载
+- 模态框交互
+- 表格数据展示
+
+#### 5. 管理员 API 端点 (`app.py`)
+
+**用户管理**：
+- `GET /api/admin/users` - 获取所有用户列表
+- `GET /api/admin/user/<user_id>/credits` - 获取用户 Credits
+- `POST /api/admin/user/<user_id>/add-credits` - 添加 Credits
+- `GET /api/admin/user/<user_id>/info` - 获取用户详细信息
+
+**错误日志**：
+- `GET /api/admin/errors` - 获取错误列表
+  - 查询参数：`limit`, `offset`, `show_resolved`
+- `POST /api/admin/error/<error_id>/resolve` - 标记错误已解决
+
+**权限控制**：
+- 所有 API 需要 `@admin_required` 装饰器
+- 非管理员返回 403 错误
+- 未登录返回 401 错误
+
+### 修改文件
+
+#### 核心功能
+1. **`src/services/error_notifier.py`**
+   - 添加错误去重机制（5分钟窗口）
+   - 添加 `_generate_error_key()` 方法
+   - 添加 `_cleanup_old_errors()` 方法
+   - 添加 `_ensure_error_logs_table()` 创建数据库表
+   - 添加 `_save_error_to_db()` 保存错误到数据库
+   - 修改 `notify_error()` 集成去重和数据库存储
+
+2. **`config.py`**
+   - 添加 `ADMIN_EMAILS` 配置项
+   - 添加 `is_admin()` 权限检查函数
+
+3. **`app.py`**
+   - 导入 `config` 模块
+   - 添加 `admin_required` 装饰器
+   - 添加 `/admin` 主页面路由
+   - 添加 8 个管理员 API 端点
+   - 修改 `index()` 路由，管理员自动跳转到 `/admin`
+
+#### 界面和工具
+4. **`templates/admin.html`** (NEW - 950+ lines)
+   - 完整的管理员后台界面
+   - 三个标签页：概览、用户管理、错误日志
+   - 4 个模态框：添加 Credits、用户详情、错误详情
+   - 实时数据加载和刷新
+   - 响应式设计
+
+5. **`start_local_admin.sh`** (NEW)
+   - 本地开发启动脚本
+   - 预配置管理员邮箱
+   - 环境变量模板
+
+6. **`docs/admin-system-guide.md`** (NEW - 完整文档)
+   - 功能详解
+   - API 文档
+   - 最佳实践
+   - 故障排查
+   - 安全建议
+
+### 使用方法
+
+#### 本地开发
+```bash
+# 1. 编辑 start_local_admin.sh，设置你的邮箱
+export ADMIN_EMAILS="your-email@example.com"
+
+# 2. 启动应用
+bash start_local_admin.sh
+
+# 3. 使用管理员邮箱登录
+# 4. 自动跳转到 /admin 页面
+```
+
+#### 生产环境 (Render)
+```bash
+# 在 Dashboard 添加环境变量
+ADMIN_EMAILS=your-email@example.com
+
+# 多个管理员用逗号分隔
+ADMIN_EMAILS=admin1@example.com,admin2@example.com
+```
+
+### 技术要点
+
+#### 错误去重算法
+```python
+# 生成唯一键
+error_key = f"{error_type}:{error_msg[:100]}:{request_path}"
+
+# 检查是否重复
+if error_key in recent_errors:
+    last_time, count = recent_errors[error_key]
+    if now - last_time < 300:  # 5分钟内
+        recent_errors[error_key] = (now, count + 1)
+        return True  # 跳过通知
+
+# 发送通知并记录
+recent_errors[error_key] = (now, 1)
+```
+
+#### 数据库自动创建
+```python
+def _ensure_error_logs_table(self):
+    # 在 ErrorNotifier.__init__() 时自动调用
+    # 如果表不存在则创建
+    # 包含索引优化
+```
+
+#### 权限装饰器
+```python
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('user_id'):
+            return jsonify({'error': 'Authentication required'}), 401
+        
+        user_email = session.get('user_email', '')
+        if not config.is_admin(user_email):
+            return jsonify({'error': 'Admin access required'}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
+```
+
+### 安全考虑
+
+1. **权限验证**：每个管理员 API 都有 `@admin_required` 装饰器
+2. **敏感信息过滤**：错误上下文中已过滤密码、token 等
+3. **SQL 注入防护**：使用参数化查询
+4. **XSS 防护**：前端使用 `escapeHtml()` 处理用户输入
+5. **环境变量**：管理员邮箱通过环境变量配置，不硬编码
+
+### 测试建议
+
+#### 1. 错误去重测试
+```bash
+# 快速触发多个相同错误
+for i in {1..5}; do 
+  curl http://localhost:5000/api/nonexistent
+  sleep 1
+done
+
+# 预期：只收到 1 条企业微信通知
+# 数据库中有 5 条记录
+```
+
+#### 2. 管理员权限测试
+```bash
+# 非管理员访问
+curl http://localhost:5000/api/admin/users
+# 预期：403 Forbidden
+
+# 管理员登录后访问
+# 预期：返回用户列表
+```
+
+#### 3. Credits 添加测试
+```bash
+# POST /api/admin/user/{user_id}/add-credits
+# Body: {"amount": 10}
+# 检查：用户 Dashboard 中 credits 是否增加
+```
+
+### 已知限制
+
+1. **去重窗口固定**：当前为 5 分钟，暂不支持动态配置
+2. **错误日志无限增长**：未实现自动清理旧记录
+3. **管理员日志审计**：未记录管理员操作日志
+4. **权限粒度**：当前只有"管理员"和"普通用户"两种角色
+
+### 后续优化建议
+
+1. **错误分析**：
+   - 错误趋势图表
+   - 错误分类统计
+   - 最常见错误排行
+
+2. **用户分析**：
+   - 用户活跃度趋势
+   - Credits 消耗分析
+   - 用户行为漏斗
+
+3. **权限增强**：
+   - 多级权限（超级管理员、运营、客服）
+   - 操作日志审计
+   - IP 白名单
+
+4. **自动化**：
+   - 定期错误报告（每日邮件）
+   - 异常告警规则
+   - Credits 自动补充策略
+
+### 相关文档
+
+- `docs/admin-system-guide.md` - 完整使用指南
+- `docs/wechat-error-notification.md` - 错误通知配置
+- `admin_credits.py` - CLI 工具（备用）
+
+### 部署注意事项
+
+1. **必须配置** `ADMIN_EMAILS` 环境变量
+2. **建议配置** `WECHAT_WEBHOOK_URL` 用于错误通知
+3. **确保数据库** 有写入权限（error_logs 表）
+4. **第一次部署后** 手动创建管理员账号并登录测试
+
+---
+
+## 2026-02-06: UI 优化与流程修复
+
+### Summary
+修复 Dashboard credits 显示问题，优化候选人列表显示，改进用户流程。
+
+### 修复的问题
+
+#### 1. Dashboard Credits 不扣除问题
+- **问题**: 使用 Apollo 解锁邮箱后，Dashboard 中的 credits 统计不更新
+- **原因**: 前端使用了错误的数据路径 `data.credits?.remaining`，但后端返回的是 `data.credits?.apollo_credits`
+- **修复**: 
+  - 更新 `loadDashboardData()` 使用正确路径：`data.credits?.apollo_credits`
+  - 同时修复 contacts 和 emails 统计：`data.stats.contacts_count` / `data.stats.emails_count`
+  - 位置: `templates/index_v2.html` Line ~3710
+
+#### 2. 候选人列表显示不完整
+- **问题**: Targets 列表只显示 position 或 field，缺少清晰的职位和公司信息
+- **修复**: 强制显示完整信息
+  - ✅ 姓名（缺失时显示 "Name not specified"）
+  - ✅ 职位标题（从 position 解析）
+  - ✅ 公司名称（从 position 解析，格式：`Title @ Company`）
+  - ✅ 缺失时显示 "Position not specified"
+  - 位置: `templates/index_v2.html` `renderRecommendations()` 函数
+
+**显示格式示例**:
+```
+👤 John Doe 🔗
+   Senior Engineer @ Google
+```
+
+#### 3. Step 5 标题更新
+- **修改前**: "Step 5: Your Cold Emails"
+- **修改后**: "Email History"
+- 位置: `templates/index_v2.html` Line ~3004
+
+#### 4. Dashboard 流程改进
+- **问题**: Dashboard → "Create New Email" → 显示 Quick Start / Professional 模式选择（已废弃）
+- **修复**: 
+  - `hideDashboard()` 直接启动 Professional Mode
+  - Track Selection "Back" 按钮返回 Dashboard（不是模式选择）
+  - 按钮文字改为 "← Back to Dashboard"
+  - 位置: `templates/index_v2.html` Line ~3691, ~4085
+
+### 修改文件
+- `templates/index_v2.html`:
+  - 修复 Dashboard credits 数据路径
+  - 强制显示完整候选人信息（姓名 + 职位 + 公司）
+  - 修改 Step 5 标题为 "Email History"
+  - 移除所有通往 mode-selection 的路径
+  - 改进 Dashboard 返回流程
+
+### 技术细节
+- Dashboard 数据结构修正：
+  ```javascript
+  // 修改前
+  data.credits?.remaining
+  data.contacts?.length
+  
+  // 修改后
+  data.credits?.apollo_credits
+  data.stats?.contacts_count
+  ```
+
+- 候选人信息解析：
+  ```javascript
+  // 从 position 字符串解析 title 和 company
+  // "Senior Engineer at Google" → title: "Senior Engineer", company: "Google"
+  const atIndex = rec.position.indexOf(' at ');
+  if (atIndex > 0) {
+      displayTitle = rec.position.substring(0, atIndex).trim();
+      displayCompany = rec.position.substring(atIndex + 4).trim();
+  }
+  ```
+
+### 用户体验改进
+- ✅ Credits 消耗实时更新
+- ✅ 候选人信息完整清晰
+- ✅ Dashboard 流程更流畅
+- ✅ 移除已废弃的模式选择界面
+
+---
+
+## 2026-02-06: 撤销 Apollo + Moonshot 集成
+
+### Summary
+经过实际测试发现 Apollo Basic Plan 的姓名混淆问题（last_name_obfuscated）导致 Moonshot 无法精确匹配 LinkedIn URLs，所有返回的 URLs 都不存在。Apollo Basic Plan 不适合用于候选人搜索，仅适合用于邮件查找（Enrichment）。已撤销集成，恢复 SerpAPI 为主要搜索方法。
+
+### 根本问题
+- **Apollo Basic Plan 限制**：姓氏混淆（如"Nathan Mo***l"）
+- **Moonshot 要求**：需要完整姓名才能精确搜索 LinkedIn
+- **组合方案不可行**：混淆姓名 → 无法精确匹配 → 返回错误 URLs
+- **测试误导**：100% 返回率 ≠ 100% 正确率（格式正确但 URLs 不存在）
+
+### 技术验证
+1. ✅ Moonshot 真实搜索功能正常（使用 $web_search builtin_function）
+   - Andrew Ng 测试成功：https://www.linkedin.com/in/andrewyng
+   - Nathan Mollica（完整姓名）测试成功
+2. ✅ Apollo Search API 功能正常（精准筛选 5,769 结果）
+3. ❌ Apollo + Moonshot 组合不可行（姓名混淆是根本障碍）
+
+### 架构决策
+- **候选人搜索**：SerpAPI（PRIMARY），返回真实存在的 LinkedIn profiles
+- **邮件查找**：Apollo Enrichment（解锁完整姓名 + 邮箱，1 credit/人）
+- **废弃**：Apollo + Moonshot 组合搜索方案
+
+### 修改文件
+- `src/email_agent.py`:
+  - 删除 `_search_via_apollo_moonshot()` 函数（~143 lines）
+  - 删除 `_build_apollo_search_params()` 函数（~68 lines）
+  - 恢复 SerpAPI 为 PRIMARY 搜索方法
+  - 注释更新："Apollo 只用于邮件查找"
+
+### 保留文件（未使用但技术正确）
+- `src/services/moonshot_service.py`: Moonshot 真实搜索实现
+- `src/services/apollo_service.py`: Apollo Search + Enrichment 方法
+- 测试文件（已过时）：
+  - `test_apollo_moonshot_combo.py`
+  - `test_moonshot_real_search.py`
+  - `test_moonshot_full_name.py`
+
+### Lessons Learned
+- ⚠️ API 限制（Basic Plan 姓名混淆）往往是不可逾越的障碍
+- ✅ 测试"成功率"需验证实际结果，非只检查格式
+- 💡 技术栈应基于实际能力，非理论优势
+- 📝 分离关注点：搜索（SerpAPI） vs 邮件（Apollo）
+
+---
+
+## 2026-02-06: Apollo + Moonshot 集成（推荐引擎重大升级）**[已废弃]**
+
+### Summary
+集成 Apollo.io People Search + Moonshot AI LinkedIn Lookup 作为 `find_target_recommendations()` 的主要推荐方法，实现精准职位筛选 + 100% LinkedIn URL 成功率，成本仅 $0.01/5人。
+
+### 新增功能
+- ✅ **Apollo + Moonshot 组合搜索**：作为推荐系统的首选方法
+  - Apollo People Search API（0 credits）：精准职位/公司/地点筛选
+  - Moonshot AI（~$0.01/5人）：LinkedIn URL 智能查找
+  - 100% URL 成功率（即使姓名部分混淆）
+  - 总成本比纯 SerpAPI 更低，比 Apollo Enrichment（1 credit/人）便宜 90%+
+
+### 新增文件
+- `src/services/moonshot_service.py`: Moonshot AI LinkedIn URL 查找服务
+- `test_apollo_moonshot_combo.py`: Apollo + Moonshot 组合测试脚本
+- `test_integration.py`: 完整流程集成测试
+
+### 修改文件
+- `src/services/apollo_service.py`: 添加 `search_people_v2()` 方法（使用 `api_search` 端点）
+- `src/email_agent.py`:
+  - 新增 `_search_via_apollo_moonshot()` 函数（Line ~1997）
+  - 新增 `_build_apollo_search_params()` 辅助函数
+  - 在 `find_target_recommendations()` 中集成为优先级最高的搜索方法
+
+### 测试结果
+- 虚拟场景：寻找 SF/Seattle 的 Senior ML Engineers（LLM 方向）
+- Apollo 找到：5 个候选人（Warner Bros, Zscaler, SoFi, Apple, Meta）
+- Moonshot 成功率：100%（5/5 找到 LinkedIn URLs）
+- 成本：$0.0126（1,054 tokens）
+- 对比：
+  - vs SerpAPI：更精准的职位筛选
+  - vs Apollo Enrichment：成本降低 90%+（$0.01 vs 5 credits）
+  - vs Gemini Search：真实候选人 + 可验证 URLs
+
+### 架构优化
+搜索方法优先级（新）：
+1. **Apollo + Moonshot**（主要）：精准 + 低成本
+2. SerpAPI（后备1）：如果 Apollo 不可用
+3. Gemini Search（后备2）：如果 SerpAPI 不可用
+4. OpenAI Web Search（后备3）：实验性
+5. Web Scrape + Gemini（后备4）：基础保底
+
+### 配置要求
+环境变量：
+- `APOLLO_API_KEY`：Apollo.io API Key（必需）
+- `MOONSHOT_API_KEY`：Moonshot AI API Key（可选，无则退回 Apollo 纯搜索）
+
+### 已知限制
+- Apollo Basic Plan 会混淆姓氏（如 "Mo***l"），但 Moonshot 仍能找到正确 URL
+- Moonshot 偶尔会返回推测性结果，建议用户验证
+- AI Scoring 需要 OPENAI_API_KEY（可选功能）
+
+---
+
+## 2026-02-06: Generate More respects Pro preferences
+
+### Summary
+Fixed Professional mode "Generate More" so it keeps finance decision-tree preferences when requesting additional contacts.
+
+### Changes
+- Merged pro finance preferences into the standard "Generate More" request payload
+- Preserved track, search intent, location, and contactability overrides when reloading recommendations
+
+### Modified Files
+- `templates/index_v2.html`
+
+---
+
 ## 2026-02-05: 企业微信错误通知集成
 
 ### Summary

@@ -3,6 +3,9 @@
 import os
 import json
 import traceback
+import time
+import sqlite3
+from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, Optional
 import requests
@@ -15,6 +18,15 @@ class ErrorNotifier:
         self.webhook_url = webhook_url or os.environ.get("WECHAT_WEBHOOK_URL", "")
         self.enabled = bool(self.webhook_url)
         self.timeout = 5  # seconds
+        
+        # Error deduplication
+        self.recent_errors = {}  # {error_key: (timestamp, count)}
+        self.dedup_window = 300  # 5 minutes in seconds
+        self.max_dedup_entries = 1000  # Prevent memory leak
+        
+        # Database path for error logging
+        self.db_path = Path(__file__).parent.parent.parent / "data" / "connact.db"
+        self._ensure_error_logs_table()
 
     def notify_error(
         self,
@@ -35,12 +47,39 @@ class ErrorNotifier:
         Returns:
             True if notification sent successfully, False otherwise
         """
+        # Always log error to database
+        error_log_id = self._save_error_to_db(error, context, user_id, request_path)
+        
         if not self.enabled:
             return False
 
         try:
+            # Check for duplicate errors
+            error_key = self._generate_error_key(error, request_path)
+            now = time.time()
+            
+            # Clean up old entries periodically
+            if len(self.recent_errors) > self.max_dedup_entries:
+                self._cleanup_old_errors(now)
+            
+            # Check if this error was recently sent
+            if error_key in self.recent_errors:
+                last_time, count = self.recent_errors[error_key]
+                if now - last_time < self.dedup_window:
+                    # Update count and skip notification
+                    self.recent_errors[error_key] = (now, count + 1)
+                    print(f"[ERROR_NOTIFIER] Skipping duplicate error (count: {count + 1}): {error_key[:50]}...")
+                    return True  # Return True to indicate it was handled
+            
+            # Send notification
             message = self._format_error_message(error, context, user_id, request_path)
-            return self._send_to_wechat(message)
+            success = self._send_to_wechat(message)
+            
+            # Record this error for deduplication
+            if success:
+                self.recent_errors[error_key] = (now, 1)
+            
+            return success
         except Exception as e:
             # Don't let notification failures crash the app
             print(f"Failed to send error notification: {e}")
@@ -157,6 +196,94 @@ class ErrorNotifier:
         except Exception as e:
             print(f"Failed to send info notification: {e}")
             return False
+    
+    def _generate_error_key(self, error: Exception, request_path: Optional[str]) -> str:
+        """Generate a unique key for error deduplication."""
+        error_type = type(error).__name__
+        error_msg = str(error)[:100]  # First 100 chars
+        path = request_path or "unknown"
+        return f"{error_type}:{error_msg}:{path}"
+    
+    def _cleanup_old_errors(self, current_time: float) -> None:
+        """Remove errors older than dedup_window."""
+        to_remove = []
+        for key, (timestamp, _) in self.recent_errors.items():
+            if current_time - timestamp > self.dedup_window:
+                to_remove.append(key)
+        
+        for key in to_remove:
+            del self.recent_errors[key]
+        
+        if to_remove:
+            print(f"[ERROR_NOTIFIER] Cleaned up {len(to_remove)} old error entries")
+    
+    def _ensure_error_logs_table(self) -> None:
+        """Ensure error_logs table exists in database."""
+        try:
+            if not self.db_path.parent.exists():
+                self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            conn = sqlite3.connect(self.db_path)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS error_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    error_type TEXT NOT NULL,
+                    error_message TEXT NOT NULL,
+                    request_path TEXT,
+                    user_id TEXT,
+                    context TEXT,
+                    stack_trace TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at TIMESTAMP,
+                    resolved_by TEXT,
+                    notes TEXT
+                )
+            """)
+            
+            # Create index for faster queries
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_error_logs_created 
+                ON error_logs(created_at DESC)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_error_logs_resolved 
+                ON error_logs(resolved_at)
+            """)
+            
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[ERROR_NOTIFIER] Failed to create error_logs table: {e}")
+    
+    def _save_error_to_db(self, error: Exception, context: Optional[Dict[str, Any]], 
+                          user_id: Optional[str], request_path: Optional[str]) -> Optional[int]:
+        """Save error to database for admin review."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            error_type = type(error).__name__
+            error_msg = str(error)
+            context_json = json.dumps(context, ensure_ascii=False) if context else None
+            
+            # Get stack trace
+            tb_lines = traceback.format_exception(type(error), error, error.__traceback__)
+            stack_trace = "".join(tb_lines)
+            
+            cursor.execute("""
+                INSERT INTO error_logs 
+                (error_type, error_message, request_path, user_id, context, stack_trace)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (error_type, error_msg, request_path, user_id, context_json, stack_trace))
+            
+            error_log_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            
+            return error_log_id
+        except Exception as e:
+            print(f"[ERROR_NOTIFIER] Failed to save error to database: {e}")
+            return None
 
 
 # Global instance
