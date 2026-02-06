@@ -1,5 +1,18 @@
 # Development Log
 
+## 2026-02-06: 🎨 统一登录页面 Logo 样式
+
+**改动**：将登录页面（[templates/login.html](templates/login.html)）的左上角 logo 从 "🤝 Connact.ai" 改为与主页面一致的 "Conn**^**ct.ai" 样式（带渐变 SVG 尖角符号）。
+
+**细节**：
+- 替换 HTML：从简单的 emoji + 文字改为三段式 span + SVG 结构
+- 更新 CSS：从 `inline-block` 改为 `inline-flex`，增加 `.logo-caret` 样式以支持 SVG 图标
+- 渐变效果：使用线性渐变从 `#00F2FF` 到 `#0072FF` 的青色系
+
+**影响**：登录页面、注册页面的视觉一致性得到提升。
+
+---
+
 ## 2026-02-06: 🐛 紧急修复 - 上传简历接口崩溃
 
 ### 问题描述

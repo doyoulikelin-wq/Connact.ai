@@ -109,10 +109,14 @@
 
         .app-logo {
             color: var(--text-bright);
+            text-decoration: none;
+            text-shadow: 0 0 50px var(--accent-glow);
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            font-size: 28px;
             font-weight: 700;
-            font-size: 20px;
             letter-spacing: -0.02em;
-            text-shadow: 0 0 40px rgba(139, 92, 246, 0.22);
         }
 
         .app-logo:hover { opacity: 0.92; text-decoration: none; }
@@ -121,6 +125,16 @@
             outline: none;
             box-shadow: var(--focus-ring);
             border-radius: 12px;
+        }
+
+        .app-logo .logo-caret {
+            display: inline-flex;
+            align-items: center;
+            margin: 0 -2px;
+        }
+
+        .app-logo .logo-caret svg {
+            display: block;
         }
 
         .top-links {
@@ -409,7 +423,21 @@
 
     <div class="container">
         <header class="header">
-            <a class="app-logo" href="/" aria-label="Connact.ai home">🤝 Connact.ai</a>
+            <a class="app-logo" href="/" aria-label="Connact.ai home">
+                <span>Conn</span>
+                <span class="logo-caret" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                        <defs>
+                            <linearGradient id="caretGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#00F2FF" />
+                                <stop offset="100%" stop-color="#0072FF" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M4 19L12 5L20 19" stroke="url(#caretGradient)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </span>
+                <span>ct.ai</span>
+            </a>
             <nav class="top-links" aria-label="Top links">
                 <a class="top-link" href="{{ access_href }}">Get access</a>
                 <a class="top-link primary" href="{{ signup_href }}">Create account</a>
