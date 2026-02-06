@@ -3302,6 +3302,8 @@ I&apos;m {{sender_name}}, currently ...
         // Global state
         const state = {
             sessionId: generateSessionId(),  // Unique session ID for this user session
+            activityId: null,
+            activityIndex: null,
             mode: null,  // 'quick' or 'professional'
             proTrack: null,  // 'finance' or 'academic' (for professional mode)
             proTargetChoice: null,  // 'have' or 'need' (for professional mode)
@@ -3377,6 +3379,8 @@ I&apos;m {{sender_name}}, currently ...
         function getFreshState(mode) {
             return {
                 mode,
+                activityId: null,
+                activityIndex: null,
                 proTrack: null,
                 proTargetChoice: null,
                 proPreferenceHistory: [],
@@ -3449,6 +3453,48 @@ I&apos;m {{sender_name}}, currently ...
             pills.forEach(pill => {
                 pill.classList.toggle('active', pill.dataset.mode === mode);
             });
+        }
+
+        async function startActivitySession(title) {
+            if (state.activityId) return;
+            try {
+                const response = await fetch('/api/activity/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: title || '' })
+                });
+                const data = await response.json();
+                if (response.ok && data.activity) {
+                    state.activityId = data.activity.id;
+                    state.activityIndex = data.activity.activity_index || null;
+                }
+            } catch (e) {
+                console.log('Activity start failed:', e);
+            }
+        }
+
+        async function logActivityEvent(eventType, payload) {
+            if (!eventType) return;
+            if (!state.activityId) {
+                await startActivitySession();
+            }
+            try {
+                const response = await fetch('/api/activity/event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        activity_id: state.activityId,
+                        event_type: eventType,
+                        payload: payload || {}
+                    })
+                });
+                const data = await response.json();
+                if (response.ok && data.activity_id) {
+                    state.activityId = data.activity_id;
+                }
+            } catch (e) {
+                console.log('Activity event failed:', e);
+            }
         }
 
         function resetFormsAndPanels(mode) {
@@ -3592,6 +3638,8 @@ I&apos;m {{sender_name}}, currently ...
             resetFormsAndPanels(mode);
             resetRecommendationState();
             updateModeSwitcherUI(mode);
+
+            startActivitySession(`${mode === 'quick' ? 'Quick Start' : 'Professional'} Flow`);
 
             const modeSelection = document.getElementById('mode-selection');
             if (modeSelection) modeSelection.classList.add('hidden');
@@ -6903,7 +6951,8 @@ I&apos;m {{sender_name}}, currently ...
                         purpose: purposeText,
                         field: fieldText,
                         sender_profile: state.senderProfile,
-                        preferences: mergedPreferences
+                        preferences: mergedPreferences,
+                        activity_id: state.activityId
                     })
                 });
                 
@@ -7013,9 +7062,26 @@ I&apos;m {{sender_name}}, currently ...
             if (existingIndex >= 0) {
                 // Remove from selection
                 state.selectedTargets.splice(existingIndex, 1);
+                logActivityEvent('target_unselected', {
+                    target: {
+                        id: rec.id || null,
+                        name: rec.name || '',
+                        position: rec.position || rec.field || '',
+                        linkedin_url: rec.linkedin_url || ''
+                    }
+                });
             } else {
                 // Add to selection (clone to avoid reference issues)
                 state.selectedTargets.push({ ...rec });
+                logActivityEvent('target_selected', {
+                    target: {
+                        id: rec.id || null,
+                        name: rec.name || '',
+                        position: rec.position || rec.field || '',
+                        linkedin_url: rec.linkedin_url || '',
+                        match_score: rec.match_score || 0
+                    }
+                });
             }
             
             // Update UI
@@ -7073,9 +7139,20 @@ I&apos;m {{sender_name}}, currently ...
 
         // Remove a selected target
         function removeSelectedTarget(index) {
+            const removed = state.selectedTargets[index];
             state.selectedTargets.splice(index, 1);
             updateSelectedTargetsUI();
             checkStep3Valid();
+            if (removed) {
+                logActivityEvent('target_unselected', {
+                    target: {
+                        id: removed.id || null,
+                        name: removed.name || '',
+                        position: removed.position || removed.field || '',
+                        linkedin_url: removed.linkedin_url || ''
+                    }
+                });
+            }
         }
 
         // Setup navigation buttons
@@ -7182,6 +7259,10 @@ I&apos;m {{sender_name}}, currently ...
                 try {
                     await navigator.clipboard.writeText(subjectValue);
                     setCopyButtonState(this, 'Copied', 'Copy');
+                    logActivityEvent('email_copied_subject', {
+                        index: state.currentEmailIndex,
+                        subject_length: subjectValue.length
+                    });
                 } catch (e) {
                     alert('Failed to copy subject. Your browser may block clipboard access.');
                 }
@@ -7192,6 +7273,10 @@ I&apos;m {{sender_name}}, currently ...
                 try {
                     await navigator.clipboard.writeText(bodyValue);
                     setCopyButtonState(this, 'Copied', 'Copy');
+                    logActivityEvent('email_copied_body', {
+                        index: state.currentEmailIndex,
+                        body_length: bodyValue.length
+                    });
                 } catch (e) {
                     alert('Failed to copy email. Your browser may block clipboard access.');
                 }
@@ -7210,6 +7295,9 @@ I&apos;m {{sender_name}}, currently ...
                 }).join('\n\n' + '='.repeat(50) + '\n\n');
                 navigator.clipboard.writeText(allEmailsText);
                 this.textContent = '✅ All Copied!';
+                logActivityEvent('email_copied_all', {
+                    count: state.generatedEmails.length
+                });
                 setTimeout(() => { this.textContent = '📋 Copy All Emails'; }, 2000);
             });
 
@@ -7262,7 +7350,8 @@ I&apos;m {{sender_name}}, currently ...
                     body: JSON.stringify({
                         purpose: getPurposeText(),
                         field: getFieldText(),
-                        answers: answers
+                        answers: answers,
+                        activity_id: state.activityId
                     })
                 });
                 
@@ -7453,7 +7542,8 @@ I&apos;m {{sender_name}}, currently ...
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             session_id: state.sessionId || 'default',
-                            targets: state.selectedTargets
+                            targets: state.selectedTargets,
+                            activity_id: state.activityId
                         })
                     });
                 } catch (e) {
@@ -7550,7 +7640,8 @@ I&apos;m {{sender_name}}, currently ...
                             ask: askText
                         },
                         receiver: receiverProfile,
-                        goal: goalText
+                        goal: goalText,
+                        activity_id: state.activityId
                     };
 
                     if (state.generationMode === 'template' && templateText) {
@@ -7666,7 +7757,8 @@ I&apos;m {{sender_name}}, currently ...
                         subject: parts.subject,
                         body: parts.body,
                         goal: state.purpose || '',
-                        contact_id: current.target.saved_contact_id || null
+                        contact_id: current.target.saved_contact_id || null,
+                        activity_id: state.activityId
                     })
                 });
                 current.saved = true;

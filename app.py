@@ -158,6 +158,42 @@ def admin_required(f):
     return decorated_function
 
 
+def _get_or_start_activity(
+    user_id: str,
+    activity_id: Optional[str] = None,
+    *,
+    title: Optional[str] = None,
+) -> Optional[dict]:
+    if not USER_DATA_ENABLED or not user_data_service or not user_id:
+        return None
+
+    activity_id = (activity_id or session.get("activity_id") or "").strip()
+    if activity_id:
+        session["activity_id"] = activity_id
+        return {"id": activity_id}
+
+    activity = user_data_service.start_activity(user_id, title=title)
+    session["activity_id"] = activity["id"]
+    return activity
+
+
+def _log_activity_event(
+    *,
+    user_id: str,
+    event_type: str,
+    payload: Optional[dict] = None,
+    activity_id: Optional[str] = None,
+    title: Optional[str] = None,
+) -> Optional[dict]:
+    if not USER_DATA_ENABLED or not user_data_service or not user_id:
+        return None
+
+    activity = _get_or_start_activity(user_id, activity_id, title=title)
+    if not activity:
+        return None
+    return user_data_service.add_activity_event(user_id, activity["id"], event_type, payload)
+
+
 def _safe_redirect_url(url: Optional[str]) -> Optional[str]:
     url = (url or "").strip()
     if not url or not url.startswith("/"):
@@ -1011,6 +1047,10 @@ def api_admin_user_info(user_id):
         dashboard = None
         if user_data_service:
             dashboard = user_data_service.get_user_dashboard(user_id)
+
+        activities = None
+        if user_data_service:
+            activities = user_data_service.get_user_activities(user_id, limit=10)
         
         return jsonify({
             'success': True,
@@ -1030,7 +1070,8 @@ def api_admin_user_info(user_id):
             'usage': {
                 'saved_contacts': len(dashboard.get('contacts', [])) if dashboard else 0,
                 'generated_emails': len(dashboard.get('emails', [])) if dashboard else 0
-            } if dashboard else None
+            } if dashboard else None,
+            'activities': activities,
         })
         
     except Exception as e:
@@ -1325,7 +1366,36 @@ def upload_sender_pdf():
         user_id = session.get("user_id", "")
         if user_id:
             auth_service.update_user_profile(user_id=user_id, sender_profile=profile_dict)
-        
+
+        _log_activity_event(
+            user_id=user_id,
+            event_type='questionnaire_completed',
+            activity_id=data.get('activity_id') if isinstance(data, dict) else None,
+            payload={
+                'purpose': purpose,
+                'field': field,
+                'answers': answers,
+                'profile': profile_dict,
+            },
+        )
+
+        _log_activity_event(
+            user_id=user_id,
+            event_type='resume_upload',
+            payload={
+                'filename': original_filename,
+                'session_id': session_id,
+                'profile': {
+                    'name': profile.name,
+                    'education': profile.education,
+                    'experiences': profile.experiences,
+                    'skills': profile.skills,
+                    'projects': profile.projects,
+                    'raw_text_length': len(profile.raw_text or ''),
+                },
+            },
+        )
+
         # 保存解析后的简历数据
         if USER_UPLOAD_ENABLED and user_upload_storage:
             user_upload_storage.save_resume_profile(session_id, profile_dict)
@@ -1496,6 +1566,23 @@ def api_generate_email():
             saved_path = end_prompt_session(session_id)
             session.pop('prompt_session_id', None)  # 清理 session
         
+        _log_activity_event(
+            user_id=session.get('user_id', ''),
+            event_type='email_generated',
+            activity_id=data.get('activity_id') if isinstance(data, dict) else None,
+            payload={
+                'goal': goal,
+                'template': template,
+                'receiver': {
+                    'name': receiver.name,
+                    'position': receiver_position,
+                    'linkedin_url': receiver_linkedin,
+                },
+                'deep_search': deep_search_result,
+                'email_text': email_text,
+            },
+        )
+
         return jsonify({
             'success': True,
             'email': email_text,
@@ -1675,6 +1762,19 @@ def api_find_recommendations():
         if PROMPT_COLLECTOR_ENABLED and session_id and recommendations:
             saved_path = save_find_target_results(session_id, recommendations)
         
+        _log_activity_event(
+            user_id=user_id,
+            event_type='recommendations_found',
+            activity_id=(data.get('activity_id') if isinstance(data, dict) else None),
+            payload={
+                'purpose': purpose,
+                'field': field,
+                'preferences': preferences,
+                'recommendations': recommendations,
+                'count': len(recommendations) if recommendations else 0,
+            },
+        )
+
         return jsonify({
             'success': True,
             'recommendations': recommendations,
@@ -1714,6 +1814,24 @@ def upload_receiver_doc():
                 uploaded_file.save(tmp.name)
                 profile = extract_profile_from_pdf(Path(tmp.name))
                 os.unlink(tmp.name)
+
+            _log_activity_event(
+                user_id=session.get('user_id', ''),
+                event_type='target_doc_upload',
+                payload={
+                    'filename': uploaded_file.filename,
+                    'name': name or profile.name,
+                    'field': field,
+                    'profile': {
+                        'name': profile.name,
+                        'education': profile.education,
+                        'experiences': profile.experiences,
+                        'skills': profile.skills,
+                        'projects': profile.projects,
+                        'raw_text_length': len(profile.raw_text or ''),
+                    },
+                },
+            )
             
             return jsonify({
                 'success': True,
@@ -1735,6 +1853,17 @@ def upload_receiver_doc():
             # Use Gemini to parse the text content
             from src.email_agent import parse_text_to_profile
             profile = parse_text_to_profile(content, name, field)
+
+            _log_activity_event(
+                user_id=session.get('user_id', ''),
+                event_type='target_doc_upload',
+                payload={
+                    'filename': uploaded_file.filename,
+                    'name': name or profile.get('name', ''),
+                    'field': field,
+                    'profile': profile,
+                },
+            )
             
             return jsonify({
                 'success': True,
@@ -1789,12 +1918,23 @@ def api_save_targets():
     
     session_id = data.get('session_id', 'default')
     targets = data.get('targets', [])
+    activity_id = (data.get('activity_id') or '').strip() or None
     
     if not targets:
         return jsonify({'error': 'No targets provided'}), 400
     
     try:
         path = save_user_targets(session_id, targets)
+        _log_activity_event(
+            user_id=session.get('user_id', ''),
+            event_type='targets_saved',
+            activity_id=activity_id,
+            payload={
+                'session_id': session_id,
+                'targets': targets,
+                'count': len(targets),
+            },
+        )
         return jsonify({
             'success': True,
             'path': path,
@@ -1802,6 +1942,47 @@ def api_save_targets():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/activity/start', methods=['POST'])
+@login_required
+def api_start_activity():
+    """Start a new user activity session."""
+    user_id = session.get('user_id')
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip() or None
+
+    activity = _get_or_start_activity(user_id, title=title)
+    if not activity:
+        return jsonify({'error': 'Activity logging disabled'}), 400
+
+    return jsonify({'success': True, 'activity': activity})
+
+
+@app.route('/api/activity/event', methods=['POST'])
+@login_required
+def api_activity_event():
+    """Append an event to the current activity session."""
+    user_id = session.get('user_id')
+    data = request.get_json(silent=True) or {}
+    activity_id = (data.get('activity_id') or '').strip() or None
+    event_type = (data.get('event_type') or '').strip()
+    payload = data.get('payload') or {}
+
+    if not event_type:
+        return jsonify({'error': 'event_type is required'}), 400
+
+    event = _log_activity_event(
+        user_id=user_id,
+        event_type=event_type,
+        payload=payload,
+        activity_id=activity_id,
+    )
+
+    if not event:
+        return jsonify({'error': 'Activity logging disabled'}), 400
+
+    return jsonify({'success': True, 'event': event, 'activity_id': session.get('activity_id')})
 
 
 # ==================== User Dashboard & Data APIs ====================
@@ -1842,12 +2023,21 @@ def api_save_contact():
     """Save a contact for the user."""
     user_id = session.get('user_id')
     data = request.get_json()
+    activity_id = (data.get('activity_id') or '').strip() if isinstance(data, dict) else None
     
     if not data or not data.get('name'):
         return jsonify({'error': 'Contact name is required'}), 400
     
     try:
         contact = user_data_service.save_contact(user_id, data)
+        _log_activity_event(
+            user_id=user_id,
+            event_type='contact_saved',
+            activity_id=activity_id,
+            payload={
+                'contact': contact.to_dict(),
+            },
+        )
         return jsonify({
             'success': True,
             'contact': contact.to_dict(),
@@ -1896,6 +2086,7 @@ def api_save_email():
     """Save a generated email for the user."""
     user_id = session.get('user_id')
     data = request.get_json()
+    activity_id = (data.get('activity_id') or '').strip() if isinstance(data, dict) else None
     
     if not data:
         return jsonify({'error': 'Email data is required'}), 400
@@ -1917,6 +2108,14 @@ def api_save_email():
             goal=data.get('goal', ''),
             contact_id=data.get('contact_id'),
             template_used=data.get('template_used'),
+        )
+        _log_activity_event(
+            user_id=user_id,
+            event_type='email_saved',
+            activity_id=activity_id,
+            payload={
+                'email': email.to_dict(),
+            },
         )
         return jsonify({
             'success': True,

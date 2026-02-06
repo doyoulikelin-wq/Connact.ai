@@ -156,6 +156,41 @@ class UserDataService:
                 """
             )
 
+            # User activity sessions and events
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_activities (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    activity_index INTEGER NOT NULL,
+                    title TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_activity_events (
+                    id TEXT PRIMARY KEY,
+                    activity_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    payload_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY(activity_id) REFERENCES user_activities(id) ON DELETE CASCADE,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_activities_user ON user_activities(user_id, created_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_activity_events ON user_activity_events(activity_id, created_at)"
+            )
+
             conn.commit()
 
     # ==================== Contact Methods ====================
@@ -548,6 +583,125 @@ class UserDataService:
             "recent_contacts": [self._row_to_contact(r).to_dict() for r in recent_contacts],
             "recent_emails": [self._row_to_email(r).to_dict() for r in recent_emails],
         }
+
+    # ==================== Activity Methods ====================
+
+    def start_activity(self, user_id: str, title: Optional[str] = None) -> dict:
+        """Start a new activity session for a user."""
+        now = datetime.utcnow().isoformat() + "Z"
+        activity_id = f"activity_{uuid.uuid4().hex[:12]}"
+
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(activity_index), 0) as max_idx FROM user_activities WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            next_index = (row["max_idx"] or 0) + 1
+            activity_title = title or f"Activity {next_index}"
+
+            conn.execute(
+                """
+                INSERT INTO user_activities (
+                    id, user_id, activity_index, title, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (activity_id, user_id, next_index, activity_title, now, now),
+            )
+            conn.commit()
+
+        return {
+            "id": activity_id,
+            "activity_index": next_index,
+            "title": activity_title,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    def add_activity_event(
+        self,
+        user_id: str,
+        activity_id: str,
+        event_type: str,
+        payload: Optional[dict] = None,
+    ) -> dict:
+        """Append an event to an activity session."""
+        now = datetime.utcnow().isoformat() + "Z"
+        event_id = f"event_{uuid.uuid4().hex[:12]}"
+        payload_json = json.dumps(payload or {})
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_activity_events (
+                    id, activity_id, user_id, event_type, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (event_id, activity_id, user_id, event_type, payload_json, now),
+            )
+            conn.execute(
+                "UPDATE user_activities SET updated_at = ? WHERE id = ?",
+                (now, activity_id),
+            )
+            conn.commit()
+
+        return {
+            "id": event_id,
+            "activity_id": activity_id,
+            "event_type": event_type,
+            "payload": payload or {},
+            "created_at": now,
+        }
+
+    def get_user_activities(self, user_id: str, limit: int = 20, offset: int = 0) -> list[dict]:
+        """Return recent activities with their events."""
+        activities: list[dict] = []
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, user_id, activity_index, title, created_at, updated_at
+                FROM user_activities
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (user_id, limit, offset),
+            ).fetchall()
+
+            for row in rows:
+                events_rows = conn.execute(
+                    """
+                    SELECT id, event_type, payload_json, created_at
+                    FROM user_activity_events
+                    WHERE activity_id = ?
+                    ORDER BY created_at ASC
+                    """,
+                    (row["id"],),
+                ).fetchall()
+
+                events = []
+                for ev in events_rows:
+                    events.append(
+                        {
+                            "id": ev["id"],
+                            "event_type": ev["event_type"],
+                            "payload": json.loads(ev["payload_json"] or "{}"),
+                            "created_at": ev["created_at"],
+                        }
+                    )
+
+                activities.append(
+                    {
+                        "id": row["id"],
+                        "activity_index": row["activity_index"],
+                        "title": row["title"],
+                        "created_at": row["created_at"],
+                        "updated_at": row["updated_at"],
+                        "events": events,
+                    }
+                )
+
+        return activities
 
 
 # Global instance

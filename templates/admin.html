@@ -375,6 +375,40 @@
             word-wrap: break-word;
         }
 
+        .activity-list {
+            margin-top: 12px;
+        }
+
+        .activity-card {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .activity-meta {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .activity-event {
+            border-top: 1px dashed #e5e7eb;
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+
+        .activity-event pre {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
         .filters {
             display: flex;
             gap: 12px;
@@ -613,6 +647,10 @@
                     <label>生成的邮件</label>
                     <input type="text" id="info-emails-count" readonly>
                 </div>
+                <div class="form-group">
+                    <label>活动记录</label>
+                    <div id="info-activities" class="activity-list"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -825,6 +863,7 @@
                 document.getElementById('info-credits-used').value = data.credits?.total_used || 0;
                 document.getElementById('info-contacts-count').value = data.usage?.saved_contacts || 0;
                 document.getElementById('info-emails-count').value = data.usage?.generated_emails || 0;
+                renderUserActivities(data.activities || []);
                 
                 loading.style.display = 'none';
                 content.style.display = 'block';
@@ -968,6 +1007,35 @@
                 hour: '2-digit',
                 minute: '2-digit'
             });
+        }
+
+        function renderUserActivities(activities) {
+            const container = document.getElementById('info-activities');
+            if (!container) return;
+            if (!activities || activities.length === 0) {
+                container.innerHTML = '<div style="color: #6b7280;">暂无活动记录</div>';
+                return;
+            }
+
+            container.innerHTML = activities.map(activity => {
+                const header = `Activity ${activity.activity_index || '-'} • ${formatDate(activity.created_at)}`;
+                const eventsHtml = (activity.events || []).map(evt => {
+                    const payload = evt.payload || {};
+                    return `
+                        <div class="activity-event">
+                            <div class="activity-meta">${escapeHtml(evt.event_type)} • ${formatDate(evt.created_at)}</div>
+                            <pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+                        </div>
+                    `;
+                }).join('') || '<div class="activity-meta">No events recorded</div>';
+
+                return `
+                    <div class="activity-card">
+                        <div class="activity-meta">${escapeHtml(header)}</div>
+                        ${eventsHtml}
+                    </div>
+                `;
+            }).join('');
         }
 
         // Close modal on outside click

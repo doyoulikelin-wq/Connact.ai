@@ -88,6 +88,10 @@ Quick reading:
 
 ## Features
 
+### Admin & Monitoring
+
+- Admin dashboard for user list, error logs, and per-user activity timeline (resume uploads, preferences, recommendations, selections, email generation/saving/copy actions).
+
 ### v3.0 (Current) - Mode Selection & Privacy 🎯
 
 - **Mode Selection After Login**

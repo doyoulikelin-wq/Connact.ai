@@ -168,6 +168,7 @@ Moonshot AI LinkedIn 查找 (~$0.01/5人)
 - Professional 模式的 "Generate More" 会继续沿用金融决策树偏好（而不是回退到默认偏好）。
 - Quick Start：进入 Step 1 会弹出一张简短教程（可选“不再提示”），帮助用户理解整个流程。
 - Quick Start：教程文案补充“我们收集哪些信息/为什么需要这些信息/如何用来找人和写邮件”，让用户知其然也知其所以然。
+- 管理员详情页新增 Activity Timeline，可按完整流程查看简历上传、偏好问答、推荐候选、选人、邮件生成/保存/复制等事件。
 - Step 3（找 targets）：新增可选「Targeting details」面板（理想人群描述、必须/排除关键词、地区语言时区、回复概率 vs 名气、参考样例、证据链接/摘录），用于更精准的推荐检索与排序。
 - Professional / Finance：偏好问卷升级为决策树（G 单选主方向 → 分支深挖），并把答案结构化写入 `preferences`（如 `bank_tier/group_type/group/sector/target_role_titles`）供 SerpAPI 检索与打分使用。
 - 推荐候选输出补齐可核验字段：每个候选可包含 `evidence` / `sources` / `uncertainty`，并在 Target Profile 弹窗中展示，方便用户快速核验而不是盲选。

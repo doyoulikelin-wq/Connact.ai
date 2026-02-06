@@ -11,6 +11,11 @@
 
 ### 新增功能
 
+#### 0. 用户活动记录（Activity Timeline）
+
+- 新增 `user_activities` / `user_activity_events` 表，按完整流程归档用户行为（简历上传、偏好问答、推荐、选人、邮件生成/保存/复制等）。
+- 前端在流程开始时创建活动并持续上报事件；管理员详情页可按活动查看完整数据（`app.py`, `templates/index_v2.html`, `templates/admin.html`, `src/services/user_data_service.py`）。
+
 #### 1. 错误去重机制 (`src/services/error_notifier.py`)
 
 **问题**：短时间内相同错误导致企业微信告警风暴
