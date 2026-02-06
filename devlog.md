@@ -1,5 +1,50 @@
 # Development Log
 
+## 2026-02-06: 🐛 紧急修复 - 上传简历接口崩溃
+
+### 问题描述
+用户上传简历时卡住，前端显示：`Error uploading resume: name 'data' is not defined`
+
+### 根本原因
+[app.py](app.py#L1360-L1367) 的 `/api/upload-sender-pdf` 接口中存在严重的复制粘贴错误：
+
+```python
+# 错误代码（已删除）
+_log_activity_event(
+    user_id=user_id,
+    event_type='questionnaire_completed',  # ❌ 错误的事件类型
+    activity_id=data.get('activity_id'),   # ❌ data 变量不存在
+    payload={
+        'purpose': purpose,      # ❌ 未定义
+        'field': field,          # ❌ 未定义
+        'answers': answers,      # ❌ 未定义
+        'profile': profile_dict,
+    },
+)
+```
+
+该段代码看起来是从 `/api/profile-from-questionnaire` 接口复制的，但：
+- 在 `upload-sender-pdf` 接口中，没有定义 `data`, `purpose`, `field`, `answers` 这些变量
+- 导致 Python 抛出 `NameError: name 'data' is not defined`
+- 接口返回 500 错误，前端捕获后显示错误信息
+
+### 解决方案
+✅ 删除错误的 `questionnaire_completed` 事件记录代码块  
+✅ 保留正确的 `resume_upload` 事件记录（line 1370-1386）  
+✅ 全面审查了所有其他接口的 `_log_activity_event` 调用（共10处），确认无类似问题
+
+### 影响范围
+- **修复前**：所有用户上传简历均失败（Quick Start 和 Professional 模式）
+- **修复后**：简历上传流程恢复正常
+- **涉及文件**：`app.py` (1行删除，17行净减少)
+
+### 测试建议
+1. Quick Start 模式：上传 PDF 简历
+2. Professional 模式：上传 PDF 简历
+3. 检查管理员界面的活动记录是否正确显示 `resume_upload` 事件
+
+---
+
 ## 2026-02-06: 管理员系统与错误去重机制
 
 ### Summary

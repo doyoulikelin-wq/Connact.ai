@@ -1369,18 +1369,6 @@ def upload_sender_pdf():
 
         _log_activity_event(
             user_id=user_id,
-            event_type='questionnaire_completed',
-            activity_id=data.get('activity_id') if isinstance(data, dict) else None,
-            payload={
-                'purpose': purpose,
-                'field': field,
-                'answers': answers,
-                'profile': profile_dict,
-            },
-        )
-
-        _log_activity_event(
-            user_id=user_id,
             event_type='resume_upload',
             payload={
                 'filename': original_filename,
