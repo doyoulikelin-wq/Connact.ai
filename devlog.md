@@ -5,6 +5,10 @@
 ### Summary
 **重大更新**：完整的管理员后台系统 + 企业微信错误通知去重机制，实现生产环境的完整监控和用户管理能力。
 
+### 修复
+
+- 管理员用户列表与用户详情接口改为使用 `users.id` / `users.primary_email` 字段，并从 `auth_identities` 计算邮箱验证状态，避免生产数据库字段不匹配导致用户数为 0 的问题（`app.py`）。
+
 ### 新增功能
 
 #### 1. 错误去重机制 (`src/services/error_notifier.py`)

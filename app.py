@@ -871,17 +871,22 @@ def api_admin_list_users():
         
         query = """
         SELECT 
-            u.user_id,
-            u.email,
+            u.id as user_id,
+            u.primary_email as email,
             u.display_name,
-            u.is_verified,
+            COALESCE(v.is_verified, 0) as is_verified,
             u.created_at,
             u.last_login_at,
             COALESCE(c.apollo_credits, 5) as apollo_credits,
             COALESCE(c.total_used, 0) as total_used,
             c.last_used_at
         FROM users u
-        LEFT JOIN user_credits c ON u.user_id = c.user_id
+        LEFT JOIN (
+            SELECT user_id, MAX(email_verified) as is_verified
+            FROM auth_identities
+            GROUP BY user_id
+        ) v ON u.id = v.user_id
+        LEFT JOIN user_credits c ON u.id = c.user_id
         ORDER BY u.created_at DESC
         """
         
@@ -986,6 +991,16 @@ def api_admin_user_info(user_id):
         user = auth_service.get_user(user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
+
+        import sqlite3
+        conn = sqlite3.connect(config.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        verified_row = conn.execute(
+            "SELECT MAX(email_verified) as is_verified FROM auth_identities WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        conn.close()
+        is_verified = bool(verified_row["is_verified"]) if verified_row else False
         
         # Get credits
         credits = None
@@ -1000,10 +1015,10 @@ def api_admin_user_info(user_id):
         return jsonify({
             'success': True,
             'user': {
-                'user_id': user.user_id,
-                'email': user.email,
+                'user_id': user.id,
+                'email': user.primary_email,
                 'display_name': user.display_name,
-                'is_verified': user.is_verified,
+                'is_verified': is_verified,
                 'created_at': user.created_at,
                 'last_login_at': user.last_login_at
             },
