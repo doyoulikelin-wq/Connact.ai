@@ -14,7 +14,7 @@ import requests
 class ErrorNotifier:
     """Send error notifications to WeChat Work via webhook."""
 
-    def __init__(self, webhook_url: Optional[str] = None):
+    def __init__(self, webhook_url: Optional[str] = None, db_path: Optional[Path] = None):
         self.webhook_url = webhook_url or os.environ.get("WECHAT_WEBHOOK_URL", "")
         self.enabled = bool(self.webhook_url)
         self.timeout = 5  # seconds
@@ -24,8 +24,13 @@ class ErrorNotifier:
         self.dedup_window = 300  # 5 minutes in seconds
         self.max_dedup_entries = 1000  # Prevent memory leak
         
-        # Database path for error logging
-        self.db_path = Path(__file__).parent.parent.parent / "data" / "connact.db"
+        # Database path for error logging - use config.DB_PATH if provided
+        if db_path:
+            self.db_path = Path(db_path)
+        else:
+            # Fallback to default (for backward compatibility)
+            from config import DB_PATH
+            self.db_path = Path(DB_PATH)
         self._ensure_error_logs_table()
 
     def notify_error(
@@ -286,8 +291,9 @@ class ErrorNotifier:
             return None
 
 
-# Global instance
-error_notifier = ErrorNotifier()
+# Global instance - will be initialized with proper db_path on import
+from config import DB_PATH
+error_notifier = ErrorNotifier(db_path=DB_PATH)
 
 
 def notify_error(

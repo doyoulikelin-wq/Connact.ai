@@ -1,5 +1,25 @@
 # Development Log
 
+## 2026-02-06: 🐛 修复错误日志数据库路径不一致
+
+**问题**：管理员点击查看错误日志时，报错 `no such table: error_logs`
+
+**根本原因**：数据库路径不一致
+- `error_notifier.py` 硬编码使用 `data/connact.db`
+- `app.py` 管理员接口查询 `config.DB_PATH`（默认 `data/app.db`）
+- 导致 `error_logs` 表被创建在错误的数据库文件中
+
+**解决方案**：
+- 修改 `ErrorNotifier.__init__()` 接受 `db_path` 参数
+- 全局实例初始化时传入 `config.DB_PATH`
+- 确保错误日志和用户数据使用同一个数据库文件
+
+**影响**：
+- 修复后管理员可以正常查看错误日志
+- 历史错误日志可能存储在旧的 `connact.db` 中（如需迁移，手动执行 SQL）
+
+---
+
 ## 2026-02-06: 🎨 统一登录页面 Logo 样式
 
 **改动**：将登录页面（[templates/login.html](templates/login.html)）的左上角 logo 从 "🤝 Connact.ai" 改为与主页面一致的 "Conn**^**ct.ai" 样式（带渐变 SVG 尖角符号）。
