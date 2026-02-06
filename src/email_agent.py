@@ -623,7 +623,7 @@ def build_prompt(
 ### Structure (follow this order):
 1. **Greeting**: "Hi [First Name]," or "Good morning [First Name]," (use first name only, never full name)
 2. **Self-introduction** (1 sentence): "My name is [Name], a [year] at [School] majoring in [Major]."
-3. **Relevant experience** (2-3 sentences): Highlight internships, projects, or achievements that establish credibility and relate to the receiver's field. Use specific company names with **bold** for emphasis.
+3. **Relevant experience** (2-3 sentences): Highlight internships, projects, or achievements that establish credibility and relate to the receiver's field. You may use bold formatting for specific company names (e.g., **Goldman Sachs**, **McKinsey**) to make them stand out.
 4. **Connection reason** (1-2 sentences): Express genuine interest in their role/company/experience. Use phrases like "I saw that you are currently..." or "I'm reaching out because I'm very interested in..."
 5. **Specific ask** (1-2 sentences): Request a brief call (15-20 minutes) with flexible timing. Acknowledge their busy schedule.
 6. **Resume mention**: "I've attached my resume for your reference" or "Please see the attached resume for more information."
@@ -657,14 +657,15 @@ def build_prompt(
         "Use only facts present in the sender/receiver details or explicitly provided evidence; do not invent relationships, meetings, achievements, or affiliations. "
         "If information is missing, keep it generic rather than guessing. "
         "Output a complete email with a Subject line and body that is ready to paste into an email client.\n\n"
-        "IMPORTANT FORMAT RULES:\n"
-        "- Output PLAIN TEXT only, NO Markdown formatting (no **, no ##, no bullets with *)\n"
+        "FORMAT GUIDELINES:\n"
         "- Start with 'Subject: ' followed by the subject text on one line\n"
         "- Then a blank line, then the email body\n"
+        "- Use plain text for most content, but you MAY use **bold** sparingly to emphasize key items like company names, specific numbers, or critical achievements\n"
+        "- Do NOT use headings (##), bullet points (- or *), or other heavy Markdown formatting\n"
         "- Example format:\n"
         "Subject: Your Subject Here\n\n"
         "Hi [Name],\n\n"
-        "[Email body...]\n\n"
+        "[Email body with occasional **bold** for emphasis...]\n\n"
         "Best regards,\n"
         "[Sender Name]\n\n"
         + style_guide

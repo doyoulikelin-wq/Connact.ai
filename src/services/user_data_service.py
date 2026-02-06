@@ -191,6 +191,27 @@ class UserDataService:
                 "CREATE INDEX IF NOT EXISTS idx_user_activity_events ON user_activity_events(activity_id, created_at)"
             )
 
+            # User templates table for email templates
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_templates (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    description TEXT,
+                    use_count INTEGER NOT NULL DEFAULT 0,
+                    last_used_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_templates_user ON user_templates(user_id, created_at)"
+            )
+
             conn.commit()
 
     # ==================== Contact Methods ====================
@@ -702,6 +723,231 @@ class UserDataService:
                 )
 
         return activities
+
+    def get_user_activity_dates(self, user_id: str) -> list[dict]:
+        """Return list of dates with activity counts."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT 
+                    DATE(created_at) as date,
+                    COUNT(*) as activity_count
+                FROM user_activities
+                WHERE user_id = ?
+                GROUP BY DATE(created_at)
+                ORDER BY date DESC
+                """,
+                (user_id,),
+            ).fetchall()
+
+            return [
+                {
+                    "date": row["date"],
+                    "activity_count": row["activity_count"]
+                }
+                for row in rows
+            ]
+
+    def get_user_activities_by_date(self, user_id: str, date: str) -> list[dict]:
+        """Return all activities for a specific date."""
+        activities: list[dict] = []
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, user_id, activity_index, title, created_at, updated_at
+                FROM user_activities
+                WHERE user_id = ? AND DATE(created_at) = ?
+                ORDER BY created_at DESC
+                """,
+                (user_id, date),
+            ).fetchall()
+
+            for row in rows:
+                events_rows = conn.execute(
+                    """
+                    SELECT id, event_type, payload_json, created_at
+                    FROM user_activity_events
+                    WHERE activity_id = ?
+                    ORDER BY created_at ASC
+                    """,
+                    (row["id"],),
+                ).fetchall()
+
+                events = []
+                for ev in events_rows:
+                    events.append(
+                        {
+                            "id": ev["id"],
+                            "event_type": ev["event_type"],
+                            "payload": json.loads(ev["payload_json"] or "{}"),
+                            "created_at": ev["created_at"],
+                        }
+                    )
+
+                activities.append(
+                    {
+                        "id": row["id"],
+                        "activity_index": row["activity_index"],
+                        "title": row["title"],
+                        "created_at": row["created_at"],
+                        "updated_at": row["updated_at"],
+                        "events": events,
+                    }
+                )
+
+        return activities
+
+    # ==================== Template Methods ====================
+
+    def save_template(
+        self,
+        user_id: str,
+        name: str,
+        content: str,
+        description: str = "",
+    ) -> str:
+        """Save a new email template for a user."""
+        now = datetime.utcnow().isoformat() + "Z"
+        template_id = f"tmpl_{uuid.uuid4().hex[:12]}"
+
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO user_templates (
+                    id, user_id, name, content, description,
+                    use_count, last_used_at, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, 0, NULL, ?, ?)
+                """,
+                (template_id, user_id, name, content, description, now, now),
+            )
+            conn.commit()
+
+        return template_id
+
+    def get_user_templates(
+        self,
+        user_id: str,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Get all templates for a user."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, user_id, name, content, description,
+                       use_count, last_used_at, created_at, updated_at
+                FROM user_templates
+                WHERE user_id = ?
+                ORDER BY updated_at DESC
+                LIMIT ? OFFSET ?
+                """,
+                (user_id, limit, offset),
+            ).fetchall()
+
+        templates = []
+        for row in rows:
+            templates.append({
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "content": row["content"],
+                "description": row["description"] or "",
+                "use_count": row["use_count"] or 0,
+                "last_used_at": row["last_used_at"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
+            })
+        return templates
+
+    def get_template(self, template_id: str) -> dict | None:
+        """Get a specific template by ID."""
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, user_id, name, content, description,
+                       use_count, last_used_at, created_at, updated_at
+                FROM user_templates
+                WHERE id = ?
+                """,
+                (template_id,),
+            ).fetchone()
+
+        if not row:
+            return None
+
+        return {
+            "id": row["id"],
+            "user_id": row["user_id"],
+            "name": row["name"],
+            "content": row["content"],
+            "description": row["description"] or "",
+            "use_count": row["use_count"] or 0,
+            "last_used_at": row["last_used_at"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    def update_template(
+        self,
+        template_id: str,
+        name: str | None = None,
+        content: str | None = None,
+        description: str | None = None,
+    ) -> bool:
+        """Update an existing template."""
+        now = datetime.utcnow().isoformat() + "Z"
+        updates = []
+        params = []
+
+        if name is not None:
+            updates.append("name = ?")
+            params.append(name)
+        if content is not None:
+            updates.append("content = ?")
+            params.append(content)
+        if description is not None:
+            updates.append("description = ?")
+            params.append(description)
+
+        if not updates:
+            return False
+
+        updates.append("updated_at = ?")
+        params.append(now)
+        params.append(template_id)
+
+        with self._connect() as conn:
+            cursor = conn.execute(
+                f"UPDATE user_templates SET {', '.join(updates)} WHERE id = ?",
+                params,
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def delete_template(self, template_id: str) -> bool:
+        """Delete a template."""
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "DELETE FROM user_templates WHERE id = ?",
+                (template_id,),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def increment_template_usage(self, template_id: str) -> None:
+        """Increment the use count for a template and update last_used_at."""
+        now = datetime.utcnow().isoformat() + "Z"
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE user_templates
+                SET use_count = use_count + 1, last_used_at = ?
+                WHERE id = ?
+                """,
+                (now, template_id),
+            )
+            conn.commit()
 
 
 # Global instance

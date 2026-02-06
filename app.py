@@ -1048,9 +1048,10 @@ def api_admin_user_info(user_id):
         if user_data_service:
             dashboard = user_data_service.get_user_dashboard(user_id)
 
-        activities = None
+        # Get activity dates
+        activity_dates = None
         if user_data_service:
-            activities = user_data_service.get_user_activities(user_id, limit=10)
+            activity_dates = user_data_service.get_user_activity_dates(user_id)
         
         return jsonify({
             'success': True,
@@ -1071,7 +1072,7 @@ def api_admin_user_info(user_id):
                 'saved_contacts': len(dashboard.get('contacts', [])) if dashboard else 0,
                 'generated_emails': len(dashboard.get('emails', [])) if dashboard else 0
             } if dashboard else None,
-            'activities': activities,
+            'activity_dates': activity_dates or [],
         })
         
     except Exception as e:
@@ -1081,6 +1082,110 @@ def api_admin_user_info(user_id):
                 context={'operation': 'admin_user_info', 'target_user': user_id},
                 user_id=session.get('user_id'),
                 request_path=f'/api/admin/user/{user_id}/info'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user/<user_id>/date/<date>', methods=['GET'])
+@admin_required
+def api_admin_user_date_activities(user_id, date):
+    """Get detailed activities for a specific date."""
+    try:
+        if not user_data_service:
+            return jsonify({'error': 'User data service not available'}), 500
+        
+        activities = user_data_service.get_user_activities_by_date(user_id, date)
+        
+        return jsonify({
+            'success': True,
+            'date': date,
+            'activities': activities
+        })
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_user_date_activities', 'target_user': user_id, 'date': date},
+                user_id=session.get('user_id'),
+                request_path=f'/api/admin/user/{user_id}/date/{date}'
+            )
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/user/<user_id>/export', methods=['GET'])
+@admin_required
+def api_admin_user_export(user_id):
+    """Export all user data as JSON."""
+    try:
+        # Get user basic info
+        user = auth_service.get_user(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        import sqlite3
+        conn = sqlite3.connect(config.DB_PATH)
+        conn.row_factory = sqlite3.Row
+        verified_row = conn.execute(
+            "SELECT MAX(email_verified) as is_verified FROM auth_identities WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        conn.close()
+        is_verified = bool(verified_row["is_verified"]) if verified_row else False
+        
+        # Get all data
+        credits = None
+        dashboard = None
+        all_activities = []
+        activity_dates = []
+        
+        if user_data_service:
+            credits = user_data_service.get_user_credits(user_id)
+            dashboard = user_data_service.get_user_dashboard(user_id)
+            activity_dates = user_data_service.get_user_activity_dates(user_id)
+            # Get all activities (no limit)
+            all_activities = user_data_service.get_user_activities(user_id, limit=1000)
+        
+        export_data = {
+            'user': {
+                'user_id': user.id,
+                'email': user.primary_email,
+                'display_name': user.display_name,
+                'is_verified': is_verified,
+                'created_at': user.created_at,
+                'last_login_at': user.last_login_at
+            },
+            'credits': {
+                'apollo_credits': credits.apollo_credits if credits else 5,
+                'total_used': credits.total_used if credits else 0,
+                'last_used_at': credits.last_used_at if credits else None
+            } if credits else None,
+            'usage': {
+                'saved_contacts': len(dashboard.get('contacts', [])) if dashboard else 0,
+                'generated_emails': len(dashboard.get('emails', [])) if dashboard else 0,
+                'contacts': dashboard.get('contacts', []) if dashboard else [],
+                'emails': dashboard.get('emails', []) if dashboard else []
+            } if dashboard else None,
+            'activity_dates': activity_dates or [],
+            'activities': all_activities,
+            'exported_at': datetime.now().isoformat()
+        }
+        
+        # Return as JSON file download
+        from flask import make_response
+        response = make_response(json.dumps(export_data, ensure_ascii=False, indent=2))
+        response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename=user_{user_id}_export.json'
+        
+        return response
+        
+    except Exception as e:
+        if ERROR_NOTIFICATION_ENABLED and error_notifier:
+            error_notifier.notify_error(
+                error=e,
+                context={'operation': 'admin_user_export', 'target_user': user_id},
+                user_id=session.get('user_id'),
+                request_path=f'/api/admin/user/{user_id}/export'
             )
         return jsonify({'error': str(e)}), 500
 
@@ -1277,6 +1382,63 @@ def api_profile():
     return jsonify({"success": True})
 
 
+@app.route("/api/submit-survey", methods=["POST"])
+def api_submit_survey():
+    """Save user survey response (how they heard about us)."""
+    import sqlite3
+    from datetime import datetime
+    
+    data = request.get_json() or {}
+    source = data.get("source", "").strip()
+    email = data.get("email", "").strip()
+    
+    if not source:
+        return jsonify({"error": "Source is required"}), 400
+    
+    conn = None
+    try:
+        conn = sqlite3.connect(config.DB_PATH)
+        cursor = conn.cursor()
+        
+        # Create survey_responses table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS survey_responses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT NOT NULL,
+                email TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                created_at TEXT NOT NULL
+            )
+        """)
+        
+        # Insert survey response
+        cursor.execute(
+            """
+            INSERT INTO survey_responses (source, email, ip_address, user_agent, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                source,
+                email or None,
+                request.remote_addr,
+                request.headers.get("User-Agent"),
+                datetime.utcnow().isoformat(),
+            ),
+        )
+        
+        conn.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"[survey] Error saving response: {e}")
+        if conn:
+            conn.rollback()
+        return jsonify({"error": "Failed to save survey response"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+
 def _send_verification_email(to_email: str, verification_link: str) -> bool:
     """Send email verification link via SMTP if configured.
 
@@ -1458,6 +1620,24 @@ def api_generate_email():
     """Generate cold email based on sender and receiver profiles."""
     data = request.get_json()
     template = data.get('template') or None
+    template_id = data.get('template_id') or None
+    template_name = None
+    
+    # If template_id is provided, load template from database
+    if template_id and USER_DATA_ENABLED and user_data_service:
+        user_id = session.get('user_id')
+        if user_id:
+            try:
+                template_data = user_data_service.get_template(template_id)
+                if template_data and template_data['user_id'] == user_id:
+                    template = template_data['content']
+                    template_name = template_data['name']
+                    # Increment usage count
+                    user_data_service.increment_template_usage(template_id)
+                else:
+                    print(f"[API] Template {template_id} not found or access denied")
+            except Exception as e:
+                print(f"[API] Failed to load template {template_id}: {e}")
     
     # 是否启用深度搜索（默认启用）
     enable_deep_search = data.get('enable_deep_search', True)
@@ -1561,6 +1741,8 @@ def api_generate_email():
             payload={
                 'goal': goal,
                 'template': template,
+                'template_id': template_id,
+                'template_name': template_name,
                 'receiver': {
                     'name': receiver.name,
                     'position': receiver_position,
@@ -1576,6 +1758,10 @@ def api_generate_email():
             'email': email_text,
             'data_saved': saved_path is not None,
             'deep_search': deep_search_result,
+            'template_used': {
+                'id': template_id,
+                'name': template_name,
+            } if template_id and template_name else None,
         })
     
     except Exception as e:
@@ -1890,6 +2076,206 @@ def api_regenerate_email():
         return jsonify({
             'success': True,
             'email': new_email
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== Template Management API ====================
+
+@app.route('/api/templates', methods=['POST'])
+@login_required
+def api_save_template():
+    """Save a new email template."""
+    if not USER_DATA_ENABLED or not user_data_service:
+        return jsonify({'error': 'User data service not available'}), 503
+    
+    data = request.get_json()
+    user_id = session.get('user_id')
+    
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    name = (data.get('name') or '').strip()
+    content = (data.get('content') or '').strip()
+    description = (data.get('description') or '').strip()
+    
+    if not name:
+        return jsonify({'error': 'Template name is required'}), 400
+    if not content:
+        return jsonify({'error': 'Template content is required'}), 400
+    
+    try:
+        template_id = user_data_service.save_template(
+            user_id=user_id,
+            name=name,
+            content=content,
+            description=description,
+        )
+        
+        _log_activity_event(
+            user_id=user_id,
+            event_type='template_saved',
+            payload={
+                'template_id': template_id,
+                'name': name,
+            },
+        )
+        
+        return jsonify({
+            'success': True,
+            'template_id': template_id,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/templates', methods=['GET'])
+@login_required
+def api_get_templates():
+    """Get all templates for the current user."""
+    if not USER_DATA_ENABLED or not user_data_service:
+        return jsonify({'error': 'User data service not available'}), 503
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        limit = int(request.args.get('limit', 50))
+        offset = int(request.args.get('offset', 0))
+        
+        templates = user_data_service.get_user_templates(
+            user_id=user_id,
+            limit=limit,
+            offset=offset,
+        )
+        
+        return jsonify({
+            'success': True,
+            'templates': templates,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/templates/<template_id>', methods=['GET'])
+@login_required
+def api_get_template(template_id):
+    """Get a specific template."""
+    if not USER_DATA_ENABLED or not user_data_service:
+        return jsonify({'error': 'User data service not available'}), 503
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        template = user_data_service.get_template(template_id)
+        
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        # Verify ownership
+        if template['user_id'] != user_id:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        return jsonify({
+            'success': True,
+            'template': template,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/templates/<template_id>', methods=['PUT'])
+@login_required
+def api_update_template(template_id):
+    """Update an existing template."""
+    if not USER_DATA_ENABLED or not user_data_service:
+        return jsonify({'error': 'User data service not available'}), 503
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    data = request.get_json()
+    
+    try:
+        # Verify ownership
+        template = user_data_service.get_template(template_id)
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+        if template['user_id'] != user_id:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Update template
+        name = data.get('name')
+        content = data.get('content')
+        description = data.get('description')
+        
+        success = user_data_service.update_template(
+            template_id=template_id,
+            name=name.strip() if name else None,
+            content=content.strip() if content else None,
+            description=description.strip() if description else None,
+        )
+        
+        if success:
+            _log_activity_event(
+                user_id=user_id,
+                event_type='template_updated',
+                payload={
+                    'template_id': template_id,
+                    'changes': {
+                        'name': name is not None,
+                        'content': content is not None,
+                        'description': description is not None,
+                    },
+                },
+            )
+        
+        return jsonify({
+            'success': success,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/templates/<template_id>', methods=['DELETE'])
+@login_required
+def api_delete_template(template_id):
+    """Delete a template."""
+    if not USER_DATA_ENABLED or not user_data_service:
+        return jsonify({'error': 'User data service not available'}), 503
+    
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        # Verify ownership
+        template = user_data_service.get_template(template_id)
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+        if template['user_id'] != user_id:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Delete template
+        success = user_data_service.delete_template(template_id)
+        
+        if success:
+            _log_activity_event(
+                user_id=user_id,
+                event_type='template_deleted',
+                payload={
+                    'template_id': template_id,
+                    'name': template['name'],
+                },
+            )
+        
+        return jsonify({
+            'success': success,
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

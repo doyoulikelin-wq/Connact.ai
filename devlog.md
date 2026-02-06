@@ -1,5 +1,181 @@
 # Development Log
 
+## 2026-02-06: 邮件模板管理功能
+
+**新增功能**：
+
+1. **模板保存与复用**
+   - 用户上传模板后自动保存到数据库
+   - 模板与用户账号关联，长期保存
+   - 可命名、添加描述信息方便识别
+   - 避免重复上传，提升使用效率
+
+2. **模板使用统计**
+   - 自动记录每个模板的使用次数
+   - 记录最后使用时间
+   - activity 中记录使用的模板 ID 和名称
+   - 便于了解哪些模板最常用
+
+3. **模板管理操作**
+   - 查看所有已保存的模板列表
+   - 更新模板内容、名称、描述
+   - 删除不再需要的模板
+   - 生成邮件时可选择已保存模板
+
+**技术实现**：
+
+**数据库层**：
+- 新建 `user_templates` 表存储用户模板
+- 字段：id, user_id, name, content, description, use_count, last_used_at, created_at, updated_at
+- 添加索引：`idx_user_templates_user` 按用户和创建时间排序
+
+**服务层 (src/services/user_data_service.py)**：
+- `save_template()` - 保存新模板
+- `get_user_templates()` - 获取用户所有模板（分页）
+- `get_template()` - 获取特定模板
+- `update_template()` - 更新模板信息
+- `delete_template()` - 删除模板
+- `increment_template_usage()` - 增加使用计数
+
+**API 层 (app.py)**：
+- `POST /api/templates` - 保存模板
+- `GET /api/templates` - 获取用户模板列表
+- `GET /api/templates/<template_id>` - 获取特定模板
+- `PUT /api/templates/<template_id>` - 更新模板
+- `DELETE /api/templates/<template_id>` - 删除模板
+- 修改 `POST /api/generate-email` 支持 `template_id` 参数
+
+**邮件生成流程改进**：
+- 支持通过 `template_id` 参数使用已保存模板
+- 自动从数据库加载模板内容
+- 权限验证：只能使用自己的模板
+- 使用后自动增加计数和更新时间
+- activity 记录包含模板 ID 和名称
+
+**影响文件**：
+- `src/services/user_data_service.py` (~160行新增，数据库表+6个方法）
+- `app.py` (~250行新增/修改，5个新端点+邮件生成修改）
+
+**用户体验提升**：
+- 模板只需上传一次，后续可重复选择使用
+- 历史模板按更新时间排序，最近用的排在前面
+- 可以看到每个模板的使用频率，了解哪些最有效
+- activity 完整记录模板使用情况，便于分析优化
+
+---
+
+## 2026-02-06: Admin Dashboard 改进：日期导航与数据导出
+
+**新增功能**：
+
+1. **日期视图**
+   - 用户详情页不再显示所有活动（可能过多、杂乱）
+   - 改为显示「有活动的日期列表」+ 每天的活动数量
+   - 管理员点击日期 → 按需加载该天的详细活动
+
+2. **数据导出**
+   - 用户详情弹窗中新增「导出完整数据 (JSON)」按钮
+   - 一键下载包含用户信息、credits、联系人、邮件、全部活动的完整 JSON
+   - 文件名：`user_{user_id}_{date}.json`
+
+**技术实现**：
+
+**后端 (app.py)**：
+- 修改 `/api/admin/user/<user_id>/info`：返回 `activity_dates` 数组（日期 + 计数）而非完整活动
+- 新增 `/api/admin/user/<user_id>/date/<date>`：获取特定日期的活动详情
+- 新增 `/api/admin/user/<user_id>/export`：导出完整用户数据 JSON，设置 Content-Disposition header 触发下载
+
+**服务层 (src/services/user_data_service.py)**：
+- 新增 `get_user_activity_dates(user_id)`：SQL GROUP BY DATE(created_at) 返回日期和活动计数
+- 新增 `get_user_activities_by_date(user_id, date)`：按日期过滤活动，JOIN events 表返回完整结构
+
+**前端 (templates/admin.html)**：
+- 修改 `showUserInfo()`：调用 renderActivityDates() 而非 renderUserActivities()
+- 新增 `renderActivityDates()`：渲染可点击的日期卡片列表（紫色渐变卡片，hover 效果）
+- 新增 `loadDateActivities(date)`：异步加载并展示特定日期的活动列表，含「返回日期列表」按钮
+- 新增 `exportUserData()`：调用导出 API，创建 Blob 下载链接自动触发下载
+- 新增 `.date-card` CSS：紫色渐变背景、hover 动画、清晰的视觉层级
+
+**影响文件**：
+- `app.py`（~180行修改，3个新/修改端点）
+- `src/services/user_data_service.py`（~70行新增，2个新方法）
+- `templates/admin.html`（~120行修改，UI + JS + CSS）
+
+**用户体验改进**：
+- 减少首屏数据量：只显示日期摘要，避免一次性加载过多活动
+- 按需加载：点击日期才加载详情（drill-down 导航模式）
+- 便捷导出：管理员可快速备份/分析用户完整数据
+
+---
+
+## 2026-02-06: � 添加 Favicon 与注册后问卷
+
+**新增功能**：
+
+1. **Favicon（网站图标）**
+   - 使用 logo 中的小尖角（向上箭头）作为 favicon
+   - SVG 渐变色设计（cyan → blue，与 logo 保持一致）
+   - 已添加到所有页面：`login.html`、`index_v2.html`、`signup_done.html`
+
+2. **注册后问卷**
+   - 在 `signup_done.html`（账号创建成功页）添加问卷卡片
+   - 询问用户从哪个平台了解到 Connact.ai
+   - 选项：LinkedIn、Twitter/X、小红书、微信、朋友推荐、搜索引擎、其他
+   - 可选提交或跳过
+
+**技术实现**：
+- Favicon：使用 data URI 内联 SVG，避免额外请求
+- 问卷 UI：完全内联在 `signup_done.html`，无需额外模板
+- API 端点：`POST /api/submit-survey` 保存问卷数据
+- 数据存储：新建 `survey_responses` 表（自动创建），记录来源、邮箱、IP、时间戳
+
+**影响文件**：
+- `templates/login.html`
+- `templates/index_v2.html`
+- `templates/signup_done.html`
+- `app.py`（新增 `/api/submit-survey` 端点）
+
+**数据库 Schema**：
+```sql
+CREATE TABLE survey_responses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,               -- linkedin, twitter, wechat, etc.
+    email TEXT,                         -- user email (if provided)
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at TEXT NOT NULL
+)
+```
+
+---
+
+## 2026-02-06: �🎯 修复邮件生成质量下降问题
+
+**问题**：用户反馈邮件生成质量比之前差了很多
+
+**根本原因**：提示词存在严重的自相矛盾
+- 系统指令禁止所有 Markdown 格式：`"NO Markdown formatting (no **, no ##, no bullets with *)"`
+- Style Guide 却要求使用格式：`"Use specific company names with **bold** for emphasis"`
+- Style Guide 本身就是 Markdown 格式（用了 `##`, `**`, `-` 等）
+
+**后果**：
+- AI 模型收到矛盾指令后极度困惑
+- 不知道该遵循"禁止格式"还是"使用格式"
+- 导致生成逻辑混乱、质量明显下降
+
+**解决方案**：
+- 移除过严的"NO Markdown"限制
+- 改为明确的**适度使用**指导："You MAY use **bold** sparingly to emphasize key items like company names"
+- 保留对重格式的限制："Do NOT use headings (##), bullet points"
+- 统一 Style Guide 的措辞，消除矛盾
+
+**影响**：
+- 邮件生成质量应该恢复到之前水平
+- 允许合理使用粗体强调关键信息（公司名、数字等）
+- 保持整体简洁可读的风格
+
+---
+
 ## 2026-02-06: 🐛 修复错误日志数据库路径不一致
 
 **问题**：管理员点击查看错误日志时，报错 `no such table: error_logs`

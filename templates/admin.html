@@ -387,6 +387,34 @@
             margin-bottom: 12px;
         }
 
+        .date-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        .date-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .date-text {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .date-count {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
         .activity-meta {
             font-size: 12px;
             color: #6b7280;
@@ -651,6 +679,11 @@
                     <label>活动记录</label>
                     <div id="info-activities" class="activity-list"></div>
                 </div>
+                <div class="form-group">
+                    <button class="btn btn-primary" onclick="exportUserData()" style="width: 100%;">
+                        <span>📥</span> 导出完整数据 (JSON)
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -837,6 +870,7 @@
 
         // Show user info
         async function showUserInfo(userId) {
+            currentUserId = userId;  // Store for export function
             const modal = document.getElementById('user-info-modal');
             const loading = document.getElementById('user-info-loading');
             const content = document.getElementById('user-info-content');
@@ -863,7 +897,7 @@
                 document.getElementById('info-credits-used').value = data.credits?.total_used || 0;
                 document.getElementById('info-contacts-count').value = data.usage?.saved_contacts || 0;
                 document.getElementById('info-emails-count').value = data.usage?.generated_emails || 0;
-                renderUserActivities(data.activities || []);
+                renderActivityDates(data.activity_dates || []);
                 
                 loading.style.display = 'none';
                 content.style.display = 'block';
@@ -1009,33 +1043,116 @@
             });
         }
 
-        function renderUserActivities(activities) {
+        function renderActivityDates(activityDates) {
             const container = document.getElementById('info-activities');
             if (!container) return;
-            if (!activities || activities.length === 0) {
+            if (!activityDates || activityDates.length === 0) {
                 container.innerHTML = '<div style="color: #6b7280;">暂无活动记录</div>';
                 return;
             }
 
-            container.innerHTML = activities.map(activity => {
-                const header = `Activity ${activity.activity_index || '-'} • ${formatDate(activity.created_at)}`;
-                const eventsHtml = (activity.events || []).map(evt => {
-                    const payload = evt.payload || {};
-                    return `
-                        <div class="activity-event">
-                            <div class="activity-meta">${escapeHtml(evt.event_type)} • ${formatDate(evt.created_at)}</div>
-                            <pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
-                        </div>
-                    `;
-                }).join('') || '<div class="activity-meta">No events recorded</div>';
-
-                return `
-                    <div class="activity-card">
-                        <div class="activity-meta">${escapeHtml(header)}</div>
-                        ${eventsHtml}
+            container.innerHTML = `
+                <div style="color: #6b7280; margin-bottom: 10px;">点击日期查看该天的活动详情</div>
+                ${activityDates.map(item => `
+                    <div class="date-card" onclick="loadDateActivities('${item.date}')">
+                        <div class="date-text">${item.date}</div>
+                        <div class="date-count">${item.activity_count} 个活动</div>
                     </div>
+                `).join('')}
+            `;
+        }
+
+        async function loadDateActivities(date) {
+            if (!currentUserId) {
+                alert('无效的用户ID');
+                return;
+            }
+
+            const container = document.getElementById('info-activities');
+            container.innerHTML = '<div class="loading">加载中...</div>';
+
+            try {
+                const response = await fetch(`/api/admin/user/${currentUserId}/date/${date}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to load activities');
+                }
+
+                const activities = data.activities || [];
+                
+                container.innerHTML = `
+                    <button class="btn btn-sm" onclick="showUserInfo('${currentUserId}')" style="margin-bottom: 10px;">
+                        ← 返回日期列表
+                    </button>
+                    <div style="color: #6b7280; margin-bottom: 10px;">
+                        ${date} 的活动 (共 ${activities.length} 条)
+                    </div>
+                    ${activities.length === 0 
+                        ? '<div style="color: #6b7280;">该日期暂无活动记录</div>'
+                        : activities.map(activity => {
+                            const header = `Activity ${activity.activity_index || '-'} • ${formatDate(activity.created_at)}`;
+                            const eventsHtml = (activity.events || []).map(evt => {
+                                const payload = evt.payload || {};
+                                return `
+                                    <div class="activity-event">
+                                        <div class="activity-meta">${escapeHtml(evt.event_type)} • ${formatDate(evt.created_at)}</div>
+                                        <pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+                                    </div>
+                                `;
+                            }).join('') || '<div class="activity-meta">No events recorded</div>';
+
+                            return `
+                                <div class="activity-card">
+                                    <div class="activity-meta">${escapeHtml(header)}</div>
+                                    ${eventsHtml}
+                                </div>
+                            `;
+                        }).join('')
+                    }
                 `;
-            }).join('');
+            } catch (err) {
+                container.innerHTML = `<div style="color: #ef4444;">加载失败: ${err.message}</div>`;
+            }
+        }
+
+        async function exportUserData() {
+            if (!currentUserId) {
+                alert('无效的用户ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/user/${currentUserId}/export`);
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Failed to export data');
+                }
+
+                // Get the blob from response
+                const blob = await response.blob();
+                
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `user_${currentUserId}_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                alert('数据导出成功！');
+            } catch (err) {
+                alert('导出失败: ' + err.message);
+            }
+        }
+
+        function renderUserActivities(activities) {
+            // Deprecated: kept for backwards compatibility
+            // Now use renderActivityDates instead
+            renderActivityDates(activities);
         }
 
         // Close modal on outside click
