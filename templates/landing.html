@@ -582,6 +582,114 @@
             line-height: 1.65;
         }
 
+        .demo-rows {
+            display: grid;
+            gap: 48px;
+            margin-top: 48px;
+        }
+
+        .demo-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .demo-row.reverse .demo-copy  { order: 2; }
+        .demo-row.reverse .demo-media { order: 1; }
+
+        @media (max-width: 920px) {
+            .demo-row,
+            .demo-row.reverse .demo-copy,
+            .demo-row.reverse .demo-media {
+                grid-template-columns: 1fr;
+                order: unset;
+            }
+            .demo-row { gap: 20px; }
+        }
+
+        .demo-copy h3 {
+            font-size: 22px;
+            letter-spacing: -0.02em;
+            margin: 0 0 8px;
+        }
+
+        .demo-copy p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .demo-media video {
+            width: 100%;
+            border-radius: var(--radius-lg);
+            border: 1px solid rgba(17,24,39,0.12);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+            background: #000;
+            cursor: pointer;
+        }
+
+        .demo-media video:hover {
+            box-shadow: 0 6px 32px rgba(0,0,0,0.12);
+        }
+
+        .video-lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+        }
+
+        .video-lightbox.active {
+            display: flex;
+        }
+
+        .video-lightbox video {
+            max-width: 92vw;
+            max-height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 8px 48px rgba(0,0,0,0.4);
+        }
+
+        .video-lightbox .lightbox-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.5);
+            font-size: 13px;
+            pointer-events: none;
+        }
+
+        .video-lightbox .lightbox-close {
+            position: absolute;
+            top: 18px;
+            right: 24px;
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .video-lightbox .lightbox-close:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
         .steps {
             display: grid;
             gap: 12px;
@@ -986,6 +1094,32 @@
                         <p>We persist your sender profile + preferences so you don’t repeat input every time you log in.</p>
                     </div>
                 </div>
+
+                <div class="demo-rows">
+                    <div class="demo-row">
+                        <div class="demo-copy">
+                            <h3>🔍 Find the right contacts</h3>
+                            <p>Upload your background, describe who you want to reach, and Connact builds a shortlist grounded in evidence — with match scores, reasoning, and source links.</p>
+                        </div>
+                        <div class="demo-media">
+                            <video autoplay loop muted playsinline preload="metadata">
+                                <source src="{{ url_for('static', filename='video/31.mp4') }}" type="video/mp4">
+                            </video>
+                        </div>
+                    </div>
+
+                    <div class="demo-row reverse">
+                        <div class="demo-copy">
+                            <h3>✉️ Generate the first email</h3>
+                            <p>One click to draft a structured cold email: why them (evidence) → value exchange → one clear ask → opt-out. Personalized from facts, not fluff.</p>
+                        </div>
+                        <div class="demo-media">
+                            <video autoplay loop muted playsinline preload="metadata">
+                                <source src="{{ url_for('static', filename='video/32.mp4') }}" type="video/mp4">
+                            </video>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -1378,6 +1512,50 @@ If now isn’t a good time, no worries at all — thanks for reading.</pre>
                 openModal(resolveDefaultMode());
             }
         })();
+    </script>
+
+    <!-- Video lightbox -->
+    <div class="video-lightbox" id="videoLightbox">
+        <button class="lightbox-close" aria-label="Close">✕</button>
+        <video id="lightboxVideo" loop muted playsinline></video>
+        <div class="lightbox-hint">Double-click video to enlarge · Click anywhere or press ESC to close</div>
+    </div>
+    <script>
+    (function() {
+        const overlay  = document.getElementById('videoLightbox');
+        const lbVideo  = document.getElementById('lightboxVideo');
+        const closeBtn = overlay.querySelector('.lightbox-close');
+
+        function openLightbox(sourceVideo) {
+            lbVideo.src = sourceVideo.querySelector('source')?.src || sourceVideo.src;
+            lbVideo.currentTime = sourceVideo.currentTime;
+            lbVideo.play();
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            overlay.classList.remove('active');
+            lbVideo.pause();
+            lbVideo.removeAttribute('src');
+            document.body.style.overflow = '';
+        }
+
+        document.querySelectorAll('.demo-media video').forEach(function(v) {
+            v.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                openLightbox(v);
+            });
+        });
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeLightbox();
+        });
+        closeBtn.addEventListener('click', closeLightbox);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) closeLightbox();
+        });
+    })();
     </script>
 </body>
 </html>

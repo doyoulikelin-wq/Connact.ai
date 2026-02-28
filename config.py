@@ -45,6 +45,15 @@ WECHAT_WEBHOOK_URL = os.environ.get("WECHAT_WEBHOOK_URL", "")
 _admin_emails_raw = os.environ.get("ADMIN_EMAILS", "")
 ADMIN_EMAILS = [email.strip().lower() for email in _admin_emails_raw.split(",") if email.strip()]
 
+# 默认管理员邮箱（如果环境变量未设置）
+DEFAULT_ADMIN_EMAILS = [
+    # "admin@example.com",  # 取消注释并修改为你的邮箱
+]
+
+# 合并环境变量和默认管理员
+if not ADMIN_EMAILS and DEFAULT_ADMIN_EMAILS:
+    ADMIN_EMAILS = [email.strip().lower() for email in DEFAULT_ADMIN_EMAILS]
+
 def is_admin(email: str) -> bool:
     """Check if an email belongs to an admin user."""
     if not email or not ADMIN_EMAILS:

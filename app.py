@@ -1,13 +1,15 @@
 """Flask web application for Connact.ai."""
 
 import os
+import json
 import tempfile
 from pathlib import Path
 from functools import wraps
+from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Optional
 
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 
 # Configuration
 import config
@@ -1815,6 +1817,23 @@ def api_next_question():
             history,
             max_questions=int(max_questions) if isinstance(max_questions, (int, str)) else 5,
         )
+        
+        # Log activity
+        user_id = session.get('user_id', '')
+        if user_id and result:
+            _log_activity_event(
+                user_id=user_id,
+                event_type='questionnaire_question' if not result.get('done') else 'questionnaire_completed',
+                activity_id=data.get('activity_id'),
+                payload={
+                    'purpose': purpose,
+                    'field': field,
+                    'question_count': len(history),
+                    'done': result.get('done', False),
+                    'question': result.get('question') if not result.get('done') else None,
+                }
+            )
+        
         return jsonify({
             'success': True,
             **result,
@@ -1843,6 +1862,23 @@ def api_next_target_question():
             history,
             max_questions=int(max_questions) if isinstance(max_questions, (int, str)) else 5,
         )
+        
+        # Log activity
+        user_id = session.get('user_id', '')
+        if user_id and result:
+            _log_activity_event(
+                user_id=user_id,
+                event_type='target_preference_question' if not result.get('done') else 'target_preferences_completed',
+                activity_id=data.get('activity_id'),
+                payload={
+                    'purpose': purpose,
+                    'field': field,
+                    'question_count': len(history),
+                    'done': result.get('done', False),
+                    'dimension': result.get('meta', {}).get('dimension') if not result.get('done') else None,
+                }
+            )
+        
         return jsonify({
             'success': True,
             **result,
@@ -1879,6 +1915,19 @@ def api_profile_from_questionnaire():
         user_id = session.get("user_id", "")
         if user_id:
             auth_service.update_user_profile(user_id=user_id, sender_profile=profile_dict)
+            
+            # Log activity
+            _log_activity_event(
+                user_id=user_id,
+                event_type='profile_built_from_questionnaire',
+                activity_id=data.get('activity_id'),
+                payload={
+                    'purpose': purpose,
+                    'field': field,
+                    'answer_count': len(answers),
+                    'profile': profile_dict,
+                }
+            )
 
         return jsonify({
             'success': True,

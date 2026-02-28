@@ -1096,7 +1096,9 @@
                                         <span class="ping" aria-hidden="true"></span>
                                         <span>Live Demo</span>
                                     </div>
-                                    <div class="media-placeholder" aria-hidden="true"></div>
+                                    <video autoplay loop muted playsinline preload="metadata" class="dblclick-zoom" style="width:100%; border-radius:12px; display:block; cursor:pointer;">
+                                        <source src="{{ url_for('static', filename='video/31.mp4') }}" type="video/mp4">
+                                    </video>
                                     <div class="media-vignette" aria-hidden="true"></div>
                                 </div>
                             </div>
@@ -1140,7 +1142,9 @@
                                         <span class="pulse-dot" aria-hidden="true"></span>
                                         <span>AI Agent</span>
                                     </div>
-                                    <div class="media-placeholder" aria-hidden="true"></div>
+                                    <video autoplay loop muted playsinline preload="metadata" class="dblclick-zoom" style="width:100%; border-radius:12px; display:block; cursor:pointer;">
+                                        <source src="{{ url_for('static', filename='video/32.mp4') }}" type="video/mp4">
+                                    </video>
                                     <div class="media-vignette" aria-hidden="true"></div>
                                 </div>
                             </div>
@@ -1468,6 +1472,99 @@
 
             setAnim('none');
         })();
+    </script>
+
+    <!-- Video lightbox -->
+    <style>
+        .video-lightbox-dark {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+        }
+        .video-lightbox-dark.active { display: flex; }
+        .video-lightbox-dark video {
+            max-width: 92vw;
+            max-height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 8px 48px rgba(0,0,0,0.5);
+        }
+        .video-lightbox-dark .lb-close {
+            position: absolute;
+            top: 18px;
+            right: 24px;
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .video-lightbox-dark .lb-close:hover { background: rgba(255,255,255,0.22); }
+        .video-lightbox-dark .lb-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.4);
+            font-size: 13px;
+            pointer-events: none;
+        }
+        .dblclick-zoom:hover { filter: brightness(1.05); }
+    </style>
+    <div class="video-lightbox-dark" id="videoLightbox">
+        <button class="lb-close" aria-label="Close">✕</button>
+        <video id="lbVideo" loop muted playsinline></video>
+        <div class="lb-hint">Double-click video to enlarge · Click anywhere or press ESC to close</div>
+    </div>
+    <script>
+    (function() {
+        const overlay  = document.getElementById('videoLightbox');
+        const lbVideo  = document.getElementById('lbVideo');
+        const closeBtn = overlay.querySelector('.lb-close');
+
+        function openLB(src) {
+            lbVideo.src = src.querySelector('source')?.src || src.src;
+            lbVideo.currentTime = src.currentTime;
+            lbVideo.play();
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLB() {
+            overlay.classList.remove('active');
+            lbVideo.pause();
+            lbVideo.removeAttribute('src');
+            document.body.style.overflow = '';
+        }
+
+        document.querySelectorAll('.dblclick-zoom').forEach(function(v) {
+            v.addEventListener('dblclick', function(e) {
+                e.preventDefault();
+                openLB(v);
+            });
+        });
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeLB();
+        });
+        closeBtn.addEventListener('click', closeLB);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) closeLB();
+        });
+    })();
     </script>
 </body>
 </html>

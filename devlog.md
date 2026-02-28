@@ -1,5 +1,55 @@
 # Development Log
 
+## 2026-02-06: 完善问卷流程的 Activity 记录
+
+### 问题背景
+- 用户关心流程中断是否会丢失 activity 记录
+- 检查发现问卷相关接口（`/api/next-question`、`/api/profile-from-questionnaire`、`/api/next-target-question`）**缺少 activity 事件记录**
+- 导致用户画像构建与目标偏好问答在 activity 时间线中不可见
+
+### 核心改进
+**在 `app.py` 中新增 5 种 activity 事件类型：**
+
+1. **`questionnaire_question`** (问卷提问)
+   - 每次生成新问题时触发
+   - Payload: `purpose`, `field`, `question_count`, `done`, `question`
+
+2. **`questionnaire_completed`** (问卷完成)
+   - 问卷全部问题回答完后触发
+   - Payload: `purpose`, `field`, `question_count`, `done`
+
+3. **`profile_built_from_questionnaire`** (从问卷构建画像)
+   - 调用 `/api/profile-from-questionnaire` 成功后触发
+   - Payload: `purpose`, `field`, `answer_count`, `profile`
+
+4. **`target_preference_question`** (目标偏好提问)
+   - 每次生成目标偏好问题时触发
+   - Payload: `purpose`, `field`, `question_count`, `done`, `dimension`
+
+5. **`target_preferences_completed`** (目标偏好完成)
+   - 目标偏好问答全部完成后触发
+   - Payload: `purpose`, `field`, `question_count`, `done`
+
+### 技术细节
+- 所有 `_log_activity_event()` 调用都写入数据库（实时持久化）
+- 支持前端传递 `activity_id` 以保持会话连贯性
+- 如果没有 `activity_id`，会从 `session["activity_id"]` 自动获取或创建新 activity
+
+### 回答用户关切：流程没走完会导致 activity 不记录吗？
+**不会丢失已记录的数据**：
+- ✅ 每个事件都是**实时写入数据库**（不是批量提交）
+- ✅ 用户中途退出，已触发的事件都会保留
+- ⚠️ 但**页面刷新会丢失 session**，导致创建新 activity（可通过前端 localStorage 传递 `activity_id` 缓解）
+
+### 影响文件
+- `app.py` (3 处修改：`api_next_question`, `api_profile_from_questionnaire`, `api_next_target_question`)
+
+### 未来可选改进
+- 在前端使用 `localStorage` 存储 `activity_id`，实现跨会话连续性
+- 在 Admin Dashboard 展示问卷流程相关的 activity 事件
+
+---
+
 ## 2026-02-06: 邮件模板管理功能
 
 **新增功能**：
