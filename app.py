@@ -289,6 +289,51 @@ def handle_500(error):
     return handle_exception(error)
 
 
+# ============== SEO Routes ==============
+
+SITE_URL = os.environ.get('SITE_URL', 'https://connact-ai.onrender.com')
+
+@app.route('/robots.txt')
+def robots_txt():
+    """Serve robots.txt for search engine crawlers."""
+    lines = [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /api/',
+        'Disallow: /admin',
+        'Disallow: /login',
+        'Disallow: /signup',
+        'Disallow: /logout',
+        'Disallow: /verify-email',
+        'Disallow: /resend-verification',
+        'Disallow: /auth/',
+        '',
+        f'Sitemap: {SITE_URL}/sitemap.xml',
+    ]
+    return make_response('\n'.join(lines)), 200, {'Content-Type': 'text/plain'}
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    """Serve sitemap.xml for search engine indexing."""
+    pages = [
+        {'loc': '/', 'priority': '1.0', 'changefreq': 'weekly'},
+        {'loc': '/access', 'priority': '0.6', 'changefreq': 'monthly'},
+    ]
+    xml_lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ]
+    for p in pages:
+        xml_lines.append('  <url>')
+        xml_lines.append(f'    <loc>{SITE_URL}{p["loc"]}</loc>')
+        xml_lines.append(f'    <changefreq>{p["changefreq"]}</changefreq>')
+        xml_lines.append(f'    <priority>{p["priority"]}</priority>')
+        xml_lines.append('  </url>')
+    xml_lines.append('</urlset>')
+    return make_response('\n'.join(xml_lines)), 200, {'Content-Type': 'application/xml'}
+
+
 # ============== Routes ==============
 
 @app.route('/')
