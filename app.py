@@ -291,7 +291,7 @@ def handle_500(error):
 
 # ============== SEO Routes ==============
 
-SITE_URL = os.environ.get('SITE_URL', 'https://connact-ai.onrender.com')
+SITE_URL = os.environ.get('SITE_URL', 'https://coldemail-agent.onrender.com')
 
 @app.route('/googledbbc30b4fd33789f.html')
 def google_site_verification():
