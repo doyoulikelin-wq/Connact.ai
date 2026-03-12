@@ -293,6 +293,10 @@ def handle_500(error):
 
 SITE_URL = os.environ.get('SITE_URL', 'https://connact-ai.onrender.com')
 
+@app.route('/googledbbc30b4fd33789f.html')
+def google_site_verification():
+    return 'google-site-verification: googledbbc30b4fd33789f.html', 200, {'Content-Type': 'text/html'}
+
 @app.route('/robots.txt')
 def robots_txt():
     """Serve robots.txt for search engine crawlers."""
