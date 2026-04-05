@@ -7,6 +7,7 @@ import pytest
 from src.services.auth_service import (
     AuthService,
     AuthError,
+    AccountLockedError,
     EmailNotVerifiedError,
     InviteInvalidError,
     InviteRequiredError,
@@ -171,3 +172,76 @@ def test_beta_access_grant_and_check(tmp_path):
     assert user
     assert user.beta_access == 1
     assert user.beta_access_granted_at
+
+
+# ============================================================================
+# Password Complexity Tests
+# ============================================================================
+
+
+def test_password_must_have_two_character_categories(tmp_path):
+    """Password must include at least 2 of: uppercase, lowercase, digits."""
+    service = AuthService(
+        db_path=tmp_path / "app.db",
+        invite_only=False,
+        invite_codes=[],
+        email_verify_ttl_hours=24,
+    )
+
+    # All lowercase => fail (only 1 category)
+    with pytest.raises(AuthError, match="uppercase.*lowercase.*digits"):
+        service.create_password_user(email="a@example.com", password="abcdefgh")
+
+    # All digits => fail
+    with pytest.raises(AuthError, match="uppercase.*lowercase.*digits"):
+        service.create_password_user(email="b@example.com", password="12345678")
+
+    # lowercase + digit => pass
+    v = service.create_password_user(email="c@example.com", password="abcdef12")
+    assert v.token
+
+    # uppercase + digit => pass
+    v2 = service.create_password_user(email="d@example.com", password="ABCDEF12")
+    assert v2.token
+
+
+# ============================================================================
+# Login Lockout Tests
+# ============================================================================
+
+
+def test_login_lockout_after_5_failures(tmp_path):
+    """Account should be locked after 5 failed login attempts from same IP."""
+    service = AuthService(
+        db_path=tmp_path / "app.db",
+        invite_only=False,
+        invite_codes=[],
+        email_verify_ttl_hours=24,
+    )
+    # Create and verify a user
+    verification = service.create_password_user(
+        email="lock@example.com", password="Secure123"
+    )
+    service.verify_email_token(verification.token)
+
+    test_ip = "192.168.1.100"
+
+    # 5 failed attempts
+    from src.services.auth_service import InvalidCredentialsError
+    for _ in range(5):
+        with pytest.raises(InvalidCredentialsError):
+            service.authenticate_password(
+                email="lock@example.com", password="wrong", ip=test_ip
+            )
+
+    # 6th attempt should be locked
+    with pytest.raises(AccountLockedError, match="Too many failed"):
+        service.authenticate_password(
+            email="lock@example.com", password="Secure123", ip=test_ip
+        )
+
+    # Same user but different IP should still work
+    user = service.authenticate_password(
+        email="lock@example.com", password="Secure123", ip="10.0.0.1"
+    )
+    assert user.primary_email == "lock@example.com"

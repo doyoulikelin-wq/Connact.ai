@@ -1,5 +1,41 @@
 # Development Log
 
+## 2026-04-06: 安全加固 + Dashboard 邮件显示修复
+
+### 安全加固（17 项）
+
+1. **环境变量管理**：新增 `.env` + `python-dotenv`，本地开发不再硬编码密钥；生产环境未设 `SECRET_KEY` 时直接报错。
+2. **SSRF 防护**：`src/web_scraper.py` 新增 `_is_safe_url()`，DNS 解析后阻断私有/回环/链路本地 IP。
+3. **速率限制**：引入 Flask-Limiter，登录 10次/5min、注册 5次/5min、生成/搜索接口 12次/hr。
+4. **移除密钥泄露日志**：`apollo_service.py` 中删除了打印 API key 长度与请求/响应明文的 debug 语句。
+5. **输入长度校验**：名称/领域等字段上限 500 字符，`_validate_input_length()` 统一拦截。
+6. **登录失败锁定**：同 IP+邮箱 5 次失败后锁定 15 分钟，抛出 `AccountLockedError`；失败事件在异常抛出前 `conn.commit()` 确保持久化。
+7. **密码复杂度**：注册时要求满足大写/小写/数字中的至少两类。
+8. **文件上传安全**：`user_uploads.py` 使用 `secure_filename()` 防止路径穿越。
+9. **CSRF 防护**：Cookie 设置 `SameSite=Lax` + `HttpOnly`。
+10. **安全响应头**：Flask-Talisman 添加 CSP / X-Content-Type-Options / X-Frame-Options 等。
+11. **结构化日志**：全量 `print()` 替换为 `logging` 模块（`app.py`、`email_agent.py`、`web_scraper.py`、`error_notifier.py`、`apollo_service.py`）。
+12. **Gunicorn 配置**：Procfile 增加 `--workers 4 --timeout 120 --max-requests 1000`。
+13. **依赖版本锁定**：`requirements.txt` 所有包添加上界（如 `flask>=3.0.0,<4.0.0`）。
+14. **LLM 重试**：`email_agent.py` 的 `_call_llm()` 加 `tenacity` 指数退避重试（3 次）。
+15. **健康检查**：新增 `GET /healthz` 返回 `{"status":"ok"}`。
+16. **新增测试**：`tests/test_security.py`（SSRF 13 个用例）、`test_auth_service.py` 扩展密码复杂度 + 登录锁定用例。
+17. **全量测试通过**：52 passed。
+
+### Dashboard 邮件显示修复
+
+- **问题**：Recent Emails 列表中收件人始终显示 "To: Unknown"。
+- **根因**：后端 API 返回字段为 `contact_name`，前端 `renderDashboardEmails()` 读取的却是 `recipient_name`（undefined → fallback "Unknown"）。
+- **修复**：`templates/index_v2.html` L3824 `email.recipient_name` → `email.contact_name`。
+
+### 影响文件
+- `app.py`、`Procfile`、`requirements.txt`
+- `src/web_scraper.py`、`src/email_agent.py`、`src/services/apollo_service.py`、`src/services/auth_service.py`、`src/services/error_notifier.py`、`src/services/user_uploads.py`
+- `templates/index_v2.html`
+- `tests/test_auth_service.py`、`tests/test_security.py`（新文件）
+
+---
+
 ## 2026-02-06: 完善问卷流程的 Activity 记录
 
 ### 问题背景

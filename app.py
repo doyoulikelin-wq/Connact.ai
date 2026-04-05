@@ -1,5 +1,6 @@
 """Flask web application for Connact.ai."""
 
+import logging
 import os
 import json
 import tempfile
@@ -9,10 +10,20 @@ from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from typing import Optional
 
+from dotenv import load_dotenv
+load_dotenv()  # Load .env before anything else
+
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, make_response
 
 # Configuration
 import config
+
+# Structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 # Google OAuth
 try:
@@ -25,6 +36,7 @@ except ImportError:
 from src.services.auth_service import (
     auth_service,
     AuthError,
+    AccountLockedError,
     InvalidCredentialsError,
     EmailNotVerifiedError,
     InviteRequiredError,
@@ -100,7 +112,44 @@ except ImportError:
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'connact-ai-secret-key-2024')
+
+# SECRET_KEY: require from environment in production; allow fallback only in dev
+_secret_key = os.environ.get('SECRET_KEY', '')
+if not _secret_key:
+    if os.environ.get("FLASK_ENV", "").lower() == "production":
+        raise RuntimeError("SECRET_KEY environment variable is required in production")
+    _secret_key = 'dev-only-insecure-key-not-for-production'
+    logger.warning("Using insecure default SECRET_KEY — set SECRET_KEY env var for production")
+app.config['SECRET_KEY'] = _secret_key
+
+# Rate limiting
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per hour"],
+    storage_uri="memory://",
+)
+
+# Security headers (Flask-Talisman)
+from flask_talisman import Talisman
+
+_is_production = os.environ.get("FLASK_ENV", "").lower() == "production"
+Talisman(
+    app,
+    force_https=_is_production,
+    strict_transport_security=_is_production,
+    content_security_policy=None,  # Set to a proper CSP dict when ready
+    session_cookie_secure=_is_production,
+    session_cookie_http_only=True,
+    session_cookie_samesite="Lax",
+)
+
+# Input length limits
+MAX_INPUT_LENGTH = 500
+MAX_TEXT_LENGTH = 5000
 
 # Allow OAuth over HTTP for local development (NEVER use in production!)
 if os.environ.get("FLASK_ENV", "").lower() != "production" and os.environ.get("OAUTHLIB_INSECURE_TRANSPORT") is None:
@@ -143,6 +192,16 @@ def login_required(f):
             return jsonify({'error': 'Authentication required'}), 401
         return f(*args, **kwargs)
     return decorated_function
+
+
+def _validate_input_length(value: str | None, field_name: str, max_length: int = MAX_INPUT_LENGTH) -> str:
+    """Validate and truncate input to max_length. Returns stripped string."""
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if len(text) > max_length:
+        raise ValueError(f"{field_name} exceeds maximum length of {max_length} characters")
+    return text
 
 
 def admin_required(f):
@@ -259,7 +318,7 @@ def handle_exception(error):
             )
         except Exception as notify_err:
             # Don't let notification errors crash the app
-            print(f"[ERROR] WeChat notification failed: {notify_err}")
+            logger.error("WeChat notification failed: %s", notify_err)
     
     # Return JSON for API endpoints, HTML for pages
     if request and request.path.startswith('/api/'):
@@ -287,6 +346,15 @@ def handle_500(error):
     """Handle 500 errors - delegates to global exception handler."""
     # Call the global exception handler for consistent error reporting
     return handle_exception(error)
+
+
+# ============== Health Check ==============
+
+@app.route('/healthz')
+@limiter.exempt
+def healthz():
+    """Health check endpoint for load balancers and monitoring."""
+    return jsonify({"status": "ok"}), 200
 
 
 # ============== SEO Routes ==============
@@ -485,6 +553,7 @@ def index_v3():
 
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per 5 minutes", methods=["POST"])
 def login():
     """Handle login."""
     if request.method in ('GET', 'HEAD'):
@@ -580,6 +649,13 @@ def login():
         if safe_next:
             params["next"] = safe_next
         return redirect(url_for("login", **params))
+    except AccountLockedError as e:
+        if request.is_json:
+            return jsonify({"error": str(e), "code": "account_locked"}), 429
+        params = {"error": str(e)}
+        if safe_next:
+            params["next"] = safe_next
+        return redirect(url_for("login", **params))
     except InvalidCredentialsError:
         if request.is_json:
             return jsonify({"error": "Invalid email or password"}), 401
@@ -597,6 +673,7 @@ def login():
 
 
 @app.route("/signup", methods=["GET", "POST"])
+@limiter.limit("5 per 5 minutes", methods=["POST"])
 def signup():
     """Invite-only signup for email/password accounts (requires email verification)."""
     if request.method in ("GET", "HEAD"):
@@ -905,7 +982,7 @@ def google_callback():
         redirect_url = _safe_redirect_url(session.pop("post_login_next", None))
         return redirect(redirect_url or url_for("index"))
     except Exception as e:
-        print(f"Google OAuth error: {e}")
+        logger.error("Google OAuth error: %s", e)
         if isinstance(e, (InviteRequiredError, InviteInvalidError, SignupDisabledError)):
             params = {"error": str(e)}
             safe_next = _safe_redirect_url(session.get("post_login_next"))
@@ -1481,7 +1558,7 @@ def api_submit_survey():
         conn.commit()
         return jsonify({"success": True})
     except Exception as e:
-        print(f"[survey] Error saving response: {e}")
+        logger.warning("Error saving survey response: %s", e)
         if conn:
             conn.rollback()
         return jsonify({"error": "Failed to save survey response"}), 500
@@ -1498,7 +1575,7 @@ def _send_verification_email(to_email: str, verification_link: str) -> bool:
     """
     host = os.environ.get("SMTP_HOST", "").strip()
     if not host:
-        print(f"[verify-email] {to_email}: {verification_link}")
+        logger.info("Verification email link generated for %s", to_email)
         return False
 
     import smtplib
@@ -1628,12 +1705,16 @@ def upload_sender_pdf():
 
 @app.route('/api/search-receiver', methods=['POST'])
 @login_required
+@limiter.limit("12 per hour")
 def search_receiver():
     """Search for receiver information from the web."""
     data = request.get_json()
     
-    name = data.get('name', '').strip()
-    field = data.get('field', '').strip()
+    try:
+        name = _validate_input_length(data.get('name', ''), 'name')
+        field = _validate_input_length(data.get('field', ''), 'field')
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     
     if not name:
         return jsonify({'error': 'Receiver name is required'}), 400
@@ -1667,6 +1748,7 @@ def search_receiver():
 
 @app.route('/api/generate-email', methods=['POST'])
 @login_required
+@limiter.limit("12 per hour")
 def api_generate_email():
     """Generate cold email based on sender and receiver profiles."""
     data = request.get_json()
@@ -1686,9 +1768,9 @@ def api_generate_email():
                     # Increment usage count
                     user_data_service.increment_template_usage(template_id)
                 else:
-                    print(f"[API] Template {template_id} not found or access denied")
+                    logger.info("Template %s not found or access denied", template_id)
             except Exception as e:
-                print(f"[API] Failed to load template {template_id}: {e}")
+                logger.warning("Failed to load template %s: %s", template_id, e)
     
     # 是否启用深度搜索（默认启用）
     enable_deep_search = data.get('enable_deep_search', True)
@@ -1760,7 +1842,7 @@ def api_generate_email():
         deep_search_result = None
         if enable_deep_search and receiver.name:
             try:
-                print(f"[API] Starting deep search for: {receiver.name}")
+                logger.info("Starting deep search for: %s", receiver.name)
                 receiver = enrich_receiver_with_deep_search(
                     receiver=receiver,
                     position=receiver_position,
@@ -1768,7 +1850,7 @@ def api_generate_email():
                 )
                 deep_search_result = "success"
             except Exception as e:
-                print(f"[API] Deep search failed (continuing without): {e}")
+                logger.warning("Deep search failed (continuing without): %s", e)
                 deep_search_result = f"failed: {str(e)}"
         
         # Get goal
@@ -1828,6 +1910,7 @@ def api_generate_email():
 
 @app.route('/api/generate-questionnaire', methods=['POST'])
 @login_required
+@limiter.limit("12 per hour")
 def api_generate_questionnaire():
     """Generate questionnaire questions based on purpose and field."""
     data = request.get_json()
@@ -1988,12 +2071,16 @@ def api_profile_from_questionnaire():
 
 @app.route('/api/find-recommendations', methods=['POST'])
 @login_required
+@limiter.limit("12 per hour")
 def api_find_recommendations():
     """Find recommended target contacts based on user profile and goals."""
     data = request.get_json()
     
-    purpose = data.get('purpose', '').strip()
-    field = data.get('field', '').strip()
+    try:
+        purpose = _validate_input_length(data.get('purpose', ''), 'purpose')
+        field = _validate_input_length(data.get('field', ''), 'field')
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
     sender_profile = data.get('sender_profile', {})
     preferences = data.get('preferences', {}) or {}
     
@@ -2716,7 +2803,7 @@ def api_apollo_unlock_email():
 if __name__ == '__main__':
     # Make sure GEMINI_API_KEY is set
     if not os.environ.get('GEMINI_API_KEY') and not os.environ.get('GOOGLE_API_KEY'):
-        print("Warning: GEMINI_API_KEY or GOOGLE_API_KEY environment variable not set")
+        logger.warning("GEMINI_API_KEY or GOOGLE_API_KEY environment variable not set")
     
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)

@@ -5,6 +5,7 @@ Supports:
 - Email/password accounts with email verification
 - Google OAuth accounts (stable identity via OIDC `sub` when available)
 - Per-user profile persistence (sender profile + preferences)
+- Login attempt rate limiting (IP + email lockout)
 
 Storage: SQLite at {DATA_DIR}/app.db (see config.DB_PATH).
 """
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 import sqlite3
 import uuid
@@ -30,6 +32,12 @@ from config import (
     INVITE_REQUIRED_FOR_LOGIN,
     EMAIL_VERIFY_TTL_HOURS,
 )
+
+logger = logging.getLogger(__name__)
+
+# Login lockout settings
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_LOCKOUT_MINUTES = 15
 
 
 def _utc_now() -> datetime:
@@ -76,6 +84,10 @@ class InviteInvalidError(AuthError):
 
 class SignupDisabledError(AuthError):
     """Raised when signup is disabled due to missing invite configuration."""
+
+
+class AccountLockedError(AuthError):
+    """Raised when account is temporarily locked due to too many failed login attempts."""
 
 
 @dataclass(frozen=True)
@@ -441,6 +453,15 @@ class AuthService:
         if not password or len(password) < 8:
             raise AuthError("Password must be at least 8 characters.")
 
+        # Password complexity: require at least 2 of {uppercase, lowercase, digits}
+        categories = sum([
+            any(c.isupper() for c in password),
+            any(c.islower() for c in password),
+            any(c.isdigit() for c in password),
+        ])
+        if categories < 2:
+            raise AuthError("Password must contain at least 2 of: uppercase letters, lowercase letters, digits.")
+
         self._validate_invite_code(invite_code, enforce=self._invite_only)
 
         now = _now_iso()
@@ -493,6 +514,31 @@ class AuthService:
             )
             return verification
 
+    def _check_login_lockout(self, conn: sqlite3.Connection, email: str, ip: str | None) -> None:
+        """Check if IP + email combo is locked out due to too many failed attempts."""
+        cutoff = (_utc_now() - timedelta(minutes=LOGIN_LOCKOUT_MINUTES)).isoformat()
+        # Check both IP-specific and email-wide lockout
+        if ip:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS cnt FROM login_events
+                WHERE success = 0 AND email = ? AND (ip = ? OR ip IS NULL) AND created_at > ?
+                """,
+                (email, ip, cutoff),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS cnt FROM login_events
+                WHERE success = 0 AND email = ? AND created_at > ?
+                """,
+                (email, cutoff),
+            ).fetchone()
+        if row and int(row["cnt"]) >= LOGIN_MAX_ATTEMPTS:
+            raise AccountLockedError(
+                f"Too many failed login attempts. Please try again in {LOGIN_LOCKOUT_MINUTES} minutes."
+            )
+
     def authenticate_password(
         self,
         *,
@@ -506,6 +552,9 @@ class AuthService:
             raise InvalidCredentialsError("Invalid email or password.")
 
         with self._connect() as conn:
+            # Check lockout before doing any credential check
+            self._check_login_lockout(conn, email_norm, ip)
+
             row = conn.execute(
                 """
                 SELECT
@@ -538,6 +587,7 @@ class AuthService:
                     ip=ip,
                     user_agent=user_agent,
                 )
+                conn.commit()
                 raise InvalidCredentialsError("Invalid email or password.")
 
             if not int(row["email_verified"] or 0):
@@ -551,6 +601,7 @@ class AuthService:
                     ip=ip,
                     user_agent=user_agent,
                 )
+                conn.commit()
                 raise EmailNotVerifiedError("Email not verified.")
 
             now = _now_iso()

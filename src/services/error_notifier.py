@@ -1,5 +1,6 @@
 """Error notification service for WeChat Work webhook."""
 
+import logging
 import os
 import json
 import traceback
@@ -9,6 +10,8 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any, Dict, Optional
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class ErrorNotifier:
@@ -73,7 +76,7 @@ class ErrorNotifier:
                 if now - last_time < self.dedup_window:
                     # Update count and skip notification
                     self.recent_errors[error_key] = (now, count + 1)
-                    print(f"[ERROR_NOTIFIER] Skipping duplicate error (count: {count + 1}): {error_key[:50]}...")
+                    logger.warning("[ERROR_NOTIFIER] Skipping duplicate error (count: %s): %s...", count + 1, error_key[:50])
                     return True  # Return True to indicate it was handled
             
             # Send notification
@@ -87,7 +90,7 @@ class ErrorNotifier:
             return success
         except Exception as e:
             # Don't let notification failures crash the app
-            print(f"Failed to send error notification: {e}")
+            logger.warning("Failed to send error notification: %s", e)
             return False
 
     def _format_error_message(
@@ -158,14 +161,14 @@ class ErrorNotifier:
             if result.get("errcode") == 0:
                 return True
             else:
-                print(f"WeChat API error: {result}")
+                logger.warning("WeChat API error: %s", result)
                 return False
 
         except requests.RequestException as e:
-            print(f"WeChat webhook request failed: {e}")
+            logger.warning("WeChat webhook request failed: %s", e)
             return False
         except Exception as e:
-            print(f"Unexpected error sending to WeChat: {e}")
+            logger.warning("Unexpected error sending to WeChat: %s", e)
             return False
 
     def notify_info(self, message: str) -> bool:
@@ -199,7 +202,7 @@ class ErrorNotifier:
             result = response.json()
             return result.get("errcode") == 0
         except Exception as e:
-            print(f"Failed to send info notification: {e}")
+            logger.warning("Failed to send info notification: %s", e)
             return False
     
     def _generate_error_key(self, error: Exception, request_path: Optional[str]) -> str:
@@ -220,7 +223,7 @@ class ErrorNotifier:
             del self.recent_errors[key]
         
         if to_remove:
-            print(f"[ERROR_NOTIFIER] Cleaned up {len(to_remove)} old error entries")
+            logger.warning("[ERROR_NOTIFIER] Cleaned up %s old error entries", len(to_remove))
     
     def _ensure_error_logs_table(self) -> None:
         """Ensure error_logs table exists in database."""
@@ -258,7 +261,7 @@ class ErrorNotifier:
             conn.commit()
             conn.close()
         except Exception as e:
-            print(f"[ERROR_NOTIFIER] Failed to create error_logs table: {e}")
+            logger.warning("[ERROR_NOTIFIER] Failed to create error_logs table: %s", e)
     
     def _save_error_to_db(self, error: Exception, context: Optional[Dict[str, Any]], 
                           user_id: Optional[str], request_path: Optional[str]) -> Optional[int]:
@@ -287,7 +290,7 @@ class ErrorNotifier:
             
             return error_log_id
         except Exception as e:
-            print(f"[ERROR_NOTIFIER] Failed to save error to database: {e}")
+            logger.warning("[ERROR_NOTIFIER] Failed to save error to database: %s", e)
             return None
 
 

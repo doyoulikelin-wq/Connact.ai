@@ -10,10 +10,13 @@ API Documentation: https://docs.apollo.io/reference/people-api-search
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Optional
 import requests
+
+logger = logging.getLogger(__name__)
 
 # Apollo API configuration
 APOLLO_API_BASE = "https://api.apollo.io/api/v1"
@@ -84,13 +87,8 @@ class ApolloService:
             "X-Api-Key": self.api_key,  # API key must be in X-Api-Key header
         }
 
-        # Debug logging
-        print(f"[Apollo] Request to {endpoint}")
-        print(f"[Apollo] URL: {url}")
-        print(f"[Apollo] API Key present: {bool(self.api_key)}")
-        print(f"[Apollo] API Key length: {len(self.api_key) if self.api_key else 0}")
-        if data:
-            print(f"[Apollo] Request data: {data}")
+        # Debug logging (safe: no secrets)
+        logger.debug("Apollo request to %s", endpoint)
 
         try:
             if method.upper() == "GET":
@@ -105,29 +103,18 @@ class ApolloService:
             status = e.response.status_code if e.response is not None else 500
             error_msg = str(e)
             
-            print(f"[Apollo] HTTP Error Status: {status}")
-            print(f"[Apollo] Error object: {e}")
+            logger.warning("Apollo HTTP error %s: %s", status, e)
             
             if e.response is not None:
                 try:
-                    print(f"[Apollo] Response headers: {dict(e.response.headers)}")
-                except Exception as header_err:
-                    print(f"[Apollo] Could not get headers: {header_err}")
-                
-                try:
                     response_text = e.response.text
-                    print(f"[Apollo] Response text: {response_text}")
-                    
-                    # Try to parse as JSON
                     try:
                         error_data = e.response.json()
                         error_msg = error_data.get("error") or error_data.get("message") or str(error_data)
-                        print(f"[Apollo] Error response JSON: {error_data}")
                     except Exception:
                         error_msg = response_text or str(e)
-                        print(f"[Apollo] Response is not JSON")
-                except Exception as text_err:
-                    print(f"[Apollo] Could not get response text: {text_err}")
+                except Exception:
+                    pass
             
             raise ApolloServiceError(f"Apollo API error ({status}): {error_msg}")
 

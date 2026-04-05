@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+logger = logging.getLogger(__name__)
 
 # Optional Google/Gemini dependencies (keep import-time light for tests/CI)
 try:
@@ -20,6 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover
     genai_types = None  # type: ignore
 from openai import OpenAI
 from PyPDF2 import PdfReader
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from config import (
     DEFAULT_MODEL,
@@ -270,7 +274,7 @@ def _validate_linkedin_url(url: str | None, grounding_urls: list[str] | None = N
         # Check for obviously fake patterns
         fake_patterns = ['example', 'sample', 'test', 'fake', 'placeholder', 'xxx', 'yyy', 'abc123', 'user123']
         if any(pattern in profile_slug.lower() for pattern in fake_patterns):
-            print(f"[LinkedIn] Filtered fake pattern URL: {url}")
+            logger.debug("[LinkedIn] Filtered fake pattern URL: %s", url)
             return None
             
     except Exception:
@@ -322,6 +326,12 @@ def _call_gemini(prompt: str, *, model: str = DEFAULT_MODEL, json_mode: bool = F
     return response.text
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((RuntimeError, ConnectionError, TimeoutError)),
+    reraise=True,
+)
 def _call_llm(prompt: str, *, json_mode: bool = False, model: str | None = None) -> str:
     """
     Unified LLM call function that routes to OpenAI or Gemini based on configuration.
@@ -471,11 +481,11 @@ def _call_gemini_with_search(prompt: str, *, model: str = GEMINI_SEARCH_MODEL, j
                                 pass  # These reference the chunks above
                     # Try web_search_queries to see what was searched
                     if hasattr(metadata, 'web_search_queries') and metadata.web_search_queries:
-                        print(f"[Grounding] Search queries: {metadata.web_search_queries}")
+                        logger.debug("[Grounding] Search queries: %s", metadata.web_search_queries)
         except Exception as e:
-            print(f"[Grounding] Could not extract grounding URLs: {e}")
+            logger.debug("[Grounding] Could not extract grounding URLs: %s", e)
         
-        print(f"[Grounding] Found {len(grounding_urls)} source URLs from search")
+        logger.debug("[Grounding] Found %s source URLs from search", len(grounding_urls))
         return result_text, grounding_urls
     
     return result_text
@@ -1383,10 +1393,10 @@ def _lookup_linkedin_via_serpapi(name: str, company: str = "", additional_contex
     
     api_key = os.environ.get("SERPAPI_KEY") or os.environ.get("SERP_API_KEY")
     if not api_key:
-        print(f"[SerpAPI] No API key found, skipping LinkedIn lookup for: {name}")
+        logger.info("[SerpAPI] No API key found, skipping LinkedIn lookup for: %s", name)
         return None
     
-    print(f"[SerpAPI] Looking up LinkedIn profile for: {name} (company: {company})")
+    logger.debug("[SerpAPI] Looking up LinkedIn profile for: %s (company: %s)", name, company)
     
     # Build search query
     query_parts = [f'site:linkedin.com/in/', f'"{name}"']
@@ -1411,7 +1421,7 @@ def _lookup_linkedin_via_serpapi(name: str, company: str = "", additional_contex
             data = json.loads(response.read().decode())
         
         if "organic_results" not in data or not data["organic_results"]:
-            print(f"[SerpAPI] No results found for: {name}")
+            logger.info("[SerpAPI] No results found for: %s", name)
             return None
         
         # Look through results for a valid LinkedIn profile URL
@@ -1437,24 +1447,24 @@ def _lookup_linkedin_via_serpapi(name: str, company: str = "", additional_contex
                     matching_parts = [part for part in name_parts if len(part) > 2 and part in title]
                     
                     if matching_parts:
-                        print(f"[SerpAPI] Found LinkedIn URL for {name}: {clean_url} (matched: {matching_parts})")
+                        logger.debug("[SerpAPI] Found LinkedIn URL for %s: %s (matched: %s)", name, clean_url, matching_parts)
                         return clean_url
                     else:
                         # Name doesn't match - skip this result
-                        print(f"[SerpAPI] Skipping {clean_url} - name '{name}' not found in title: '{title[:50]}'")
+                        logger.info("[SerpAPI] Skipping %s - name '%s' not found in title: '%s'", clean_url, name, title[:50])
                         continue
         
-        print(f"[SerpAPI] No matching LinkedIn profile found for: {name}")
+        logger.info("[SerpAPI] No matching LinkedIn profile found for: %s", name)
         return None
         
     except urllib.error.URLError as e:
-        print(f"[SerpAPI] Network error: {e}")
+        logger.warning("[SerpAPI] Network error: %s", e)
         return None
     except json.JSONDecodeError as e:
-        print(f"[SerpAPI] JSON parse error: {e}")
+        logger.warning("[SerpAPI] JSON parse error: %s", e)
         return None
     except Exception as e:
-        print(f"[SerpAPI] Unexpected error: {e}")
+        logger.warning("[SerpAPI] Unexpected error: %s", e)
         return None
 
 
@@ -1504,7 +1514,7 @@ def search_receiver_deep_context(
     
     api_key = os.environ.get("SERPAPI_KEY") or os.environ.get("SERP_API_KEY")
     if not api_key:
-        print("[DeepSearch] No SerpAPI key configured, skipping deep search")
+        logger.info("[DeepSearch] No SerpAPI key configured, skipping deep search")
         return None
     
     # 构建搜索查询
@@ -1524,7 +1534,7 @@ def search_receiver_deep_context(
             })
             
             url = f"https://serpapi.com/search.json?{params}"
-            print(f"[DeepSearch] Searching: {query}")
+            logger.debug("[DeepSearch] Searching: %s", query)
             
             with urllib.request.urlopen(url, timeout=15) as response:
                 data = json.loads(response.read().decode())
@@ -1554,11 +1564,11 @@ def search_receiver_deep_context(
                         all_sources.append(result["link"])
                         
         except Exception as e:
-            print(f"[DeepSearch] Search error for '{query}': {e}")
+            logger.warning("[DeepSearch] Search error for '%s': %s", query, e)
             continue
     
     if not all_results:
-        print("[DeepSearch] No search results found")
+        logger.info("[DeepSearch] No search results found")
         return None
     
     # 用 LLM 提取和验证信息
@@ -1717,7 +1727,7 @@ Return JSON only, no other text."""
         
         # 如果 LLM 确认搜索结果不是关于目标人物，返回 None
         if not data.get("person_confirmed", False):
-            print(f"[DeepSearch] Search results not confirmed for {name}")
+            logger.debug("[DeepSearch] Search results not confirmed for %s", name)
             return None
         
         def get_list(key: str) -> list[str]:
@@ -1743,10 +1753,10 @@ Return JSON only, no other text."""
         return None
         
     except json.JSONDecodeError as e:
-        print(f"[DeepSearch] JSON parse error: {e}")
+        logger.warning("[DeepSearch] JSON parse error: %s", e)
         return None
     except Exception as e:
-        print(f"[DeepSearch] Extraction error: {e}")
+        logger.warning("[DeepSearch] Extraction error: %s", e)
         return None
 
 
@@ -1789,7 +1799,7 @@ def enrich_receiver_with_deep_search(
     )
     
     if not deep_result:
-        print(f"[DeepSearch] No additional context found for {receiver.name}")
+        logger.info("[DeepSearch] No additional context found for %s", receiver.name)
         return receiver
     
     # 构建增强后的上下文
@@ -1838,8 +1848,10 @@ def enrich_receiver_with_deep_search(
         sources=enhanced_sources[:10],
     )
     
-    print(f"[DeepSearch] Enhanced receiver profile with {len(deep_result.verified_facts)} facts, "
-          f"{len(deep_result.recent_projects)} projects, {len(deep_result.key_experiences)} experiences")
+    logger.debug(
+        "[DeepSearch] Enhanced receiver profile with %s facts, %s projects, %s experiences",
+        len(deep_result.verified_facts), len(deep_result.recent_projects), len(deep_result.key_experiences),
+    )
     
     return enhanced_receiver
 
@@ -2020,12 +2032,12 @@ def _search_linkedin_via_serpapi(
     
     api_key = os.environ.get("SERPAPI_KEY") or os.environ.get("SERP_API_KEY")
     if not api_key:
-        print("[SerpAPI Search] No API key configured")
+        logger.info("[SerpAPI Search] No API key configured")
         return []
     
     # 构建搜索词
     query = _build_serpapi_search_query(preferences, field, purpose)
-    print(f"[SerpAPI Search] Query: {query}")
+    logger.debug("[SerpAPI Search] Query: %s", query)
     
     params = urllib.parse.urlencode({
         "engine": "google",
@@ -2041,7 +2053,7 @@ def _search_linkedin_via_serpapi(
             data = json.loads(response.read().decode())
         
         if "organic_results" not in data or not data["organic_results"]:
-            print(f"[SerpAPI Search] No results found")
+            logger.info("[SerpAPI Search] No results found")
             return []
         
         results = []
@@ -2088,17 +2100,17 @@ def _search_linkedin_via_serpapi(
             if len(results) >= count:
                 break
         
-        print(f"[SerpAPI Search] Found {len(results)} real LinkedIn profiles")
+        logger.debug("[SerpAPI Search] Found %s real LinkedIn profiles", len(results))
         return results
         
     except urllib.error.URLError as e:
-        print(f"[SerpAPI Search] Network error: {e}")
+        logger.warning("[SerpAPI Search] Network error: %s", e)
         return []
     except json.JSONDecodeError as e:
-        print(f"[SerpAPI Search] JSON parse error: {e}")
+        logger.warning("[SerpAPI Search] JSON parse error: %s", e)
         return []
     except Exception as e:
-        print(f"[SerpAPI Search] Unexpected error: {e}")
+        logger.warning("[SerpAPI Search] Unexpected error: %s", e)
         return []
 
 
@@ -2310,11 +2322,11 @@ Return JSON only."""
         # 按分数排序
         candidates.sort(key=lambda x: x.get("match_score", 0), reverse=True)
         
-        print(f"[AI Scoring] Successfully scored {len(candidates)} candidates")
+        logger.debug("[AI Scoring] Successfully scored %s candidates", len(candidates))
         return candidates
         
     except Exception as e:
-        print(f"[AI Scoring] Error: {e}")
+        logger.warning("[AI Scoring] Error: %s", e)
         # 返回原始列表，使用默认分数，但仍需添加 ID
         for candidate in candidates:
             name = candidate.get("name", "")
@@ -2531,7 +2543,7 @@ def find_target_recommendations(
     serpapi_key = os.environ.get("SERPAPI_KEY") or os.environ.get("SERP_API_KEY")
     if serpapi_key:
         try:
-            print("[SerpAPI Search] Using SerpAPI to find real LinkedIn profiles...")
+            logger.info("[SerpAPI Search] Using SerpAPI to find real LinkedIn profiles...")
             serpapi_results = _search_linkedin_via_serpapi(
                 preferences=preferences,
                 field=field,
@@ -2541,10 +2553,10 @@ def find_target_recommendations(
             
             if serpapi_results and len(serpapi_results) >= 3:
                 # 成功找到足够的真实用户
-                print(f"[SerpAPI Search] Successfully found {len(serpapi_results)} real profiles")
+                logger.debug("[SerpAPI Search] Successfully found %s real profiles", len(serpapi_results))
                 
                 # 使用 AI 进行评分和匹配度分析
-                print("[AI Scoring] Analyzing candidates with AI...")
+                logger.info("[AI Scoring] Analyzing candidates with AI...")
                 scored_results = _ai_score_and_analyze_candidates(
                     candidates=serpapi_results,
                     sender_profile=sender_profile,
@@ -2566,9 +2578,9 @@ def find_target_recommendations(
                 
                 return scored_results[:count]
             else:
-                print(f"[SerpAPI Search] Only found {len(serpapi_results) if serpapi_results else 0} results, falling back to Gemini")
+                logger.debug("[SerpAPI Search] Only found %s results, falling back to Gemini", len(serpapi_results) if serpapi_results else 0)
         except Exception as e:
-            print(f"[SerpAPI Search] Error: {e}, falling back to Gemini")
+            logger.warning("[SerpAPI Search] Error: %s, falling back to Gemini", e)
 
     # ============================================================
     # FALLBACK: Gemini with Google Search grounding
@@ -2605,7 +2617,7 @@ def find_target_recommendations(
             result = _call_gemini_with_search(search_prompt, model=GEMINI_SEARCH_MODEL, json_mode=True, return_grounding_urls=True)
             content, grounding_urls = result
             
-            print(f"[Search] Retrieved {len(grounding_urls)} grounding source URLs")
+            logger.debug("[Search] Retrieved %s grounding source URLs", len(grounding_urls))
             
             # 收集数据
             collected_prompt = search_prompt
@@ -2616,7 +2628,7 @@ def find_target_recommendations(
             recommendations = _normalize_recommendations(raw_items, grounding_urls=grounding_urls)
             recommendations.sort(key=lambda x: _safe_int(x.get("match_score", 0), default=0), reverse=True)
             if recommendations:
-                print(f"Gemini Search found {len(recommendations)} recommendations")
+                logger.debug("Gemini Search found %s recommendations", len(recommendations))
                 # 保存收集的数据
                 if PROMPT_COLLECTOR_AVAILABLE and prompt_collector and session_id:
                     prompt_collector.record_find_target(
@@ -2627,7 +2639,7 @@ def find_target_recommendations(
                     )
                 return recommendations[:count]
         except Exception as e:
-            print(f"Gemini Search recommendation error: {e}")
+            logger.warning("Gemini Search recommendation error: %s", e)
 
     # Fallback 1: OpenAI (gpt-5.1) with built-in web_search tool - DISABLED by default
     if USE_OPENAI_WEB_SEARCH and USE_OPENAI_RECOMMENDATIONS:
@@ -2661,7 +2673,7 @@ def find_target_recommendations(
                     )
                 return recommendations[:count]
         except Exception as e:
-            print(f"OpenAI recommendation (web_search) error: {e}")
+            logger.warning("OpenAI recommendation (web_search) error: %s", e)
 
     # Fallback 1: our own web scrape + OpenAI - DISABLED by default
     if USE_OPENAI_RECOMMENDATIONS:
@@ -2687,7 +2699,7 @@ def find_target_recommendations(
             if recommendations:
                 return recommendations[:count]
         except Exception as e:
-            print(f"OpenAI recommendation (scrape fallback) error: {e}")
+            logger.warning("OpenAI recommendation (scrape fallback) error: %s", e)
 
     # Fallback 2: lightweight web scrape + Gemini (keeps evidence grounded even without Gemini Search)
     try:
@@ -2722,7 +2734,7 @@ def find_target_recommendations(
                     )
                 return recommendations[:count]
     except Exception as e:
-        print(f"Gemini recommendation (scrape fallback) error: {e}")
+        logger.warning("Gemini recommendation (scrape fallback) error: %s", e)
 
     # Default: Gemini text-only generation (fast and reliable)
     prompt = _build_recommendation_prompt(

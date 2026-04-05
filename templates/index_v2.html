@@ -3821,7 +3821,7 @@ I&apos;m {{sender_name}}, currently ...
             container.innerHTML = emails.slice(0, 10).map(email => `
                 <div class="dashboard-item" data-email-id="${email.id}">
                     <div class="dashboard-item-info">
-                        <div class="dashboard-item-name">To: ${escapeHtml(email.recipient_name || 'Unknown')}</div>
+                        <div class="dashboard-item-name">To: ${escapeHtml(email.contact_name || 'Unknown')}</div>
                         <div class="dashboard-item-meta">
                             ${email.subject ? 'Subject: ' + escapeHtml(email.subject.substring(0, 60)) + '...' : ''}
                             • ${formatDate(email.created_at)}

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import logging
 import os
 import re
+import socket
 from dataclasses import dataclass
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse
 
 import google.generativeai as genai
 import requests
@@ -14,6 +17,45 @@ from bs4 import BeautifulSoup
 from openai import OpenAI
 
 from config import DEFAULT_MODEL, USE_OPENAI_AS_PRIMARY, OPENAI_DEFAULT_MODEL
+
+logger = logging.getLogger(__name__)
+
+
+def _is_safe_url(url: str) -> bool:
+    """Validate that a URL is safe to fetch (not targeting private/internal networks).
+
+    Returns True only for http/https URLs pointing to public IP addresses.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+
+    if parsed.scheme not in ("http", "https"):
+        return False
+
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+
+    # Block obvious localhost names
+    blocked_hostnames = {"localhost", "127.0.0.1", "::1", "0.0.0.0", "[::1]"}
+    if hostname.lower() in blocked_hostnames:
+        return False
+
+    # Resolve hostname and check all IPs
+    try:
+        addr_infos = socket.getaddrinfo(hostname, None)
+        for family, _type, _proto, _canonname, sockaddr in addr_infos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                logger.warning("Blocked private/loopback IP %s for hostname %s", ip, hostname)
+                return False
+    except (socket.gaierror, ValueError):
+        # Cannot resolve -> let the request itself fail naturally
+        pass
+
+    return True
 
 
 @dataclass
@@ -95,7 +137,7 @@ class WebScraper:
                     
                     results.append(WebSearchResult(title=title, url=str(href), snippet=snippet))
         except Exception as e:
-            print(f"DuckDuckGo search error: {e}")
+            logger.warning("DuckDuckGo search error: %s", e)
         
         return results
 
@@ -121,12 +163,15 @@ class WebScraper:
                     
                     results.append(WebSearchResult(title=title, url=str(href), snippet=snippet))
         except Exception as e:
-            print(f"Bing search error: {e}")
+            logger.warning("Bing search error: %s", e)
         
         return results
 
     def fetch_page_content(self, url: str, max_chars: int = 10000) -> str:
         """Fetch and extract main text content from a webpage."""
+        if not _is_safe_url(url):
+            logger.warning("Blocked unsafe URL: %s", url)
+            return ""
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
@@ -155,7 +200,7 @@ class WebScraper:
             return text[:max_chars]
             
         except Exception as e:
-            print(f"Error fetching {url}: {e}")
+            logger.warning("Error fetching %s: %s", url, e)
             return ""
 
     def scrape_person_info(self, name: str, field: str, max_pages: int = 3) -> tuple[str, list[str]]:

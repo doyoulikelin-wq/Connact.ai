@@ -22,6 +22,8 @@ from typing import Any, Optional
 from dataclasses import dataclass, field, asdict
 from threading import Lock
 
+from werkzeug.utils import secure_filename
+
 # 从统一配置导入数据目录
 from config import DATA_DIR
 
@@ -129,16 +131,17 @@ class UserUploadStorage:
         record = self.get_or_create_record(session_id)
         session_dir = self._get_session_dir(session_id)
         
-        # 保存原始文件名
-        record.resume_filename = original_filename
+        # 保存原始文件名 (sanitized)
+        safe_name = secure_filename(original_filename) or "resume.pdf"
+        record.resume_filename = safe_name
         
         # 保存 PDF（使用固定名称方便查找）
         pdf_path = session_dir / "resume.pdf"
         pdf_file.save(str(pdf_path))
         
         # 同时保存一份带原始文件名的副本（如果名字不同）
-        if original_filename and original_filename != "resume.pdf":
-            original_path = session_dir / original_filename
+        if safe_name and safe_name != "resume.pdf":
+            original_path = session_dir / safe_name
             if not original_path.exists():
                 shutil.copy(pdf_path, original_path)
         
