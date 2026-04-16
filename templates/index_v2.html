@@ -2262,6 +2262,10 @@
     <div class="toast-container" id="toast-container"></div>
 
     <div class="mode-switcher" id="global-mode-switcher">
+        {% if is_guest %}
+        <a class="mode-pill dashboard-pill" id="btn-register-cta" href="{{ url_for('signup') }}" style="text-decoration:none;">✨ Register</a>
+        <a class="mode-pill logout-pill" href="{{ url_for('login') }}" style="text-decoration:none;">Log in</a>
+        {% else %}
         <button class="mode-pill dashboard-pill" id="btn-my-dashboard">🏠 Dashboard</button>
         <div class="credits-display" id="credits-display">
             <span class="credits-icon">⚡</span>
@@ -2269,6 +2273,7 @@
             <span class="credits-label">credits</span>
         </div>
         <button class="mode-pill logout-pill" id="btn-logout">🚪 Logout</button>
+        {% endif %}
     </div>
     <div class="container">
         <!-- Header -->
@@ -3298,6 +3303,8 @@ I&apos;m {{sender_name}}, currently ...
         /* eslint-disable */
         const INITIAL_SENDER_PROFILE = {{ initial_sender_profile | tojson }};
         const INITIAL_PREFERENCES = {{ initial_preferences | tojson }};
+        const IS_GUEST = {{ (is_guest or false) | tojson }};
+        const DEFAULT_MODE = {{ (default_mode or 'professional') | tojson }};
         /* eslint-enable */
         
         // Global state
@@ -3740,8 +3747,11 @@ I&apos;m {{sender_name}}, currently ...
 
         function hideDashboard() {
             document.getElementById('user-dashboard-panel').classList.add('hidden');
-            // Directly start professional mode instead of showing mode selection
-            startModeFlow('professional', { confirmSwitch: false });
+            // Resume the user's active mode (fallback to professional)
+            const resumeMode = (state.mode === 'quick' || state.mode === 'professional')
+                ? state.mode
+                : 'professional';
+            startModeFlow(resumeMode, { confirmSwitch: false });
         }
 
         async function loadDashboardData() {
@@ -4062,9 +4072,14 @@ I&apos;m {{sender_name}}, currently ...
             setupTargetDocUpload();
             setupPreferenceForm();
             setupUnlockEmailButton();
-            
-            // Auto-start with Professional mode (skip mode selection)
-            startModeFlow('professional', { confirmSwitch: false });
+
+            // Auto-start with the requested mode (defaults to Professional).
+            // Guests visiting /quickstart get Quick mode; logged-in users can
+            // opt-in via ?mode=quick.
+            const initialMode = (typeof DEFAULT_MODE === 'string' && (DEFAULT_MODE === 'quick' || DEFAULT_MODE === 'professional'))
+                ? DEFAULT_MODE
+                : 'professional';
+            startModeFlow(initialMode, { confirmSwitch: false });
         });
 
         // Setup unlock email button

@@ -1006,7 +1006,8 @@
 
                 <div class="nav-actions">
                     <a class="nav-login" href="{{ login_href }}">Login</a>
-                    <a class="btn-primary" href="#access" data-focus="waitlist">Join Waitlist</a>
+                    <a class="nav-login" href="{{ url_for('quickstart') }}">Try Quickstart</a>
+                    <a class="btn-primary" href="{{ signup_href }}">Register</a>
                 </div>
             </div>
         </nav>
@@ -1042,11 +1043,17 @@
                         <div class="gate" id="access_gate" data-mode="waitlist">
                             {% if invite_ok %}
                                 <div class="unlock-cta">
-                                    <a class="btn-primary" href="{{ login_href }}">Login</a>
-                                    <a class="btn-secondary" href="{{ signup_href }}">Create account</a>
+                                    <a class="btn-primary" href="{{ signup_href }}">Register</a>
+                                    <a class="btn-secondary" href="{{ url_for('quickstart') }}">Try Quickstart</a>
+                                    <a class="btn-secondary" href="{{ login_href }}">Login</a>
                                 </div>
                             {% else %}
-                                <div class="gate-panel gate-panel-waitlist" id="panel_waitlist">
+                                <div class="unlock-cta">
+                                    <a class="btn-primary" href="{{ signup_href }}">Register</a>
+                                    <a class="btn-secondary" href="{{ url_for('quickstart') }}">Try Quickstart</a>
+                                    <a class="btn-secondary" href="{{ login_href }}">Login</a>
+                                </div>
+                                <div class="gate-panel gate-panel-waitlist" id="panel_waitlist" style="margin-top: 24px;">
                                     <form class="gate-form" method="POST" action="/waitlist">
                                         <input type="hidden" name="next" value="{{ access_next }}">
                                         <div class="gate-inner">
@@ -1055,35 +1062,13 @@
                                                 class="gate-input"
                                                 type="email"
                                                 name="email"
-                                                placeholder="Enter your email to join waitlist"
+                                                placeholder="Or leave your email for updates"
                                                 autocomplete="email"
                                                 required
                                             >
                                             <button class="gate-submit" type="submit">Join Waitlist</button>
                                         </div>
                                     </form>
-                                    <button class="gate-switch" type="button" data-switch="invite">
-                                        Have an invite code? <span class="switch-underline">Enter it here.</span>
-                                    </button>
-                                </div>
-
-                                <div class="gate-panel gate-panel-invite" id="panel_invite" hidden>
-                                    <form class="gate-form" method="POST" action="/access">
-                                        <input type="hidden" name="next" value="{{ access_next }}">
-                                        <div class="gate-inner">
-                                            <input
-                                                id="invite_code"
-                                                class="gate-input invite-input"
-                                                type="text"
-                                                name="invite_code"
-                                                placeholder="Enter invite code"
-                                                autocomplete="off"
-                                                {% if invite_required_for_login %}required{% endif %}
-                                            >
-                                            <button class="gate-submit" type="submit">Unlock Access</button>
-                                        </div>
-                                    </form>
-                                    <button class="gate-back" type="button" data-switch="waitlist">Back to Waitlist</button>
                                 </div>
                             {% endif %}
                         </div>

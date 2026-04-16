@@ -1014,13 +1014,12 @@
 
                     <div class="hero-actions">
                         {% if invite_ok %}
-                        <a class="btn btn-primary btn-lg" href="{{ login_href }}">Sign in</a>
-                        <a class="btn btn-secondary btn-lg" href="#how">How it works</a>
-                        {% elif is_gated %}
-                        <a class="btn btn-primary btn-lg" href="{{ access_href }}" data-focus="waitlist">Join waitlist</a>
-                        <a class="btn btn-secondary btn-lg" href="{{ access_href }}" data-focus="invite">Have an invite?</a>
+                        <a class="btn btn-primary btn-lg" href="{{ signup_href }}">Register</a>
+                        <a class="btn btn-secondary btn-lg" href="{{ url_for('quickstart') }}">Try Quickstart</a>
+                        <a class="btn btn-secondary btn-lg" href="{{ login_href }}">Sign in</a>
                         {% else %}
-                        <a class="btn btn-primary btn-lg" href="{{ signup_href }}">Create account</a>
+                        <a class="btn btn-primary btn-lg" href="{{ signup_href }}">Register</a>
+                        <a class="btn btn-secondary btn-lg" href="{{ url_for('quickstart') }}">Try Quickstart</a>
                         <a class="btn btn-secondary btn-lg" href="{{ login_href }}">Sign in</a>
                         {% endif %}
                     </div>
@@ -1311,7 +1310,6 @@ If now isn’t a good time, no worries at all — thanks for reading.</pre>
 
             <div class="modal-tabs" role="tablist" aria-label="Access options">
                 <button class="modal-tab is-selected" type="button" data-access-tab="waitlist" role="tab" aria-selected="true">Join waitlist</button>
-                <button class="modal-tab" type="button" data-access-tab="invite" role="tab" aria-selected="false">Have an invite?</button>
             </div>
 
             <form class="form modal-panel" id="access_panel_waitlist" method="POST" action="/waitlist">
@@ -1324,20 +1322,8 @@ If now isn’t a good time, no worries at all — thanks for reading.</pre>
                 <p class="hint">We’ll email you when we open more access. No spam.</p>
                 <div class="actions">
                     <button class="btn btn-primary" type="submit">Join waitlist</button>
-                    <a class="btn btn-muted" href="{{ login_href }}">Sign in</a>
-                </div>
-            </form>
-
-            <form class="form modal-panel" id="access_panel_invite" method="POST" action="/access" hidden>
-                <h3>Have an invite code?</h3>
-                <input type="hidden" name="next" value="{{ access_next }}">
-                <div>
-                    <label for="invite_code">Invite code</label>
-                    <input id="invite_code" name="invite_code" type="text" placeholder="Enter invite code" autocomplete="off" {% if invite_required_for_login %}required{% endif %}>
-                </div>
-                <p class="hint">We’ll remember it for this browser after a successful unlock.</p>
-                <div class="actions">
-                    <button class="btn btn-primary" type="submit">Unlock access</button>
+                    <a class="btn btn-primary" href="{{ signup_href }}">Register</a>
+                    <a class="btn btn-muted" href="{{ url_for('quickstart') }}">Try Quickstart</a>
                     <a class="btn btn-muted" href="{{ login_href }}">Sign in</a>
                 </div>
             </form>
@@ -1360,17 +1346,13 @@ If now isn’t a good time, no worries at all — thanks for reading.</pre>
             <div>© Connact.ai · Private beta</div>
             <div>
                 {% if invite_ok %}
-                    <a href="{{ signup_href }}">Create account</a>
-                    <span aria-hidden="true"> · </span>
-                    <a href="{{ login_href }}">Sign in</a>
-                {% elif is_gated %}
-                    <a href="#access" data-focus="waitlist">Join waitlist</a>
-                    <span aria-hidden="true"> · </span>
-                    <a href="#access" data-focus="invite">Have an invite?</a>
+                    <a href="{{ signup_href }}">Register</a>
                     <span aria-hidden="true"> · </span>
                     <a href="{{ login_href }}">Sign in</a>
                 {% else %}
-                    <a href="{{ signup_href }}">Create account</a>
+                    <a href="{{ signup_href }}">Register</a>
+                    <span aria-hidden="true"> · </span>
+                    <a href="{{ url_for('quickstart') }}">Try Quickstart</a>
                     <span aria-hidden="true"> · </span>
                     <a href="{{ login_href }}">Sign in</a>
                 {% endif %}

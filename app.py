@@ -453,6 +453,8 @@ def index():
         )
     elif APP_VERSION == 'v2':
         user_profile = auth_service.get_user_profile(session.get("user_id", "")) if session.get("user_id") else {}
+        requested_mode = (request.args.get("mode") or "").strip().lower()
+        default_mode = requested_mode if requested_mode in ("quick", "professional") else "professional"
         return render_template(
             'index_v2.html',
             user_email=session.get("user_email", ""),
@@ -460,12 +462,36 @@ def index():
             user_picture=session.get("user_picture", ""),
             initial_sender_profile=user_profile.get("sender_profile"),
             initial_preferences=user_profile.get("preferences"),
+            is_guest=False,
+            default_mode=default_mode,
         )
     return render_template(
         'index.html',
         user_email=session.get("user_email", ""),
         user_name=session.get("user_name", ""),
         user_picture=session.get("user_picture", ""),
+    )
+
+
+@app.route('/quickstart')
+def quickstart():
+    """Public Quick Start demo — no login required.
+
+    Renders the main app in Quick mode with an `is_guest` flag so the
+    template can swap the Dashboard button for a Register CTA and hide
+    login-only controls. Logged-in users are taken to the regular app.
+    """
+    if session.get('user_id'):
+        return redirect(url_for('index') + '?mode=quick')
+    return render_template(
+        'index_v2.html',
+        user_email="",
+        user_name="",
+        user_picture="",
+        initial_sender_profile=None,
+        initial_preferences=None,
+        is_guest=True,
+        default_mode='quick',
     )
 
 
