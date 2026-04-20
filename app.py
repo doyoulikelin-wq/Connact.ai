@@ -701,7 +701,7 @@ def login():
 @app.route("/signup", methods=["GET", "POST"])
 @limiter.limit("5 per 5 minutes", methods=["POST"])
 def signup():
-    """Invite-only signup for email/password accounts (requires email verification)."""
+    """Public signup for email/password accounts (requires email verification)."""
     if request.method in ("GET", "HEAD"):
         if session.get("user_id"):
             return redirect(url_for("index"))
@@ -711,17 +711,6 @@ def signup():
         else:
             next_url = _safe_redirect_url(session.get("post_login_next"))
         invite_ok = bool(session.get("beta_invite_ok"))
-        invite_code = (session.get("beta_invite_code") or "").strip()
-        if auth_service.invite_required_for_login and not invite_ok:
-            params = {"message": "Enter an invite code to continue."}
-            if next_url:
-                params["next"] = next_url
-            return redirect(url_for("access", **params))
-        if auth_service.invite_only and not invite_code:
-            params = {"message": "Enter an invite code to sign up."}
-            if next_url:
-                params["next"] = next_url
-            return redirect(url_for("access", **params))
         error = request.args.get("error")
         message = request.args.get("message")
         return render_template(
@@ -729,8 +718,8 @@ def signup():
             google_login_enabled=GOOGLE_LOGIN_ENABLED,
             error=error,
             message=message,
-            invite_only=auth_service.invite_only,
-            invite_required_for_login=auth_service.invite_required_for_login,
+            invite_only=False,
+            invite_required_for_login=False,
             invite_ok=invite_ok,
             next_url=next_url,
         )
@@ -759,29 +748,6 @@ def signup():
         if not invite_code:
             invite_code = (session.get("beta_invite_code") or "").strip()
 
-        if auth_service.invite_required_for_login and not invite_ok:
-            if invite_code:
-                auth_service.validate_invite_code(invite_code)
-                session["beta_invite_ok"] = True
-                session["beta_invite_code"] = invite_code
-                session.permanent = True
-                invite_ok = True
-            else:
-                if request.is_json:
-                    return jsonify({"error": "Invite code required"}), 403
-                params = {"error": "Invite code required."}
-                if safe_next:
-                    params["next"] = safe_next
-                return redirect(url_for("access", **params))
-
-        if auth_service.invite_only and not invite_code:
-            if request.is_json:
-                return jsonify({"error": "Invite code required"}), 403
-            params = {"error": "Invite code required."}
-            if safe_next:
-                params["next"] = safe_next
-            return redirect(url_for("access", **params))
-
         verification = auth_service.create_password_user(
             email=email,
             password=password,
@@ -791,7 +757,7 @@ def signup():
             user_agent=request.headers.get("User-Agent"),
         )
 
-        if auth_service.invite_required_for_login and invite_ok:
+        if invite_ok:
             user_id = auth_service.get_user_id_for_password_email(email)
             if user_id:
                 auth_service.grant_beta_access(user_id)
