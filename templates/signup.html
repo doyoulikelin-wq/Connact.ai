@@ -350,11 +350,9 @@
 <body>
     {% set safe_next = next_url|default(None) %}
     {% if safe_next %}
-        {% set access_href = url_for('index', next=safe_next) ~ '#access' %}
         {% set login_href = url_for('login', next=safe_next) %}
         {% set google_href = url_for('google_login_start', next=safe_next) %}
     {% else %}
-        {% set access_href = url_for('index') ~ '#access' %}
         {% set login_href = url_for('login') %}
         {% set google_href = url_for('google_login_start') %}
     {% endif %}
@@ -424,8 +422,6 @@
 
                 <div class="links">
                     <a href="{{ login_href }}">Back to sign in</a>
-                    <span aria-hidden="true">·</span>
-                    <a href="{{ access_href }}">Join waitlist</a>
                 </div>
 
                 {% if google_login_enabled %}

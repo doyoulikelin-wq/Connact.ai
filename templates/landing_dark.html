@@ -977,7 +977,12 @@
         {% set login_href = url_for('login') %}
         {% set signup_href = url_for('signup') %}
     {% endif %}
-    {% set is_gated = (invite_only or invite_required_for_login) %}
+    {# Invite gating has been removed; legacy template branches are kept simple by
+       hard-coding the gating flags to their open-access values. #}
+    {% set invite_only = false %}
+    {% set invite_required_for_login = false %}
+    {% set invite_ok = true %}
+    {% set is_gated = false %}
 
     <div class="bg-layer" aria-hidden="true">
         <canvas id="particles" class="particles"></canvas>

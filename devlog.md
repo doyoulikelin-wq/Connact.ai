@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-04-07: 彻底删除 invite/beta-access 功能
+
+### 背景
+邀请码逻辑此前散落在 `auth_service`、`app.py`、`config.py`、4 份模板等 5+ 文件中（共 100+ 处引用），导致"删除 invite code"的需求反复出现却仍残留报错（"Invite code is required"）。本次按"砍掉而非集中"的方案彻底移除。
+
+### 变更
+- `src/services/auth_service.py`：删除 `InviteRequiredError` / `InviteInvalidError` / `SignupDisabledError` 异常；删除 `validate_invite_code` / `validate_invite_for_login` / `user_has_beta_access` / `grant_beta_access` 等方法；`User` 数据类移除 `beta_access` / `beta_access_granted_at` 字段；`__init__` 与 `create_password_user` / `authenticate_google` 保留 `invite_only` / `invite_codes` / `invite_required_for_login` / `invite_code` 关键字参数作为 no-op 兼容入参。
+- `app.py`：`/access` 路由变成对 `/signup` 的 redirect；`/login`、`/signup`、`/auth/google/callback`、`/login/google` 移除全部 invite 校验逻辑；模板 render 不再传 `invite_only` / `invite_required_for_login` / `invite_ok`。
+- 模板：删除 `templates/access.html`；`templates/login.html` / `templates/signup.html` 移除 invite 表单和"Join waitlist"页脚链接；`templates/landing.html` / `templates/landing_dark.html` 在文件顶部硬编码 `invite_only=false / invite_required_for_login=false / invite_ok=true / is_gated=false`，让历史分支自然走"开放访问"路径。
+- `config.py`：删除 `INVITE_ONLY` / `INVITE_CODES` / `INVITE_REQUIRED_FOR_LOGIN` 三个环境变量配置块。
+- `tests/test_auth_service.py`：删除 `InviteInvalidError` / `InviteRequiredError` 导入与 `test_invite_required_for_login_validation` / `test_beta_access_grant_and_check`；其它测试清理冗余的 invite kwargs。
+
+### 风险/迁移
+- 环境变量 `INVITE_ONLY` / `INVITE_CODES` / `INVITE_CODE` / `INVITE_REQUIRED_FOR_LOGIN` 不再读取（设置了也不影响行为）。
+- 数据库列 `beta_access` / `beta_access_granted_at` 仍保留（不读不写、无害）。
+- 现有书签若指向 `/access`，会自动 302 到 `/signup`。
+- 全部 54 项测试通过。
+
 ## 2026-04-06: 安全加固 + Dashboard 邮件显示修复
 
 ### 安全加固（17 项）

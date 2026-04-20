@@ -1,7 +1,6 @@
 """Auth + User Profile Service (SQLite).
 
 Supports:
-- Invite-only signups (configurable)
 - Email/password accounts with email verification
 - Google OAuth accounts (stable identity via OIDC `sub` when available)
 - Per-user profile persistence (sender profile + preferences)
@@ -27,9 +26,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import (
     DB_PATH,
-    INVITE_CODES,
-    INVITE_ONLY,
-    INVITE_REQUIRED_FOR_LOGIN,
     EMAIL_VERIFY_TTL_HOURS,
 )
 
@@ -74,18 +70,6 @@ class EmailNotVerifiedError(AuthError):
     """Raised when password identity email is not verified."""
 
 
-class InviteRequiredError(AuthError):
-    """Raised when invite code is required but missing."""
-
-
-class InviteInvalidError(AuthError):
-    """Raised when invite code is present but invalid."""
-
-
-class SignupDisabledError(AuthError):
-    """Raised when signup is disabled due to missing invite configuration."""
-
-
 class AccountLockedError(AuthError):
     """Raised when account is temporarily locked due to too many failed login attempts."""
 
@@ -98,8 +82,6 @@ class User:
     avatar_url: str | None
     created_at: str
     last_login_at: str | None
-    beta_access: int = 0
-    beta_access_granted_at: str | None = None
 
 
 @dataclass(frozen=True)
@@ -116,19 +98,14 @@ class AuthService:
         self,
         *,
         db_path: Path | None = None,
-        invite_only: bool | None = None,
-        invite_required_for_login: bool | None = None,
-        invite_codes: list[str] | None = None,
         email_verify_ttl_hours: int | None = None,
+        # Legacy invite-related kwargs accepted but ignored (kept for backwards
+        # compatibility with older test harnesses); invite gating is removed.
+        invite_only: bool | None = None,  # noqa: ARG002
+        invite_required_for_login: bool | None = None,  # noqa: ARG002
+        invite_codes: list[str] | None = None,  # noqa: ARG002
     ) -> None:
         self._db_path = Path(db_path) if db_path is not None else DB_PATH
-        self._invite_only = INVITE_ONLY if invite_only is None else bool(invite_only)
-        self._invite_required_for_login = (
-            INVITE_REQUIRED_FOR_LOGIN
-            if invite_required_for_login is None
-            else bool(invite_required_for_login)
-        )
-        self._invite_codes = INVITE_CODES if invite_codes is None else [c for c in invite_codes if c]
         self._email_verify_ttl_hours = (
             EMAIL_VERIFY_TTL_HOURS if email_verify_ttl_hours is None else int(email_verify_ttl_hours)
         )
@@ -138,14 +115,6 @@ class AuthService:
     @property
     def db_path(self) -> Path:
         return self._db_path
-
-    @property
-    def invite_only(self) -> bool:
-        return self._invite_only
-
-    @property
-    def invite_required_for_login(self) -> bool:
-        return self._invite_required_for_login
 
     def _ensure_parent_dir(self) -> None:
         try:
@@ -266,27 +235,10 @@ class AuthService:
                 # Column likely already exists.
                 continue
 
-    def _validate_invite_code(self, invite_code: str | None, *, enforce: bool) -> None:
-        if not enforce:
-            return
-        if not self._invite_codes:
-            raise SignupDisabledError("Invite-only is enabled but no invite codes are configured.")
-        code = (invite_code or "").strip()
-        if not code:
-            raise InviteRequiredError("Invite code is required.")
-        if code not in self._invite_codes:
-            raise InviteInvalidError("Invalid invite code.")
-
-    def validate_invite_code(self, invite_code: str | None) -> None:
-        """Validate invite code against configured allowlist (always enforced)."""
-        self._validate_invite_code(invite_code, enforce=True)
-
-    def validate_invite_for_login(self, invite_code: str | None) -> None:
-        """Validate invite code for login gating (internal beta).
-
-        When enabled, *every* login attempt (Google + Email/Password) must provide a valid code.
-        """
-        self._validate_invite_code(invite_code, enforce=self._invite_required_for_login)
+    def _validate_invite_code(self, invite_code: str | None, *, enforce: bool) -> None:  # noqa: ARG002
+        # Invite-code gating has been removed. This shim is retained as a no-op so
+        # any forgotten internal callers do not crash.
+        return
 
     def get_user_id_for_password_email(self, email: str) -> str | None:
         email_norm = _normalize_email(email)
@@ -319,23 +271,6 @@ class AuthService:
                 (google_sub,),
             ).fetchone()
             return row["user_id"] if row else None
-
-    def user_has_beta_access(self, user_id: str) -> bool:
-        if not user_id:
-            return False
-        with self._connect() as conn:
-            row = conn.execute("SELECT beta_access FROM users WHERE id = ? LIMIT 1", (user_id,)).fetchone()
-            return bool(_parse_int(row["beta_access"] if row else 0))
-
-    def grant_beta_access(self, user_id: str) -> None:
-        if not user_id:
-            return
-        now = _now_iso()
-        with self._connect() as conn:
-            conn.execute(
-                "UPDATE users SET beta_access = 1, beta_access_granted_at = COALESCE(beta_access_granted_at, ?) WHERE id = ?",
-                (now, user_id),
-            )
 
     def add_waitlist_email(
         self,
@@ -402,9 +337,6 @@ class AuthService:
         )
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
-        keys = set(row.keys())
-        beta_access = _parse_int(row["beta_access"]) if "beta_access" in keys else 0
-        beta_access_granted_at = row["beta_access_granted_at"] if "beta_access_granted_at" in keys else None
         return User(
             id=row["id"],
             primary_email=row["primary_email"],
@@ -412,8 +344,6 @@ class AuthService:
             avatar_url=row["avatar_url"],
             created_at=row["created_at"],
             last_login_at=row["last_login_at"],
-            beta_access=beta_access,
-            beta_access_granted_at=beta_access_granted_at,
         )
 
     def get_user(self, user_id: str) -> User | None:
@@ -423,9 +353,7 @@ class AuthService:
             row = conn.execute(
                 """
                 SELECT
-                    id, primary_email, display_name, avatar_url, created_at, last_login_at,
-                    COALESCE(beta_access, 0) AS beta_access,
-                    beta_access_granted_at
+                    id, primary_email, display_name, avatar_url, created_at, last_login_at
                 FROM users
                 WHERE id = ?
                 """,
@@ -443,9 +371,10 @@ class AuthService:
         email: str,
         password: str,
         display_name: str | None = None,
-        invite_code: str | None = None,
         ip: str | None = None,
         user_agent: str | None = None,
+        # Legacy kwarg, ignored.
+        invite_code: str | None = None,  # noqa: ARG002
     ) -> EmailVerification:
         email_norm = _normalize_email(email)
         if not email_norm:
@@ -461,9 +390,6 @@ class AuthService:
         ])
         if categories < 2:
             raise AuthError("Password must contain at least 2 of: uppercase letters, lowercase letters, digits.")
-
-        # Invite-code gating removed: signup is open. The `invite_code` parameter is
-        # accepted for backwards compatibility but no longer validated here.
 
         now = _now_iso()
         user_id = str(uuid.uuid4())
@@ -741,9 +667,10 @@ class AuthService:
         display_name: str | None,
         avatar_url: str | None,
         email_verified: bool | None = None,
-        invite_code: str | None = None,
         ip: str | None = None,
         user_agent: str | None = None,
+        # Legacy kwarg, ignored.
+        invite_code: str | None = None,  # noqa: ARG002
     ) -> User:
         if not google_sub:
             raise AuthError("Missing Google subject.")
@@ -861,9 +788,6 @@ class AuthService:
                     user_agent=user_agent,
                 )
                 return self._row_to_user(user_row)
-
-            # New user (invite-only)
-            self._validate_invite_code(invite_code, enforce=self._invite_only)
 
             user_id = str(uuid.uuid4())
             conn.execute(

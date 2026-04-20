@@ -39,9 +39,6 @@ from src.services.auth_service import (
     AccountLockedError,
     InvalidCredentialsError,
     EmailNotVerifiedError,
-    InviteRequiredError,
-    InviteInvalidError,
-    SignupDisabledError,
 )
 
 from src.email_agent import (
@@ -431,9 +428,6 @@ def index():
             google_login_enabled=GOOGLE_LOGIN_ENABLED,
             error=error,
             message=message,
-            invite_only=auth_service.invite_only,
-            invite_required_for_login=auth_service.invite_required_for_login,
-            invite_ok=bool(session.get("beta_invite_ok")),
             next_url=safe_next,
             access_next_url=access_next_url,
         )
@@ -497,43 +491,16 @@ def quickstart():
 
 @app.route("/access", methods=["GET", "POST"])
 def access():
-    """Beta access gate: enter invite code or join waitlist."""
+    """Legacy beta-access gate.
+
+    Invite gating has been removed. We keep this route for backwards-compatible
+    URLs and redirect everything to the public signup / waitlist pages.
+    """
     if session.get("user_id"):
         return redirect(url_for("index"))
-
-    if request.method in ("GET", "HEAD"):
-        error = request.args.get("error")
-        message = request.args.get("message")
-        safe_next = _safe_redirect_url(request.args.get("next"))
-        target = url_for("index", **({"next": safe_next} if safe_next else {})) + "#access"
-        return redirect(_redirect_url_with_params(target, message=message, error=error))
-
-    next_url: Optional[str] = None
-    if request.is_json:
-        data = request.get_json() or {}
-        invite_code = (data.get("invite_code", "") or "").strip()
-        next_url = (data.get("next") or data.get("next_url") or "")
-    else:
-        invite_code = (request.form.get("invite_code", "") or "").strip()
-        next_url = request.form.get("next") or request.args.get("next")
-
-    try:
-        auth_service.validate_invite_code(invite_code)
-        session["beta_invite_ok"] = True
-        session["beta_invite_code"] = invite_code
-        session.permanent = True
-        if request.is_json:
-            return jsonify({"success": True})
-        safe_next = _safe_redirect_url(next_url) or f"{url_for('index')}#access"
-        message = "Invite code verified. You can sign in or create an account."
-        return redirect(_redirect_url_with_params(safe_next, message=message))
-    except AuthError as e:
-        if request.is_json:
-            return jsonify({"error": str(e)}), 400
-        safe_next = _safe_redirect_url(next_url)
-        if safe_next:
-            return redirect(_redirect_url_with_params(safe_next, error=str(e)))
-        return redirect(_redirect_url_with_params(f"{url_for('index')}#access", error=str(e)))
+    safe_next = _safe_redirect_url(request.args.get("next") or request.form.get("next"))
+    target_args = {"next": safe_next} if safe_next else {}
+    return redirect(url_for("signup", **target_args))
 
 
 @app.route("/waitlist", methods=["POST"])
@@ -599,9 +566,6 @@ def login():
             google_login_enabled=GOOGLE_LOGIN_ENABLED,
             error=error,
             message=message,
-            invite_only=auth_service.invite_only,
-            invite_required_for_login=auth_service.invite_required_for_login,
-            invite_ok=bool(session.get("beta_invite_ok")),
             next_url=next_url,
         )
     
@@ -611,52 +575,21 @@ def login():
         data = request.get_json()
         email = (data.get('email', '') or '').strip()
         password = data.get('password', '')
-        invite_code = (data.get("invite_code", "") or "").strip()
         next_url = (data.get("next") or data.get("next_url") or "")
     else:
         email = (request.form.get('email', '') or '').strip()
         password = request.form.get('password', '')
-        invite_code = (request.form.get("invite_code", "") or "").strip()
         next_url = request.form.get("next") or request.args.get("next")
 
     safe_next = _safe_redirect_url(next_url) or _safe_redirect_url(session.get("post_login_next"))
     
     try:
-        invite_ok = bool(session.get("beta_invite_ok"))
-        if not invite_code:
-            invite_code = (session.get("beta_invite_code") or "").strip()
-
-        if auth_service.invite_required_for_login and not invite_ok:
-            user_id = auth_service.get_user_id_for_password_email(email)
-            if user_id and auth_service.user_has_beta_access(user_id):
-                invite_ok = True
-                session["beta_invite_ok"] = True
-                session.permanent = True
-            else:
-                if invite_code:
-                    auth_service.validate_invite_code(invite_code)
-                    session["beta_invite_ok"] = True
-                    session["beta_invite_code"] = invite_code
-                    session.permanent = True
-                    invite_ok = True
-                else:
-                    if request.is_json:
-                        return jsonify({"error": "Invite code required"}), 403
-                    params = {"error": "Invite code required."}
-                    if safe_next:
-                        params["next"] = safe_next
-                    return redirect(url_for("access", **params))
-
         user = auth_service.authenticate_password(
             email=email,
             password=password,
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
-
-        # Grant beta access after the first successful invite-gated login.
-        if auth_service.invite_required_for_login and not auth_service.user_has_beta_access(user.id) and invite_ok:
-            auth_service.grant_beta_access(user.id)
 
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or email
@@ -710,7 +643,6 @@ def signup():
             session["post_login_next"] = next_url
         else:
             next_url = _safe_redirect_url(session.get("post_login_next"))
-        invite_ok = bool(session.get("beta_invite_ok"))
         error = request.args.get("error")
         message = request.args.get("message")
         return render_template(
@@ -718,9 +650,6 @@ def signup():
             google_login_enabled=GOOGLE_LOGIN_ENABLED,
             error=error,
             message=message,
-            invite_only=False,
-            invite_required_for_login=False,
-            invite_ok=invite_ok,
             next_url=next_url,
         )
 
@@ -773,13 +702,6 @@ def signup():
             verification_link=None if email_sent else verification_link,
             next_url=safe_next,
         )
-    except (InviteRequiredError, InviteInvalidError, SignupDisabledError) as e:
-        if request.is_json:
-            return jsonify({"error": str(e)}), 403
-        params = {"error": str(e)}
-        if safe_next:
-            params["next"] = safe_next
-        return redirect(url_for("signup", **params))
     except AuthError as e:
         if request.is_json:
             return jsonify({"error": str(e)}), 400
@@ -893,65 +815,15 @@ def google_callback():
         picture = claims.get("picture")
         email_verified = claims.get("email_verified")
 
-        invite_code = (session.get("beta_invite_code") or "").strip() or None
-        pending_invite_code = (session.pop("pending_invite_code", None) or "").strip() or None
-        if not invite_code and pending_invite_code:
-            invite_code = pending_invite_code
-
-        invite_ok = bool(session.get("beta_invite_ok"))
-        existing_user_id = auth_service.get_user_id_for_google_sub(google_sub)
-        if not existing_user_id and email and (email_verified is True):
-            existing_user_id = auth_service.get_user_id_for_password_email(email)
-
-        if auth_service.invite_required_for_login and not invite_ok:
-            if existing_user_id and auth_service.user_has_beta_access(existing_user_id):
-                invite_ok = True
-                session["beta_invite_ok"] = True
-                session.permanent = True
-            elif invite_code:
-                try:
-                    auth_service.validate_invite_code(invite_code)
-                    session["beta_invite_ok"] = True
-                    session["beta_invite_code"] = invite_code
-                    session.permanent = True
-                    invite_ok = True
-                except AuthError as e:
-                    params = {"error": str(e)}
-                    safe_next = _safe_redirect_url(session.get("post_login_next"))
-                    if safe_next:
-                        params["next"] = safe_next
-                    return redirect(url_for("access", **params))
-            else:
-                params = {"error": "Invite code required."}
-                safe_next = _safe_redirect_url(session.get("post_login_next"))
-                if safe_next:
-                    params["next"] = safe_next
-                return redirect(url_for("access", **params))
-
-        if auth_service.invite_only and not existing_user_id and not invite_code:
-            params = {"error": "Invite code required."}
-            safe_next = _safe_redirect_url(session.get("post_login_next"))
-            if safe_next:
-                params["next"] = safe_next
-            return redirect(url_for("access", **params))
-
         user = auth_service.authenticate_google(
             google_sub=google_sub,
             email=email,
             display_name=name,
             avatar_url=picture,
             email_verified=bool(email_verified) if email_verified is not None else None,
-            invite_code=invite_code,
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
-
-        if auth_service.invite_required_for_login:
-            if invite_ok:
-                auth_service.grant_beta_access(user.id)
-            if auth_service.user_has_beta_access(user.id):
-                session["beta_invite_ok"] = True
-                session.permanent = True
 
         session["user_id"] = user.id
         session["user_email"] = user.primary_email or (email or "")
@@ -963,12 +835,6 @@ def google_callback():
         return redirect(redirect_url or url_for("index"))
     except Exception as e:
         logger.error("Google OAuth error: %s", e)
-        if isinstance(e, (InviteRequiredError, InviteInvalidError, SignupDisabledError)):
-            params = {"error": str(e)}
-            safe_next = _safe_redirect_url(session.get("post_login_next"))
-            if safe_next:
-                params["next"] = safe_next
-            return redirect(url_for("login", **params))
     
     return redirect(url_for('login'))
 
@@ -1426,25 +1292,12 @@ def api_admin_resolve_error(error_id):
 
 @app.route("/login/google")
 def google_login_start():
-    """Start Google OAuth flow (stores optional invite code in session for new users)."""
+    """Start Google OAuth flow."""
     if not GOOGLE_LOGIN_ENABLED:
         return redirect(url_for("login"))
     next_url = _safe_redirect_url(request.args.get("next"))
     if next_url:
         session["post_login_next"] = next_url
-    invite_code = (request.args.get("invite_code", "") or "").strip()
-    if invite_code:
-        try:
-            auth_service.validate_invite_code(invite_code)
-            session["beta_invite_ok"] = True
-            session["beta_invite_code"] = invite_code
-            session["pending_invite_code"] = invite_code
-            session.permanent = True
-        except AuthError as e:
-            params = {"error": str(e)}
-            if next_url:
-                params["next"] = next_url
-            return redirect(url_for("access", **params))
     return redirect(url_for("google.login"))
 
 

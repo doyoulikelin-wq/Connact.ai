@@ -414,11 +414,9 @@
 <body>
     {% set safe_next = next_url|default(None) %}
     {% if safe_next %}
-        {% set access_href = url_for('index', next=safe_next) ~ '#access' %}
         {% set signup_href = url_for('signup', next=safe_next) %}
         {% set google_href = url_for('google_login_start', next=safe_next) %}
     {% else %}
-        {% set access_href = url_for('index') ~ '#access' %}
         {% set signup_href = url_for('signup') %}
         {% set google_href = url_for('google_login_start') %}
     {% endif %}
@@ -441,7 +439,6 @@
                 <span>ct.ai</span>
             </a>
             <nav class="top-links" aria-label="Top links">
-                <a class="top-link" href="{{ access_href }}">Get access</a>
                 <a class="top-link primary" href="{{ signup_href }}">Register</a>
             </nav>
         </header>
@@ -457,13 +454,6 @@
 
                 {% if error %}
                 <div class="notice error">{{ error }}</div>
-                {% endif %}
-
-                {% if invite_required_for_login and not invite_ok %}
-                <div class="notice info">
-                    Private beta: new users need an invite code. If you already have access, just sign in—no code needed.
-                    Otherwise use <a href="{{ access_href }}">Get access</a>.
-                </div>
                 {% endif %}
 
                 <form method="POST" action="/login">
@@ -492,31 +482,11 @@
                         >
                     </div>
 
-                    {% if invite_required_for_login and not invite_ok %}
-                    <details>
-                        <summary>Have an invite code? (optional)</summary>
-                        <div style="height: 10px;"></div>
-                        <div class="field">
-                            <label for="invite_code">Invite code</label>
-                            <input
-                                type="text"
-                                id="invite_code"
-                                name="invite_code"
-                                placeholder="Enter invite code"
-                                autocomplete="off"
-                            >
-                            <p class="help">If you already have beta access, you can sign in without it.</p>
-                        </div>
-                    </details>
-                    {% endif %}
-
                     <button type="submit" class="btn btn-primary">Sign in</button>
                 </form>
 
                 <div class="links">
                     <a href="{{ signup_href }}">Register</a>
-                    <span aria-hidden="true">·</span>
-                    <a href="{{ access_href }}">Join waitlist</a>
                 </div>
 
                 <details>

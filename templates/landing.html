@@ -967,7 +967,12 @@
     {% endif %}
     {% set access_href = '#access' %}
 
-    {% set is_gated = (invite_only or invite_required_for_login) %}
+    {# Invite gating has been removed; force open-access defaults so legacy
+       template branches collapse to their unlocked variants. #}
+    {% set invite_only = false %}
+    {% set invite_required_for_login = false %}
+    {% set invite_ok = true %}
+    {% set is_gated = false %}
     {% if invite_ok %}
         {% set nav_primary_label = 'Sign in' %}
         {% set nav_primary_href = login_href %}
