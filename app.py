@@ -730,13 +730,11 @@ def signup():
         email = (data.get("email", "") or "").strip()
         password = data.get("password", "") or ""
         display_name = (data.get("name", "") or "").strip()
-        invite_code = (data.get("invite_code", "") or "").strip()
         next_url = (data.get("next") or data.get("next_url") or "")
     else:
         email = (request.form.get("email", "") or "").strip()
         password = request.form.get("password", "") or ""
         display_name = (request.form.get("name", "") or "").strip()
-        invite_code = (request.form.get("invite_code", "") or "").strip()
         next_url = request.form.get("next") or request.args.get("next")
 
     safe_next = _safe_redirect_url(next_url)
@@ -744,23 +742,13 @@ def signup():
         session["post_login_next"] = safe_next
 
     try:
-        invite_ok = bool(session.get("beta_invite_ok"))
-        if not invite_code:
-            invite_code = (session.get("beta_invite_code") or "").strip()
-
         verification = auth_service.create_password_user(
             email=email,
             password=password,
             display_name=display_name or None,
-            invite_code=invite_code or None,
             ip=request.remote_addr,
             user_agent=request.headers.get("User-Agent"),
         )
-
-        if invite_ok:
-            user_id = auth_service.get_user_id_for_password_email(email)
-            if user_id:
-                auth_service.grant_beta_access(user_id)
 
         # Send verification email if SMTP is configured; otherwise show link on screen (dev/local).
         verification_link = url_for("verify_email", token=verification.token, _external=True)

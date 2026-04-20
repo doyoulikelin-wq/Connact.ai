@@ -462,7 +462,8 @@ class AuthService:
         if categories < 2:
             raise AuthError("Password must contain at least 2 of: uppercase letters, lowercase letters, digits.")
 
-        self._validate_invite_code(invite_code, enforce=self._invite_only)
+        # Invite-code gating removed: signup is open. The `invite_code` parameter is
+        # accepted for backwards compatibility but no longer validated here.
 
         now = _now_iso()
         user_id = str(uuid.uuid4())

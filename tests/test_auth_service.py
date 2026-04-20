@@ -14,7 +14,9 @@ from src.services.auth_service import (
 )
 
 
-def test_invite_only_password_signup_requires_valid_code(tmp_path):
+def test_password_signup_is_open_even_when_invite_only(tmp_path):
+    """Invite-code gating has been removed from password signup; the flag is
+    retained for legacy /access route only."""
     service = AuthService(
         db_path=tmp_path / "app.db",
         invite_only=True,
@@ -22,15 +24,7 @@ def test_invite_only_password_signup_requires_valid_code(tmp_path):
         email_verify_ttl_hours=24,
     )
 
-    with pytest.raises(InviteRequiredError):
-        service.create_password_user(email="a@example.com", password="password123")
-
-    with pytest.raises(InviteInvalidError):
-        service.create_password_user(email="a@example.com", password="password123", invite_code="NOPE")
-
-    verification = service.create_password_user(
-        email="a@example.com", password="password123", invite_code="INV123"
-    )
+    verification = service.create_password_user(email="a@example.com", password="password123")
     assert verification.email == "a@example.com"
     assert verification.token
 

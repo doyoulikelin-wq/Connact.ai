@@ -372,12 +372,6 @@
                 <h1>Register</h1>
                 <p class="subtitle">Password accounts require email verification.</p>
 
-                {% if invite_only %}
-                <div class="notice info">
-                    Invite-only beta: if you don’t have an invite code, join the waitlist on <a href="{{ access_href }}">Get access</a>.
-                </div>
-                {% endif %}
-
                 {% if message %}
                 <div class="notice info">{{ message }}</div>
                 {% endif %}
